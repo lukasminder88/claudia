@@ -50,4 +50,5 @@ dependencies {
     implementation(libs.coroutines.android)
     implementation(libs.androidx.activity.ktx)
     implementation(libs.androidx.fragment.ktx)
+    implementation(libs.androidx.cardview)
 }
