@@ -1,0 +1,621 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Abacus Klickpreis-Rechner</title>
+<style>
+  :root{
+    --bg:#0d1b2a; --panel:#16273b; --panel2:#1e344d;
+    --line:#2b4159; --ink:#eaf1f8; --mut:#93a7bd; --acc:#3d9be9; --acc2:#37c98b;
+    --warn:#e5a13a; --bad:#e5605a; --chip:#22384f; --km:#0a2c6e;
+    --radius:12px; --mono:ui-monospace,"SFMono-Regular",Menlo,Consolas,monospace;
+  }
+  @media (prefers-color-scheme: light){
+    :root{ --bg:#eef2f6; --panel:#ffffff; --panel2:#f4f7fa; --line:#d7e0ea; --ink:#12222f;
+           --mut:#5a6b7b; --acc:#1b74c4; --acc2:#178a5c; --chip:#e9f0f7; --km:#0a2c6e; }
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;font-size:14px;line-height:1.45}
+  a{color:var(--acc)}
+  header{background:linear-gradient(90deg,var(--km),#123a86);color:#fff;padding:14px 20px;
+    display:flex;align-items:center;gap:14px;position:sticky;top:0;z-index:20;box-shadow:0 2px 10px rgba(0,0,0,.25)}
+  header .logo{font-weight:800;letter-spacing:.5px;font-size:19px;white-space:nowrap}
+  header .logo small{font-weight:500;opacity:.8;font-size:12px;display:block;letter-spacing:0}
+  header .spacer{flex:1}
+  header .machine{font-size:13px;background:rgba(255,255,255,.13);padding:6px 12px;border-radius:20px;max-width:46vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .wrap{max-width:1180px;margin:0 auto;padding:20px;display:grid;grid-template-columns:1fr;gap:18px}
+  @media(min-width:1000px){ .wrap{grid-template-columns:1.15fr .85fr} .full{grid-column:1/-1} }
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden}
+  .card>h2{margin:0;padding:12px 16px;font-size:14px;letter-spacing:.3px;background:var(--panel2);
+    border-bottom:1px solid var(--line);display:flex;align-items:center;gap:8px}
+  .card>h2 .n{background:var(--acc);color:#fff;width:22px;height:22px;border-radius:50%;
+    display:inline-flex;align-items:center;justify-content:center;font-size:12px;font-weight:700}
+  .card .body{padding:14px 16px}
+  .grid{display:grid;gap:10px}
+  .g2{grid-template-columns:1fr 1fr}.g3{grid-template-columns:1fr 1fr 1fr}
+  label.f{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--mut)}
+  label.f span b{color:var(--ink);font-weight:600}
+  input,select{background:var(--panel2);color:var(--ink);border:1px solid var(--line);
+    border-radius:8px;padding:7px 9px;font-size:13px;width:100%;font-family:inherit}
+  input[type=number]{font-family:var(--mono)}
+  input:focus,select:focus{outline:2px solid var(--acc);border-color:var(--acc)}
+  button{cursor:pointer;font-family:inherit}
+  .btn{background:var(--acc);color:#fff;border:none;border-radius:8px;padding:8px 14px;font-weight:600;font-size:13px}
+  .btn.ghost{background:transparent;border:1px solid var(--line);color:var(--ink)}
+  .btn.sm{padding:5px 10px;font-size:12px}
+  .btn.green{background:var(--acc2)}
+  .btn:active{transform:translateY(1px)}
+  .drop{border:2px dashed var(--line);border-radius:var(--radius);padding:22px;text-align:center;color:var(--mut);
+    transition:.15s;cursor:pointer;background:var(--panel2)}
+  .drop.over{border-color:var(--acc);color:var(--ink);background:var(--chip)}
+  .drop b{color:var(--ink)}
+  table{width:100%;border-collapse:collapse;font-size:12.5px}
+  th,td{padding:6px 7px;border-bottom:1px solid var(--line);text-align:right}
+  th:first-child,td:first-child{text-align:left}
+  th{color:var(--mut);font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.4px}
+  td input,td select{padding:5px 6px;font-size:12px}
+  td.num input{text-align:right}
+  .rm{background:transparent;border:none;color:var(--bad);font-size:16px;padding:0 4px;line-height:1}
+  .tablewrap{overflow-x:auto}
+  .hint{font-size:11.5px;color:var(--mut);margin-top:6px}
+  .chips{display:flex;gap:8px;flex-wrap:wrap;margin-top:4px}
+  .chip{background:var(--chip);border:1px solid var(--line);border-radius:16px;padding:4px 10px;font-size:12px}
+  .toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  /* result */
+  .result .big{display:grid;gap:12px;grid-template-columns:1fr 1fr}
+  .kpi{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:14px}
+  .kpi .lbl{font-size:12px;color:var(--mut)}
+  .kpi .val{font-size:26px;font-weight:800;font-family:var(--mono);margin-top:2px}
+  .kpi .val small{font-size:13px;font-weight:600;color:var(--mut)}
+  .kpi.mono{border-left:4px solid var(--mut)}
+  .kpi.color{border-left:4px solid var(--acc)}
+  .bar{height:10px;border-radius:6px;overflow:hidden;display:flex;margin-top:10px;background:var(--chip)}
+  .bar i{display:block;height:100%}
+  .legend{display:flex;gap:12px;flex-wrap:wrap;margin-top:8px;font-size:11.5px;color:var(--mut)}
+  .legend span::before{content:"";display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;vertical-align:middle}
+  .lg-toner::before{background:#3d9be9}.lg-cons::before{background:#37c98b}
+  .lg-parts::before{background:#e5a13a}.lg-labour::before{background:#b06be5}
+  pre.report{background:#0b1420;color:#cfe4f5;border:1px solid var(--line);border-radius:10px;padding:14px;
+    overflow:auto;font-family:var(--mono);font-size:11px;line-height:1.35;max-height:420px}
+  @media (prefers-color-scheme: light){ pre.report{background:#0b1420;color:#cfe4f5} }
+  details.foot{margin-top:8px}
+  summary{cursor:pointer;color:var(--mut);font-size:12px}
+  .warnbox{background:rgba(229,161,58,.12);border:1px solid var(--warn);color:var(--ink);border-radius:8px;padding:8px 10px;font-size:12px;margin-top:8px}
+  .foot-note{font-size:11px;color:var(--mut);text-align:center;padding:18px}
+  .addrow{margin-top:8px}
+  .seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+  .seg button{background:var(--panel2);border:none;color:var(--mut);padding:6px 12px;font-size:12px}
+  .seg button.on{background:var(--acc);color:#fff}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">ABACUS <small>Klickpreis-Rechner</small></div>
+  <div class="spacer"></div>
+  <div class="machine" id="machineTag">Kein Foliant geladen</div>
+</header>
+
+<div class="wrap">
+
+  <!-- ============ LEFT COLUMN ============ -->
+  <div class="col">
+
+    <!-- 1 Foliant -->
+    <div class="card">
+      <h2><span class="n">1</span> Foliant laden</h2>
+      <div class="body">
+        <div class="drop" id="drop">
+          <b>Foliant-PDF hier ablegen</b> oder klicken zum Auswählen<br>
+          <span class="hint">Liest Maschinen-Kennung, Artikel- und Verbrauchsmaterial-Codes aus der eingebetteten Pandora-Datenbank.</span>
+          <input type="file" id="file" accept="application/pdf" hidden>
+        </div>
+        <div class="toolbar" style="margin-top:10px">
+          <button class="btn ghost sm" data-preset="c251">Beispiel: bizhub C251i</button>
+          <button class="btn ghost sm" data-preset="4000">Validierung: bizhub 4000i</button>
+          <span id="foliantInfo" class="hint"></span>
+        </div>
+        <div class="chips" id="consChips"></div>
+      </div>
+    </div>
+
+    <!-- 2 Konditionen -->
+    <div class="card">
+      <h2><span class="n">2</span> Konditionen</h2>
+      <div class="body grid g3" id="condGrid"></div>
+    </div>
+
+    <!-- 3 Servicewerte -->
+    <div class="card">
+      <h2><span class="n">3</span> Servicewerte &amp; Arbeit</h2>
+      <div class="body">
+        <div class="grid g3" id="svcGrid"></div>
+        <div class="hint" style="margin:12px 0 4px;color:var(--ink);font-weight:600">Arbeit &amp; Anfahrt</div>
+        <div class="grid g3" id="labGrid"></div>
+      </div>
+    </div>
+
+    <!-- 4 Toner -->
+    <div class="card">
+      <h2><span class="n">4</span> Toner</h2>
+      <div class="body">
+        <div class="tablewrap"><table id="tonerTbl">
+          <thead><tr><th>Farbe</th><th>Code</th><th>Preis</th><th>Ergiebigkeit</th><th>@ Deckung %</th><th></th></tr></thead>
+          <tbody></tbody>
+        </table></div>
+        <button class="btn ghost sm addrow" id="addToner">+ Toner</button>
+        <div class="hint">Ergiebigkeit = Bilder pro Gebinde bei angegebener Referenzdeckung. Bei höherer Deckung sinkt die Ergiebigkeit proportional (KM-Referenzmodell).</div>
+      </div>
+    </div>
+
+    <!-- 5 Serviceteile & Verbrauch -->
+    <div class="card">
+      <h2><span class="n">5</span> Serviceteile &amp; Verbrauchsmaterial</h2>
+      <div class="body">
+        <div class="tablewrap"><table id="partsTbl">
+          <thead><tr><th>Bezeichnung</th><th>Typ</th><th>Preis</th><th>Ergiebigkeit</th><th>Menge</th><th>Zähler</th><th></th></tr></thead>
+          <tbody></tbody>
+        </table></div>
+        <button class="btn ghost sm addrow" id="addPart">+ Teil</button>
+        <div class="hint">Typ: <b>Verbrauch</b> (Trommel/Entwickler/Imaging-Unit) oder <b>Spare</b> (PM-Teile). Zähler: <code>rl</code>=Ref-Länge/Bilder, <code>cs</code>=Blätter, <code>ci</code>=Bilder.</div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ============ RIGHT COLUMN ============ -->
+  <div class="col">
+
+    <!-- 6 Volumen -->
+    <div class="card">
+      <h2><span class="n">6</span> Volumen</h2>
+      <div class="body">
+        <div class="tablewrap"><table id="volTbl">
+          <thead><tr><th>Name</th><th>Modus</th><th>Bilder/Periode</th><th>Deckung %</th><th>Plex</th><th></th></tr></thead>
+          <tbody></tbody>
+        </table></div>
+        <button class="btn ghost sm addrow" id="addVol">+ Volumen</button>
+        <div class="hint">Deckung bei Farbe = Deckung <b>pro Farbe</b> (Standard 5 %). Bilder/Periode gemäß Volumen-Periode aus den Konditionen.</div>
+      </div>
+    </div>
+
+    <!-- 7 Ergebnis -->
+    <div class="card result full">
+      <h2><span class="n">7</span> Klickpreis-Ergebnis</h2>
+      <div class="body">
+        <div class="toolbar" style="margin-bottom:14px">
+          <button class="btn green" id="calcBtn">Berechnen ▸</button>
+          <span class="seg"><button id="viewImg" class="on">pro Bild</button><button id="view1000">pro 1000</button></span>
+          <div class="spacer" style="flex:1"></div>
+          <button class="btn ghost sm" id="copyReport">Report kopieren</button>
+        </div>
+        <div id="kpis" class="big"></div>
+        <div id="overallBox"></div>
+        <details class="foot"><summary>Abacus-Report anzeigen</summary>
+          <pre class="report" id="report">Noch nicht berechnet.</pre>
+        </details>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<div class="foot-note">
+  Rechenmodell 1:1 nachgebildet aus dem Abacus for Distributors (Build 171). Preise &amp; Ergiebigkeiten sind
+  Beispielwerte – mit echter Preisliste / Foliant-Daten überschreiben.
+</div>
+
+<script src="./js/abacus-engine.js"></script>
+<script>
+/* ---------- pdf.js (für Foliant-Import) -----------------------------------
+ * Lokal gebündelt (js/pdf.min.js) -> funktioniert offline / per Doppelklick.
+ * Fällt auf CDN zurück, falls die lokale Datei fehlt. Der Worker läuft bei
+ * file://-Nutzung automatisch im "fake worker"-Modus (etwas langsamer). ---- */
+var PDFJS_LOCAL  = "./js/pdf.min.js";
+var PDFJS_WORKER_LOCAL = "./js/pdf.worker.min.js";
+var PDFJS_CDN    = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js";
+var PDFJS_WORKER_CDN = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+function addScript(src){
+  return new Promise(function(res,rej){
+    var s=document.createElement("script");s.src=src;
+    s.onload=function(){res(true);}; s.onerror=function(){rej(new Error("load fail "+src));};
+    document.head.appendChild(s);
+  });
+}
+function loadPdfJs(){
+  if(window.pdfjsLib) return Promise.resolve(window.pdfjsLib);
+  return addScript(PDFJS_LOCAL)
+    .then(function(){ try{window.pdfjsLib.GlobalWorkerOptions.workerSrc=PDFJS_WORKER_LOCAL;}catch(e){} return window.pdfjsLib; })
+    .catch(function(){
+      return addScript(PDFJS_CDN).then(function(){
+        try{window.pdfjsLib.GlobalWorkerOptions.workerSrc=PDFJS_WORKER_CDN;}catch(e){}
+        return window.pdfjsLib;
+      });
+    })
+    .catch(function(){ throw new Error("pdf.js nicht ladbar – manuelle Eingabe funktioniert weiter."); });
+}
+
+/* ---------- default model ------------------------------------------------- */
+function defaults(){
+  return {
+    currency:"€",
+    conditions:{ volumePeriod:1, calcPeriod:60, profitParts:0, profitCons:0, profitToner:0, profitService:0 },
+    service:{ mcbf:120000, pmCycle:300000, timeCM:0.5, timePM:1.5, nonPMpartsFact:0.5,
+              avImgJob:1, effImgJob:1, singImgJobMul:1.2 },
+    labour:{ timeTrav:0.5, costTravHour:45, distTrav:30, costTravDist:0.7,
+             costFixPerTrav:0, costFixMonthTrav:0, costLabHour:60, timeOV:0, costOV:47, plannedOV:0 },
+    toners:[], parts:[], volumes:[]
+  };
+}
+
+/* Beispiel-Serviceteil-/Toner-Daten für die C251i-Serie (KM-Referenzwerte, editierbar) */
+function presetC251(){
+  var m=defaults();
+  m.service={ mcbf:120000, pmCycle:300000, timeCM:0.4, timePM:1.2, nonPMpartsFact:0.5,
+              avImgJob:1, effImgJob:1, singImgJobMul:1.2 };
+  m.toners=[
+    { color:"K", code:"TN328K", price:60,  qty:1, curve:[[5,28000]] },
+    { color:"C", code:"TN328C", price:78,  qty:1, curve:[[5,26000]] },
+    { color:"M", code:"TN328M", price:78,  qty:1, curve:[[5,26000]] },
+    { color:"Y", code:"TN328Y", price:78,  qty:1, curve:[[5,26000]] }
+  ];
+  m.parts=[
+    { name:"DR316K Trommel K", code:"AAV70RD", type:"cons", price:70,  yield:120000, qty:1, yspread:1, fkt:"print", unit:"rl" },
+    { name:"DR316 Trommel CMY", code:"AAV70TD", type:"cons", price:70,  yield:120000, qty:3, yspread:1, fkt:"print", unit:"rl" },
+    { name:"DV315K Entwickler K", code:"AAV703D", type:"cons", price:45, yield:600000, qty:1, yspread:1, fkt:"print", unit:"rl" },
+    { name:"DV315 Entwickler CMY", code:"AAV70KD", type:"cons", price:45, yield:600000, qty:3, yspread:1, fkt:"print", unit:"rl" },
+    { name:"WX-107 Resttonerbox", code:"AAVAWY1", type:"cons", price:18, yield:80000,  qty:1, yspread:1, fkt:"print", unit:"rl" },
+    { name:"Fixiereinheit (PM)", code:"", type:"spare", price:180, yield:300000, qty:1, yspread:1, fkt:"print", unit:"rl" },
+    { name:"Transferband (PM)", code:"", type:"spare", price:150, yield:300000, qty:1, yspread:1, fkt:"print", unit:"rl" },
+    { name:"Einzugsrollen-Kit", code:"", type:"spare", price:40,  yield:300000, qty:1, yspread:1, fkt:"feed",  unit:"cs" }
+  ];
+  m.volumes=[
+    { name:"S/W-Klick", type:"print", colorMode:"K",    images:2000, coverage:5, plexity:1, refMul:1 },
+    { name:"Farbklick", type:"print", colorMode:"CMYK", images:1000, coverage:5, plexity:1, refMul:1 }
+  ];
+  return m;
+}
+
+/* validierte Abacus-Beispielrechnung (bizhub 4000i / BH4422S, mono) */
+function preset4000(){
+  var m=defaults();
+  m.conditions={ volumePeriod:1, calcPeriod:60, profitParts:0, profitCons:0, profitToner:0, profitService:0 };
+  m.service={ mcbf:26239, pmCycle:200000, timeCM:0.5, timePM:2.36, nonPMpartsFact:0.5,
+              avImgJob:1, effImgJob:1, singImgJobMul:1.2 };
+  m.labour={ timeTrav:0.5, costTravHour:45, distTrav:30, costTravDist:0.7,
+             costFixPerTrav:0, costFixMonthTrav:0, costLabHour:45, timeOV:0, costOV:45, plannedOV:0 };
+  m.toners=[ { color:"K", code:"TN-toner", price:55, qty:1, curve:[[5,26000]] } ];
+  m.parts=[
+    { name:"IUP26 Imaging Unit", code:"AAE00Y1",   type:"cons",  price:27.70, yield:60000,  qty:1, yspread:1, fkt:"print", unit:"rl" },
+    { name:"Transfer Roller",    code:"A63NPP0Y00", type:"spare", price:7.14,  yield:200000, qty:1, yspread:1, fkt:"print", unit:"rl" },
+    { name:"Fusing Unit",        code:"AAFHPP1400", type:"spare", price:88.49, yield:200000, qty:1, yspread:1, fkt:"print", unit:"rl" },
+    { name:"Pick-Up Roller",     code:"AAFHPP2P00", type:"spare", price:4.42,  yield:200000, qty:1, yspread:1, fkt:"feed",  unit:"cs" },
+    { name:"Feed/Separation Pad",code:"AAFHPP1B00", type:"spare", price:7.24,  yield:200000, qty:1, yspread:1, fkt:"feed",  unit:"cs" }
+  ];
+  m.volumes=[ { name:"A4 mono", type:"print", colorMode:"K", images:3500, coverage:5, plexity:1, refMul:1 } ];
+  return m;
+}
+
+/* ---------- state --------------------------------------------------------- */
+var model = presetC251();
+var viewPer1000 = false;
+
+/* ---------- field metadata ------------------------------------------------ */
+var CUR=function(){return model.currency||"€";};
+var condFields=[
+  ["calcPeriod","Vertragslaufzeit","Mon."],["volumePeriod","Volumen-Periode","Mon."],
+  ["profitParts","Aufschlag Teile","%"],["profitCons","Aufschlag Verbrauch","%"],
+  ["profitToner","Aufschlag Toner","%"],["profitService","Aufschlag Service","%"]
+];
+var svcFields=[
+  ["mcbf","MCBF (Bilder zw. Störungen)","Bilder"],["pmCycle","PM-Zyklus","Bilder"],
+  ["timeCM","CM-Zeit","h"],["timePM","PM-Zeit","h"],
+  ["nonPMpartsFact","Non-PM Teilefaktor","x"],["mcbv","MCBV (fest, optional)","Bilder"],
+  ["avImgJob","Bilder/Job (Ist)","x"],["effImgJob","Bilder/Job (Spez.)","x"],["singImgJobMul","1-Bild-Job-Faktor","x"]
+];
+var labFields=[
+  ["timeTrav","Anfahrtszeit","h"],["costTravHour","Anfahrt €/h","€"],
+  ["distTrav","Anfahrtstrecke","km"],["costTravDist","Anfahrt €/km","€"],
+  ["costLabHour","Arbeit €/h","€"],["costFixPerTrav","Fixkosten/Besuch","€"],
+  ["costFixMonthTrav","Fixkosten/Monat","€"],["plannedOV","Kulanzbesuche","x"],
+  ["timeOV","Kulanzbesuch-Zeit","h"]
+];
+
+/* ---------- render helpers ------------------------------------------------ */
+function el(tag,attrs,html){var e=document.createElement(tag);for(var k in attrs)e.setAttribute(k,attrs[k]);if(html!=null)e.innerHTML=html;return e;}
+function numField(obj,key,label,unit){
+  var wrap=el("label",{class:"f"});
+  wrap.appendChild(el("span",{}, "<b>"+label+"</b>"+(unit?" · "+unit:"")));
+  var inp=el("input",{type:"number",step:"any"});
+  inp.value=obj[key]==null?"":obj[key];
+  inp.addEventListener("input",function(){ obj[key]= inp.value===""?null:parseFloat(inp.value); });
+  wrap.appendChild(inp);return wrap;
+}
+function fill(container,obj,fields){
+  container.innerHTML="";
+  fields.forEach(function(f){ container.appendChild(numField(obj,f[0],f[1],f[2])); });
+}
+
+function renderConditions(){
+  var g=document.getElementById("condGrid"); g.innerHTML="";
+  condFields.forEach(function(f){ g.appendChild(numField(model.conditions,f[0],f[1],f[2])); });
+  // currency selector
+  var wrap=el("label",{class:"f"}); wrap.appendChild(el("span",{},"<b>Währung</b>"));
+  var sel=el("select",{}); ["€","£","$","CHF"].forEach(function(c){var o=el("option",{},c);o.value=c;if(c===model.currency)o.selected=true;sel.appendChild(o);});
+  sel.addEventListener("change",function(){model.currency=sel.value;});
+  wrap.appendChild(sel); g.appendChild(wrap);
+}
+
+function renderToner(){
+  var tb=document.querySelector("#tonerTbl tbody"); tb.innerHTML="";
+  model.toners.forEach(function(t,i){
+    var tr=el("tr");
+    tr.appendChild(cellSelect(t,"color",["K","C","M","Y"]));
+    tr.appendChild(cellInput(t,"code","text"));
+    tr.appendChild(cellInput(t,"price","number","num"));
+    // yield & coverage come from curve[0]
+    if(!t.curve||!t.curve.length)t.curve=[[5,20000]];
+    var yTd=el("td",{class:"num"}); var yi=el("input",{type:"number",step:"any"}); yi.value=t.curve[0][1];
+    yi.addEventListener("input",function(){t.curve[0][1]=parseFloat(yi.value)||0;}); yTd.appendChild(yi); tr.appendChild(yTd);
+    var cTd=el("td",{class:"num"}); var ci=el("input",{type:"number",step:"any"}); ci.value=t.curve[0][0];
+    ci.addEventListener("input",function(){t.curve[0][0]=parseFloat(ci.value)||5;}); cTd.appendChild(ci); tr.appendChild(cTd);
+    tr.appendChild(rmCell(model.toners,i,renderToner));
+    tb.appendChild(tr);
+  });
+}
+function renderParts(){
+  var tb=document.querySelector("#partsTbl tbody"); tb.innerHTML="";
+  model.parts.forEach(function(p,i){
+    var tr=el("tr");
+    tr.appendChild(cellInput(p,"name","text"));
+    tr.appendChild(cellSelectLabel(p,"type",[["cons","Verbrauch"],["spare","Spare"]]));
+    tr.appendChild(cellInput(p,"price","number","num"));
+    tr.appendChild(cellInput(p,"yield","number","num"));
+    tr.appendChild(cellInput(p,"qty","number","num"));
+    tr.appendChild(cellUnit(p));
+    tr.appendChild(rmCell(model.parts,i,renderParts));
+    tb.appendChild(tr);
+  });
+}
+function renderVolumes(){
+  var tb=document.querySelector("#volTbl tbody"); tb.innerHTML="";
+  model.volumes.forEach(function(v,i){
+    var tr=el("tr");
+    tr.appendChild(cellInput(v,"name","text"));
+    tr.appendChild(cellSelectLabel(v,"colorMode",[["K","S/W"],["CMYK","Farbe"]]));
+    tr.appendChild(cellInput(v,"images","number","num"));
+    tr.appendChild(cellInput(v,"coverage","number","num"));
+    tr.appendChild(cellSelectLabel(v,"plexity",[["1","simplex"],["2","duplex"]],true));
+    tr.appendChild(rmCell(model.volumes,i,renderVolumes));
+    tb.appendChild(tr);
+  });
+}
+function cellInput(obj,key,type,cls){
+  var td=el("td",{class:cls==="num"?"num":""}); var inp=el("input",{type:type,step:"any"});
+  inp.value=obj[key]==null?"":obj[key];
+  inp.addEventListener("input",function(){ obj[key]= type==="number"?(inp.value===""?null:parseFloat(inp.value)):inp.value; });
+  td.appendChild(inp); return td;
+}
+function cellSelect(obj,key,opts){
+  var td=el("td"); var sel=el("select",{});
+  opts.forEach(function(o){var op=el("option",{},o);op.value=o;if(String(obj[key])===o)op.selected=true;sel.appendChild(op);});
+  sel.addEventListener("change",function(){obj[key]=sel.value;}); td.appendChild(sel); return td;
+}
+function cellSelectLabel(obj,key,opts,numeric){
+  var td=el("td"); var sel=el("select",{});
+  opts.forEach(function(o){var op=el("option",{},o[1]);op.value=o[0];if(String(obj[key])===o[0])op.selected=true;sel.appendChild(op);});
+  sel.addEventListener("change",function(){obj[key]= numeric?parseFloat(sel.value):sel.value;}); td.appendChild(sel); return td;
+}
+function cellUnit(p){
+  var td=el("td"); var sel=el("select",{});
+  [["rl","rl"],["cs","cs"],["ci","ci"],["ra","ra"]].forEach(function(o){var op=el("option",{},o[1]);op.value=o[0];if(p.unit===o[0])op.selected=true;sel.appendChild(op);});
+  // also carry fkt implicitly: print for rl/ci/ra, feed for cs
+  sel.addEventListener("change",function(){p.unit=sel.value; p.fkt=(sel.value==="cs")?"feed":"print";});
+  td.appendChild(sel); return td;
+}
+function rmCell(arr,i,rerender){
+  var td=el("td"); var b=el("button",{class:"rm",title:"Entfernen"},"×");
+  b.addEventListener("click",function(){arr.splice(i,1);rerender();}); td.appendChild(b); return td;
+}
+
+function renderAll(){
+  document.getElementById("machineTag").textContent = model._machine || "Kein Foliant geladen";
+  renderConditions();
+  fill(document.getElementById("svcGrid"),model.service,svcFields);
+  fill(document.getElementById("labGrid"),model.labour,labFields);
+  renderToner(); renderParts(); renderVolumes();
+}
+
+/* ---------- calculate & report ------------------------------------------- */
+function fmt(n,d){ if(n==null||isNaN(n))return "–"; return n.toLocaleString("de-DE",{minimumFractionDigits:d,maximumFractionDigits:d}); }
+function money(n,d){ return fmt(n,d==null?2:d)+" "+CUR(); }
+
+function doCalc(){
+  var r = AbacusEngine.calculate(model);
+  window._lastResult=r;
+  renderKpis(r); renderReport(r);
+}
+function clickVal(v,per1000){ return per1000? v*1000 : v; }
+function unitLbl(per1000){ return per1000? "/1000 Bilder":"/Bild"; }
+function decimals(per1000){ return per1000?3:5; }
+
+function renderKpis(r){
+  var box=document.getElementById("kpis"); box.innerHTML="";
+  var per=viewPer1000;
+  r.volumes.forEach(function(v){
+    var isColor = v.colorMode==="CMYK";
+    var k=el("div",{class:"kpi "+(isColor?"color":"mono")});
+    var price=clickVal(v.click.total,per);
+    k.innerHTML="<div class='lbl'>"+ (v.name||"Volumen") +" · "+(isColor?"Farbe":"S/W")+"</div>"+
+      "<div class='val'>"+fmt(price,decimals(per))+" <small>"+CUR()+" "+unitLbl(per)+"</small></div>"+
+      bar(v.click);
+    box.appendChild(k);
+  });
+  // overall
+  var ob=document.getElementById("overallBox");
+  if(r.clickOverall){
+    var per=viewPer1000;
+    ob.innerHTML="<div class='kpi' style='margin-top:12px;border-left:4px solid var(--acc2)'>"+
+      "<div class='lbl'>Gesamt-Ø Klickpreis · "+r.totals.images.toLocaleString("de-DE")+" Bilder über "+r.period.calcPeriod+" Mon.</div>"+
+      "<div class='val'>"+fmt(clickVal(r.clickOverall.total,per),decimals(per))+" <small>"+CUR()+" "+unitLbl(per)+"</small></div>"+
+      bar(r.clickOverall)+
+      "<div class='legend'><span class='lg-toner'>Toner "+money(r.totals.toner)+"</span>"+
+      "<span class='lg-cons'>Verbrauch "+money(r.totals.cons)+"</span>"+
+      "<span class='lg-parts'>Teile "+money(r.totals.parts)+"</span>"+
+      "<span class='lg-labour'>Service "+money(r.totals.labour)+"</span></div>"+
+      "<div class='hint' style='margin-top:8px'>Gesamtkosten Vertrag: <b>"+money(r.totals.total)+"</b> · Service-Besuche: "+r.service.visits+" (MCBV "+Math.round(r.service.mcbv).toLocaleString("de-DE")+")</div>"+
+      "</div>";
+  } else ob.innerHTML="";
+}
+function bar(c){
+  var t=c.toner||0,co=c.cons||0,p=c.parts||0,l=c.labour||0,sum=t+co+p+l;
+  if(sum<=0)return "";
+  function w(x){return (x/sum*100).toFixed(1)+"%";}
+  return "<div class='bar'>"+
+    "<i style='width:"+w(t)+";background:#3d9be9'></i>"+
+    "<i style='width:"+w(co)+";background:#37c98b'></i>"+
+    "<i style='width:"+w(p)+";background:#e5a13a'></i>"+
+    "<i style='width:"+w(l)+";background:#b06be5'></i></div>"+
+    "<div class='legend'><span class='lg-toner'>Toner</span><span class='lg-cons'>Verbrauch</span>"+
+    "<span class='lg-parts'>Teile</span><span class='lg-labour'>Service</span></div>";
+}
+
+function pad(s,n){s=String(s);while(s.length<n)s+=" ";return s.slice(0,n);}
+function rpad(s,n){s=String(s);while(s.length<n)s=" "+s;return s.slice(-n);}
+function renderReport(r){
+  var C=r.currency, L="__________________________________________________________________\n";
+  var t="";
+  t+="ABACUS KLICKPREIS-REPORT\n";
+  t+="Laufzeit "+r.period.calcPeriod+" Monate · Volumen-Periode "+r.period.volumePeriod+" Monat(e)\n";
+  t+="Gesamtbilder: "+Math.round(r.totals.images).toLocaleString("de-DE")+"\n\n";
+  t+="GESAMTKOSTEN ("+C+")\n"+L;
+  t+=pad("Toner",16)+rpad(fmt(r.totals.toner,2),12)+"\n";
+  t+=pad("Verbrauch",16)+rpad(fmt(r.totals.cons,2),12)+"\n";
+  t+=pad("Serviceteile",16)+rpad(fmt(r.totals.parts,2),12)+"\n";
+  t+=pad("Service/Arbeit",16)+rpad(fmt(r.totals.labour,2),12)+"\n"+L;
+  t+=pad("TOTAL",16)+rpad(fmt(r.totals.total,2),12)+"\n";
+  t+=pad("ohne Toner",16)+rpad(fmt(r.totals.totalNoToner,2),12)+"\n\n";
+  t+="KLICKPREIS PRO VOLUMEN\n"+L;
+  t+=pad("Volumen",16)+rpad("Toner",10)+rpad("Verbr.",10)+rpad("Teile",10)+rpad("Service",10)+rpad("/1000",10)+"\n";
+  r.volumes.forEach(function(v){
+    t+=pad(v.name||"",16)+rpad(fmt(v.click.toner*1000,3),10)+rpad(fmt(v.click.cons*1000,3),10)+
+       rpad(fmt(v.click.parts*1000,3),10)+rpad(fmt(v.click.labour*1000,3),10)+rpad(fmt(v.click.per1000,3),10)+"\n";
+  });
+  t+=L+"\nSERVICE\n"+L;
+  t+="MCBV "+Math.round(r.service.mcbv).toLocaleString("de-DE")+" · Besuche "+r.service.visits+
+     " · PM-Ereignisse "+r.service.eventsPM+" · Ref-Länge "+Math.round(r.service.totalRefLength).toLocaleString("de-DE")+"\n";
+  t+="Anfahrt-Zeit "+fmt(r.service.breakdown.travelTime,2)+" · Anfahrt-km "+fmt(r.service.breakdown.travelDist,2)+
+     " · Arbeit "+fmt(r.service.breakdown.labourHours,2)+" "+C+"\n\n";
+  t+="TONER-VERBRAUCH\n"+L;
+  t+=pad("Volumen",16)+pad("Farbe",6)+rpad("Deckung",9)+rpad("Ergieb.",10)+rpad("Gebinde",10)+rpad("Kosten",10)+"\n";
+  r.detail.toner.forEach(function(d){
+    t+=pad(d.volume,16)+pad(d.color,6)+rpad(d.coverage+"%",9)+rpad(d.yieldAt.toLocaleString("de-DE"),10)+
+       rpad(fmt(d.packages,2),10)+rpad(fmt(d.cost,2),10)+"\n";
+  });
+  document.getElementById("report").textContent=t;
+}
+
+/* ---------- Foliant PDF import -------------------------------------------- */
+function parseCsvTable(xml,tag){
+  var re=new RegExp("<"+tag+"[^>]*>([\\s\\S]*?)<\\/"+tag+">"); var m=re.exec(xml);
+  if(!m)return null; var lines=m[1].split(/[\r\n]+/).filter(function(l){return l.trim();});
+  var rows=lines.slice(1).map(function(l){return l.split(";");}); return rows;
+}
+function applyFoliant(pandoraXml, machineName){
+  model = defaults();
+  model._machine = machineName || "Foliant geladen";
+  // consumables -> toner + parts rows
+  var cons = parseCsvTable(pandoraXml,"ConsumableCodes")||[];
+  var toners=[], parts=[];
+  cons.forEach(function(r){
+    var name=(r[0]||"").trim(), code=(r[1]||"").trim(), desc=(r[2]||"").trim();
+    if(/^TN/i.test(name)){
+      var col = /K$/.test(name)?"K":/C$/.test(name)?"C":/M$/.test(name)?"M":/Y$/.test(name)?"Y":"K";
+      toners.push({color:col,code:code,price:0,qty:1,curve:[[5, col==="K"?28000:26000]]});
+    } else if(/^DR/i.test(name)){
+      parts.push({name:name+" "+desc,code:code,type:"cons",price:0,yield:120000,qty:1,yspread:1,fkt:"print",unit:"rl"});
+    } else if(/^DV/i.test(name)){
+      parts.push({name:name+" "+desc,code:code,type:"cons",price:0,yield:600000,qty:1,yspread:1,fkt:"print",unit:"rl"});
+    } else if(/^WX/i.test(name)){
+      parts.push({name:name+" "+desc,code:code,type:"cons",price:0,yield:80000,qty:1,yspread:1,fkt:"print",unit:"rl"});
+    }
+  });
+  // keep only one toner per colour (first)
+  var seen={}; toners=toners.filter(function(t){if(seen[t.color])return false;seen[t.color]=1;return true;});
+  model.toners = toners.length?toners:presetC251().toners;
+  model.parts = parts.length?parts:presetC251().parts;
+  model.volumes=[
+    { name:"S/W-Klick", type:"print", colorMode:"K",    images:2000, coverage:5, plexity:1, refMul:1 },
+    { name:"Farbklick", type:"print", colorMode:"CMYK", images:1000, coverage:5, plexity:1, refMul:1 }
+  ];
+  renderAll();
+  var chips=document.getElementById("consChips");
+  chips.innerHTML="";
+  var codes=parseCsvTable(pandoraXml,"ConsumableCodes")||[];
+  codes.slice(0,14).forEach(function(r){ chips.appendChild(el("span",{class:"chip"}, (r[0]||"").trim())); });
+  document.getElementById("foliantInfo").textContent = toners.length+" Toner, "+parts.length+" Verbrauchspositionen erkannt.";
+}
+
+async function importFoliant(file){
+  var info=document.getElementById("foliantInfo");
+  info.textContent="Lade "+file.name+" …";
+  try{
+    var pdfjs=await loadPdfJs();
+    var buf=await file.arrayBuffer();
+    var pdf=await pdfjs.getDocument({data:buf}).promise;
+    var fields=await pdf.getFieldObjects();
+    var pandora=null, topline=null;
+    function grab(name){ if(fields[name]&&fields[name][0]) return fields[name][0].value; return null; }
+    pandora=grab("Pandora"); topline=grab("Text_TopLine");
+    if(!pandora){
+      // fall back: scan annotations
+      for(var p=1;p<=pdf.numPages;p++){
+        var page=await pdf.getPage(p); var ann=await page.getAnnotations();
+        ann.forEach(function(a){ if(a.fieldName==="Pandora"&&a.fieldValue)pandora=a.fieldValue;
+                                 if(a.fieldName==="Text_TopLine"&&a.fieldValue)topline=a.fieldValue; });
+        if(pandora)break;
+      }
+    }
+    if(!pandora){ info.textContent="Keine Pandora-Daten im PDF gefunden – ist es ein Foliant?"; return; }
+    var machine = (topline||"").trim() || file.name.replace(/\.pdf$/i,"");
+    applyFoliant(String(pandora), machine);
+  }catch(e){
+    info.innerHTML="<span style='color:var(--warn)'>"+e.message+"</span>";
+  }
+}
+
+/* ---------- wire up UI ---------------------------------------------------- */
+var drop=document.getElementById("drop"), file=document.getElementById("file");
+drop.addEventListener("click",function(){file.click();});
+file.addEventListener("change",function(){ if(file.files[0])importFoliant(file.files[0]); });
+["dragenter","dragover"].forEach(function(ev){drop.addEventListener(ev,function(e){e.preventDefault();drop.classList.add("over");});});
+["dragleave","drop"].forEach(function(ev){drop.addEventListener(ev,function(e){e.preventDefault();drop.classList.remove("over");});});
+drop.addEventListener("drop",function(e){ var f=e.dataTransfer.files[0]; if(f)importFoliant(f); });
+
+document.querySelectorAll("[data-preset]").forEach(function(b){
+  b.addEventListener("click",function(){
+    model = b.dataset.preset==="4000"?preset4000():presetC251();
+    model._machine = b.dataset.preset==="4000"?"bizhub 4000i (Validierung)":"bizhub C251i (Beispiel)";
+    renderAll(); doCalc();
+  });
+});
+document.getElementById("addToner").addEventListener("click",function(){ model.toners.push({color:"K",code:"",price:0,qty:1,curve:[[5,20000]]}); renderToner(); });
+document.getElementById("addPart").addEventListener("click",function(){ model.parts.push({name:"Neues Teil",type:"spare",price:0,yield:200000,qty:1,yspread:1,fkt:"print",unit:"rl"}); renderParts(); });
+document.getElementById("addVol").addEventListener("click",function(){ model.volumes.push({name:"Volumen",type:"print",colorMode:"K",images:1000,coverage:5,plexity:1,refMul:1}); renderVolumes(); });
+document.getElementById("calcBtn").addEventListener("click",doCalc);
+document.getElementById("viewImg").addEventListener("click",function(){ viewPer1000=false; this.classList.add("on"); document.getElementById("view1000").classList.remove("on"); if(window._lastResult)renderKpis(window._lastResult); });
+document.getElementById("view1000").addEventListener("click",function(){ viewPer1000=true; this.classList.add("on"); document.getElementById("viewImg").classList.remove("on"); if(window._lastResult)renderKpis(window._lastResult); });
+document.getElementById("copyReport").addEventListener("click",function(){
+  var txt=document.getElementById("report").textContent;
+  navigator.clipboard&&navigator.clipboard.writeText(txt);
+  this.textContent="Kopiert ✓"; var self=this; setTimeout(function(){self.textContent="Report kopieren";},1200);
+});
+
+/* ---------- init ---------------------------------------------------------- */
+model._machine="bizhub C251i (Beispiel)";
+renderAll();
+doCalc();
+</script>
+</body>
+</html>
