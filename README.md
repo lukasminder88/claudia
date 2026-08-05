@@ -40,11 +40,28 @@ dem eingebetteten Abacus-JavaScript übernommen** (Funktionen `calcVolumeValues(
    - Trommeln/Entwickler/Resttonerbox (DR…, DV…, WX…) → Verbrauchszeilen.
 
    *Alternativ* die Buttons **Beispiel: bizhub C251i** oder **Validierung: bizhub 4000i**.
-3. **Preise & Ergiebigkeiten** eintragen (kommen aus deiner Preisliste – im Foliant sind
-   keine Preise hinterlegt).
+3. **Parts-Preisliste laden** (Abschnitt 1b) – **CSV oder Excel (.xlsx)** ins Feld ziehen.
+   Der Rechner erkennt die Code- und Preis-Spalte automatisch und ordnet die Preise per
+   Artikel- bzw. Materialcode den Toner- und Teile-Zeilen zu. Passt die Auto-Erkennung
+   nicht, lassen sich Code-/Preis-Spalte per Dropdown manuell wählen. Deutsche Zahlen
+   (`1.234,56`) werden korrekt gelesen.
 4. **Konditionen, Servicewerte, Volumen** anpassen.
-5. **Berechnen** → Klickpreise pro Volumen und Gesamt-Ø, umschaltbar *pro Bild* / *pro 1000*.
+5. **Arbeits- & Anfahrtskosten** (Abschnitt 3b) sind **rein manuell** und werden von
+   keinem Import (Foliant oder Preisliste) überschrieben.
+6. **Berechnen** → Klickpreise pro Volumen und Gesamt-Ø, umschaltbar *pro Bild* / *pro 1000*.
    Über „Abacus-Report anzeigen" gibt es die textuelle Kostenaufstellung wie im Original.
+
+### Preisliste – erwartetes Format
+Eine Spalte mit **Artikel-/Materialcode** (Überschrift wie *Code, Artikel, Material, Nr.*)
+und eine mit **Preis** (*Preis, Price, EK, VK, Netto*). Beispiel-CSV:
+
+```
+Artikelcode;Bezeichnung;EK Preis
+TN328K;Toner schwarz;62,50
+DR316K;Trommel K;75,00
+```
+Gematcht wird gegen den **Kurzcode** (TN328K, DR316K) *und* den **Materialcode**
+(AAV8150 …) – je nachdem, wie deine Liste geführt ist.
 
 ### Umschalter & Report
 - **pro Bild / pro 1000** – Anzeige der Klickpreise.
@@ -91,6 +108,7 @@ index.html                     Der Rechner (UI + Verdrahtung)
 js/abacus-engine.js            Rechen-Engine (Abacus-Formeln, framework-frei)
 js/pdf.min.js                  pdf.js – Foliant-Import (lokal gebündelt, offline)
 js/pdf.worker.min.js           pdf.js Worker
+js/xlsx.full.min.js            SheetJS – Excel-Preislisten-Import (lokal gebündelt)
 data/foliant-c251i-seed.json   Aus dem C251i-Foliant extrahierte Artikel-/Verbrauchscodes
 docs/abacus-analyse.md         Technische Analyse des Abacus (Datenmodell + Formeln)
 test/validate.cjs              Validierung gegen das 4000i-Beispiel (Node)

@@ -120,6 +120,25 @@
       </div>
     </div>
 
+    <!-- 1b Preisliste -->
+    <div class="card">
+      <h2><span class="n">1b</span> Parts-Preisliste laden <span style="font-weight:400;color:var(--mut);font-size:12px">· CSV / Excel</span></h2>
+      <div class="body">
+        <div class="drop" id="dropPrice" style="padding:16px">
+          <b>Preisliste (CSV oder .xlsx) hier ablegen</b> oder klicken<br>
+          <span class="hint">Ordnet Preise automatisch per Artikel- bzw. Materialcode den Toner- und Teile-Zeilen zu. Spalten (Code / Preis) werden automatisch erkannt.</span>
+          <input type="file" id="priceFile" accept=".csv,.xlsx,.xls,text/csv" hidden>
+        </div>
+        <div class="toolbar" style="margin-top:10px">
+          <label class="f" style="flex:1"><span><b>Preis-Spalte</b> · falls Auto-Erkennung falsch</span>
+            <select id="priceColSel"><option value="auto">automatisch</option></select></label>
+          <label class="f" style="flex:1"><span><b>Code-Spalte</b></span>
+            <select id="codeColSel"><option value="auto">automatisch</option></select></label>
+        </div>
+        <div id="priceInfo" class="hint" style="margin-top:8px"></div>
+      </div>
+    </div>
+
     <!-- 2 Konditionen -->
     <div class="card">
       <h2><span class="n">2</span> Konditionen</h2>
@@ -128,10 +147,17 @@
 
     <!-- 3 Servicewerte -->
     <div class="card">
-      <h2><span class="n">3</span> Servicewerte &amp; Arbeit</h2>
+      <h2><span class="n">3</span> Servicewerte (Hardware)</h2>
       <div class="body">
         <div class="grid g3" id="svcGrid"></div>
-        <div class="hint" style="margin:12px 0 4px;color:var(--ink);font-weight:600">Arbeit &amp; Anfahrt</div>
+      </div>
+    </div>
+
+    <!-- 3b Arbeit & Anfahrt (manuell) -->
+    <div class="card">
+      <h2><span class="n">3b</span> Arbeits- &amp; Anfahrtskosten <span style="font-weight:400;color:var(--mut);font-size:12px">· manuell</span></h2>
+      <div class="body">
+        <div class="warnbox" style="margin:0 0 12px">Diese Kosten werden <b>manuell</b> gepflegt und von Foliant- oder Preislisten-Import <b>nie überschrieben</b>.</div>
         <div class="grid g3" id="labGrid"></div>
       </div>
     </div>
@@ -154,7 +180,7 @@
       <h2><span class="n">5</span> Serviceteile &amp; Verbrauchsmaterial</h2>
       <div class="body">
         <div class="tablewrap"><table id="partsTbl">
-          <thead><tr><th>Bezeichnung</th><th>Typ</th><th>Preis</th><th>Ergiebigkeit</th><th>Menge</th><th>Zähler</th><th></th></tr></thead>
+          <thead><tr><th>Bezeichnung</th><th>Code</th><th>Typ</th><th>Preis</th><th>Ergiebigkeit</th><th>Menge</th><th>Zähler</th><th></th></tr></thead>
           <tbody></tbody>
         </table></div>
         <button class="btn ghost sm addrow" id="addPart">+ Teil</button>
@@ -255,20 +281,20 @@ function presetC251(){
   m.service={ mcbf:120000, pmCycle:300000, timeCM:0.4, timePM:1.2, nonPMpartsFact:0.5,
               avImgJob:1, effImgJob:1, singImgJobMul:1.2 };
   m.toners=[
-    { color:"K", code:"TN328K", price:60,  qty:1, curve:[[5,28000]] },
-    { color:"C", code:"TN328C", price:78,  qty:1, curve:[[5,26000]] },
-    { color:"M", code:"TN328M", price:78,  qty:1, curve:[[5,26000]] },
-    { color:"Y", code:"TN328Y", price:78,  qty:1, curve:[[5,26000]] }
+    { color:"K", code:"TN328K", matCode:"AAV8150", price:60,  qty:1, curve:[[5,28000]] },
+    { color:"C", code:"TN328C", matCode:"AAV8450", price:78,  qty:1, curve:[[5,26000]] },
+    { color:"M", code:"TN328M", matCode:"AAV8350", price:78,  qty:1, curve:[[5,26000]] },
+    { color:"Y", code:"TN328Y", matCode:"AAV8250", price:78,  qty:1, curve:[[5,26000]] }
   ];
   m.parts=[
-    { name:"DR316K Trommel K", code:"AAV70RD", type:"cons", price:70,  yield:120000, qty:1, yspread:1, fkt:"print", unit:"rl" },
-    { name:"DR316 Trommel CMY", code:"AAV70TD", type:"cons", price:70,  yield:120000, qty:3, yspread:1, fkt:"print", unit:"rl" },
-    { name:"DV315K Entwickler K", code:"AAV703D", type:"cons", price:45, yield:600000, qty:1, yspread:1, fkt:"print", unit:"rl" },
-    { name:"DV315 Entwickler CMY", code:"AAV70KD", type:"cons", price:45, yield:600000, qty:3, yspread:1, fkt:"print", unit:"rl" },
-    { name:"WX-107 Resttonerbox", code:"AAVAWY1", type:"cons", price:18, yield:80000,  qty:1, yspread:1, fkt:"print", unit:"rl" },
-    { name:"Fixiereinheit (PM)", code:"", type:"spare", price:180, yield:300000, qty:1, yspread:1, fkt:"print", unit:"rl" },
-    { name:"Transferband (PM)", code:"", type:"spare", price:150, yield:300000, qty:1, yspread:1, fkt:"print", unit:"rl" },
-    { name:"Einzugsrollen-Kit", code:"", type:"spare", price:40,  yield:300000, qty:1, yspread:1, fkt:"feed",  unit:"cs" }
+    { name:"Trommel K",       code:"DR316K", matCode:"AAV70RD", type:"cons", price:70,  yield:120000, qty:1, yspread:1, fkt:"print", unit:"rl" },
+    { name:"Trommel CMY",     code:"DR316C", matCode:"AAV70TD", type:"cons", price:70,  yield:120000, qty:3, yspread:1, fkt:"print", unit:"rl" },
+    { name:"Entwickler K",    code:"DV315K", matCode:"AAV703D", type:"cons", price:45, yield:600000, qty:1, yspread:1, fkt:"print", unit:"rl" },
+    { name:"Entwickler CMY",  code:"DV315C", matCode:"AAV70KD", type:"cons", price:45, yield:600000, qty:3, yspread:1, fkt:"print", unit:"rl" },
+    { name:"Resttonerbox",    code:"WX-107", matCode:"AAVAWY1", type:"cons", price:18, yield:80000,  qty:1, yspread:1, fkt:"print", unit:"rl" },
+    { name:"Fixiereinheit (PM)", code:"", matCode:"", type:"spare", price:180, yield:300000, qty:1, yspread:1, fkt:"print", unit:"rl" },
+    { name:"Transferband (PM)",  code:"", matCode:"", type:"spare", price:150, yield:300000, qty:1, yspread:1, fkt:"print", unit:"rl" },
+    { name:"Einzugsrollen-Kit",  code:"", matCode:"", type:"spare", price:40,  yield:300000, qty:1, yspread:1, fkt:"feed",  unit:"cs" }
   ];
   m.volumes=[
     { name:"S/W-Klick", type:"print", colorMode:"K",    images:2000, coverage:5, plexity:1, refMul:1 },
@@ -369,6 +395,7 @@ function renderParts(){
   model.parts.forEach(function(p,i){
     var tr=el("tr");
     tr.appendChild(cellInput(p,"name","text"));
+    tr.appendChild(cellInput(p,"code","text"));
     tr.appendChild(cellSelectLabel(p,"type",[["cons","Verbrauch"],["spare","Spare"]]));
     tr.appendChild(cellInput(p,"price","number","num"));
     tr.appendChild(cellInput(p,"yield","number","num"));
@@ -529,16 +556,16 @@ function applyFoliant(pandoraXml, machineName){
   var cons = parseCsvTable(pandoraXml,"ConsumableCodes")||[];
   var toners=[], parts=[];
   cons.forEach(function(r){
-    var name=(r[0]||"").trim(), code=(r[1]||"").trim(), desc=(r[2]||"").trim();
+    var name=(r[0]||"").trim(), mat=(r[1]||"").trim(), desc=(r[2]||"").trim();
     if(/^TN/i.test(name)){
       var col = /K$/.test(name)?"K":/C$/.test(name)?"C":/M$/.test(name)?"M":/Y$/.test(name)?"Y":"K";
-      toners.push({color:col,code:code,price:0,qty:1,curve:[[5, col==="K"?28000:26000]]});
+      toners.push({color:col,code:name,matCode:mat,price:0,qty:1,curve:[[5, col==="K"?28000:26000]]});
     } else if(/^DR/i.test(name)){
-      parts.push({name:name+" "+desc,code:code,type:"cons",price:0,yield:120000,qty:1,yspread:1,fkt:"print",unit:"rl"});
+      parts.push({name:desc||"Trommel",code:name,matCode:mat,type:"cons",price:0,yield:120000,qty:1,yspread:1,fkt:"print",unit:"rl"});
     } else if(/^DV/i.test(name)){
-      parts.push({name:name+" "+desc,code:code,type:"cons",price:0,yield:600000,qty:1,yspread:1,fkt:"print",unit:"rl"});
+      parts.push({name:desc||"Entwickler",code:name,matCode:mat,type:"cons",price:0,yield:600000,qty:1,yspread:1,fkt:"print",unit:"rl"});
     } else if(/^WX/i.test(name)){
-      parts.push({name:name+" "+desc,code:code,type:"cons",price:0,yield:80000,qty:1,yspread:1,fkt:"print",unit:"rl"});
+      parts.push({name:desc||"Resttonerbox",code:name,matCode:mat,type:"cons",price:0,yield:80000,qty:1,yspread:1,fkt:"print",unit:"rl"});
     }
   });
   // keep only one toner per colour (first)
@@ -585,6 +612,126 @@ async function importFoliant(file){
   }
 }
 
+/* ---------- Parts-Preisliste (CSV / Excel) importieren -------------------- */
+var XLSX_LOCAL="./js/xlsx.full.min.js", XLSX_CDN="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js";
+function loadXlsx(){
+  if(window.XLSX) return Promise.resolve(window.XLSX);
+  return addScript(XLSX_LOCAL).then(function(){return window.XLSX;})
+    .catch(function(){ return addScript(XLSX_CDN).then(function(){return window.XLSX;}); })
+    .catch(function(){ throw new Error("xlsx-Parser nicht ladbar."); });
+}
+var priceRows=null;               // zuletzt geladene Tabelle (Array von Arrays)
+function normCode(s){ return String(s==null?"":s).toUpperCase().replace(/[\s\-_.\/]/g,""); }
+function parsePrice(v){
+  if(v==null) return NaN;
+  var s=String(v).replace(/[^0-9,.\-]/g,"");
+  if(s==="") return NaN;
+  if(s.indexOf(",")>-1 && s.indexOf(".")>-1){ s=s.replace(/\./g,"").replace(",","."); } // 1.234,56
+  else if(s.indexOf(",")>-1){ s=s.replace(",","."); }                                    // 12,50
+  var n=parseFloat(s); return isNaN(n)?NaN:n;
+}
+function detectDelimiter(line){
+  var counts={";":(line.match(/;/g)||[]).length, ",":(line.match(/,/g)||[]).length, "\t":(line.match(/\t/g)||[]).length};
+  var best=";",bc=-1; for(var d in counts) if(counts[d]>bc){bc=counts[d];best=d;} return bc>0?best:";";
+}
+function parseCsv(text){
+  var lines=text.split(/\r?\n/).filter(function(l){return l.trim()!=="";});
+  if(!lines.length) return [];
+  var delim=detectDelimiter(lines[0]);
+  return lines.map(function(l){ return l.split(delim).map(function(c){return c.replace(/^"(.*)"$/,"$1").trim();}); });
+}
+function looksLikeHeader(row){
+  var hits=0; row.forEach(function(c){ if(/code|artikel|material|preis|price|ek|vk|cost|betrag|bezeichnung|nummer|nr\.?/i.test(c)) hits++; });
+  return hits>=1;
+}
+function autoDetectCols(rows){
+  var header = looksLikeHeader(rows[0]) ? rows[0] : null;
+  var start = header?1:0, ncol = Math.max.apply(null, rows.map(function(r){return r.length;}));
+  var codeCol=-1, priceCol=-1;
+  if(header){
+    header.forEach(function(h,i){
+      if(codeCol<0 && /code|artikel|material|nummer|nr\.?|teil/i.test(h)) codeCol=i;
+      if(/preis|price|ek(?!\w)|vk(?!\w)|cost|betrag|netto/i.test(h)) priceCol=i; // last matching = often net price
+    });
+  }
+  // fallback by content: price = column with most parseable numbers; code = column with most code-like tokens
+  if(priceCol<0){
+    var bestP=-1,bp=-1;
+    for(var c=0;c<ncol;c++){ var cnt=0; for(var r=start;r<rows.length;r++){ if(!isNaN(parsePrice(rows[r][c]))) cnt++; } if(cnt>bp){bp=cnt;bestP=c;} }
+    priceCol=bestP;
+  }
+  if(codeCol<0){
+    var bestC=-1,bc=-1;
+    for(var c2=0;c2<ncol;c2++){ if(c2===priceCol) continue; var cnt2=0; for(var r2=start;r2<rows.length;r2++){ var v=String(rows[r2][c2]||""); if(/[A-Za-z0-9]/.test(v) && /[A-Za-z0-9\-]{3,}/.test(v) && isNaN(parsePrice(v))) cnt2++; } if(cnt2>bc){bc=cnt2;bestC=c2;} }
+    codeCol=bestC>=0?bestC:0;
+  }
+  return {header:header, start:start, ncol:ncol, codeCol:codeCol, priceCol:priceCol};
+}
+function fillColSelectors(rows,det){
+  var pc=document.getElementById("priceColSel"), cc=document.getElementById("codeColSel");
+  function opts(sel,active){
+    sel.innerHTML="<option value='auto'>automatisch</option>";
+    var head = det.header || rows[0] || [];
+    for(var i=0;i<det.ncol;i++){
+      var name = (det.header&&det.header[i])?det.header[i]:("Spalte "+(i+1));
+      var o=document.createElement("option"); o.value=String(i); o.textContent=name; if(i===active)o.textContent+="  ✓";
+      sel.appendChild(o);
+    }
+  }
+  opts(pc,det.priceCol); opts(cc,det.codeCol);
+}
+function applyPriceList(rows){
+  if(!rows||!rows.length){ document.getElementById("priceInfo").textContent="Leere Datei."; return; }
+  priceRows=rows;
+  var det=autoDetectCols(rows);
+  fillColSelectors(rows,det);
+  matchPrices();
+}
+function matchPrices(){
+  if(!priceRows) return;
+  var det=autoDetectCols(priceRows);
+  var pSel=document.getElementById("priceColSel").value, cSel=document.getElementById("codeColSel").value;
+  var priceCol = pSel==="auto"?det.priceCol:parseInt(pSel);
+  var codeCol  = cSel==="auto"?det.codeCol:parseInt(cSel);
+  // build lookup normCode -> price
+  var map={};
+  for(var r=det.start;r<priceRows.length;r++){
+    var row=priceRows[r]; if(!row) continue;
+    var code=normCode(row[codeCol]); var price=parsePrice(row[priceCol]);
+    if(code && !isNaN(price)) map[code]=price;
+  }
+  var matched=0, missing=[];
+  function tryset(item){
+    var keys=[item.code,item.matCode].filter(Boolean).map(normCode);
+    for(var k=0;k<keys.length;k++){ if(map[keys[k]]!=null){ item.price=map[keys[k]]; matched++; return true; } }
+    if(item.code||item.matCode) missing.push(item.code||item.matCode);
+    return false;
+  }
+  model.toners.forEach(tryset);
+  model.parts.forEach(tryset);
+  renderToner(); renderParts(); doCalc();
+  var info=document.getElementById("priceInfo");
+  info.innerHTML="<b>"+matched+"</b> Preise zugeordnet aus "+Object.keys(map).length+" Preislisten-Einträgen"+
+    (missing.length?(" · nicht gefunden: "+missing.slice(0,8).join(", ")+(missing.length>8?" …":"")):"")+
+    ".  <span style='color:var(--mut)'>(Spalten unten anpassbar, dann erneut zuordnen)</span>";
+}
+async function importPriceList(file){
+  var info=document.getElementById("priceInfo"); info.textContent="Lade "+file.name+" …";
+  try{
+    var ext=(file.name.split(".").pop()||"").toLowerCase();
+    var rows;
+    if(ext==="xlsx"||ext==="xls"){
+      var XLSX=await loadXlsx();
+      var wb=XLSX.read(new Uint8Array(await file.arrayBuffer()),{type:"array"});
+      var ws=wb.Sheets[wb.SheetNames[0]];
+      rows=XLSX.utils.sheet_to_json(ws,{header:1,raw:false,defval:""}).filter(function(r){return r.some(function(c){return String(c).trim()!=="";});});
+    } else {
+      rows=parseCsv(await file.text());
+    }
+    applyPriceList(rows);
+  }catch(e){ info.innerHTML="<span style='color:var(--warn)'>"+e.message+"</span>"; }
+}
+
 /* ---------- wire up UI ---------------------------------------------------- */
 var drop=document.getElementById("drop"), file=document.getElementById("file");
 drop.addEventListener("click",function(){file.click();});
@@ -600,8 +747,18 @@ document.querySelectorAll("[data-preset]").forEach(function(b){
     renderAll(); doCalc();
   });
 });
-document.getElementById("addToner").addEventListener("click",function(){ model.toners.push({color:"K",code:"",price:0,qty:1,curve:[[5,20000]]}); renderToner(); });
-document.getElementById("addPart").addEventListener("click",function(){ model.parts.push({name:"Neues Teil",type:"spare",price:0,yield:200000,qty:1,yspread:1,fkt:"print",unit:"rl"}); renderParts(); });
+document.getElementById("addToner").addEventListener("click",function(){ model.toners.push({color:"K",code:"",matCode:"",price:0,qty:1,curve:[[5,20000]]}); renderToner(); });
+document.getElementById("addPart").addEventListener("click",function(){ model.parts.push({name:"Neues Teil",code:"",matCode:"",type:"spare",price:0,yield:200000,qty:1,yspread:1,fkt:"print",unit:"rl"}); renderParts(); });
+
+/* Preisliste: Drop-Zone + Spaltenauswahl */
+var dropPrice=document.getElementById("dropPrice"), priceFile=document.getElementById("priceFile");
+dropPrice.addEventListener("click",function(){priceFile.click();});
+priceFile.addEventListener("change",function(){ if(priceFile.files[0])importPriceList(priceFile.files[0]); });
+["dragenter","dragover"].forEach(function(ev){dropPrice.addEventListener(ev,function(e){e.preventDefault();dropPrice.classList.add("over");});});
+["dragleave","drop"].forEach(function(ev){dropPrice.addEventListener(ev,function(e){e.preventDefault();dropPrice.classList.remove("over");});});
+dropPrice.addEventListener("drop",function(e){ var f=e.dataTransfer.files[0]; if(f)importPriceList(f); });
+document.getElementById("priceColSel").addEventListener("change",matchPrices);
+document.getElementById("codeColSel").addEventListener("change",matchPrices);
 document.getElementById("addVol").addEventListener("click",function(){ model.volumes.push({name:"Volumen",type:"print",colorMode:"K",images:1000,coverage:5,plexity:1,refMul:1}); renderVolumes(); });
 document.getElementById("calcBtn").addEventListener("click",doCalc);
 document.getElementById("viewImg").addEventListener("click",function(){ viewPer1000=false; this.classList.add("on"); document.getElementById("view1000").classList.remove("on"); if(window._lastResult)renderKpis(window._lastResult); });
