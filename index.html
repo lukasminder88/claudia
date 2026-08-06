@@ -62,6 +62,13 @@
   .hint{font-size:11.5px;color:var(--mut);margin-top:6px}
   .chips{display:flex;gap:8px;flex-wrap:wrap;margin-top:4px}
   .chip{background:var(--chip);border:1px solid var(--line);border-radius:16px;padding:4px 10px;font-size:12px}
+  .optgroup{margin-bottom:8px}
+  .optgroup-t{font-size:11px;color:var(--mut);text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px}
+  .optitems{display:flex;gap:6px;flex-wrap:wrap}
+  .optchk{display:inline-flex;align-items:center;gap:3px;background:var(--chip);border:1px solid var(--line);
+    border-radius:8px;padding:3px 8px;font-size:12px;cursor:pointer;user-select:none}
+  .optchk:hover{border-color:var(--acc)}
+  .optchk input{width:auto;margin:0}
   .toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
   /* result */
   .result .big{display:grid;gap:12px;grid-template-columns:1fr 1fr}
@@ -102,21 +109,25 @@
   <!-- ============ LEFT COLUMN ============ -->
   <div class="col">
 
-    <!-- 1 Foliant -->
+    <!-- 1 Gerätebibliothek & Konfiguration -->
     <div class="card">
-      <h2><span class="n">1</span> Foliant laden</h2>
+      <h2><span class="n">1</span> Gerätebibliothek &amp; Konfiguration</h2>
       <div class="body">
-        <div class="drop" id="drop">
-          <b>Foliant-PDF hier ablegen</b> oder klicken zum Auswählen<br>
-          <span class="hint">Liest Maschinen-Kennung, Artikel- und Verbrauchsmaterial-Codes aus der eingebetteten Pandora-Datenbank.</span>
-          <input type="file" id="file" accept="application/pdf" hidden>
+        <div class="grid g2">
+          <label class="f"><span><b>Foliant</b> · aus Bibliothek</span><select id="libFoliant"></select></label>
+          <label class="f"><span><b>Modell</b></span><select id="cfgModel"></select></label>
         </div>
-        <div class="toolbar" style="margin-top:10px">
-          <button class="btn ghost sm" data-preset="c251">Beispiel: bizhub C251i</button>
-          <button class="btn ghost sm" data-preset="4000">Validierung: bizhub 4000i</button>
-          <span id="foliantInfo" class="hint"></span>
+        <div id="cfgOptions" style="margin-top:10px"></div>
+        <div class="toolbar" style="margin-top:12px">
+          <button class="btn green" id="applyConfig">Konfiguration übernehmen ▸</button>
+          <button class="btn ghost sm" id="addFoliantBtn">＋ Foliants hinzufügen</button>
+          <button class="btn ghost sm" id="exportLib">Bibliothek exportieren</button>
+          <button class="btn ghost sm" data-preset="4000">Validierung: 4000i</button>
+          <input type="file" id="foliantFiles" accept="application/pdf" multiple hidden>
         </div>
-        <div class="chips" id="consChips"></div>
+        <div id="libInfo" class="hint" style="margin-top:8px"></div>
+        <div class="chips" id="consChips" style="margin-top:8px"></div>
+        <div class="hint" style="margin-top:6px">Foliants &amp; Preisliste liegen im Ordner <code>foliants/</code>. Vorgeladen aus <code>data/library.js</code> – neu erzeugen mit <code>python3 tools/build-library.py</code> oder direkt hier „Foliants hinzufügen" (bleibt im Browser gespeichert).</div>
       </div>
     </div>
 
@@ -232,6 +243,8 @@
   Beispielwerte – mit echter Preisliste / Foliant-Daten überschreiben.
 </div>
 
+<script src="./data/library.js"></script>
+<script src="./js/abacus-config.js"></script>
 <script src="./js/abacus-engine.js"></script>
 <script>
 /* ---------- pdf.js (für Foliant-Import) -----------------------------------
@@ -549,67 +562,114 @@ function parseCsvTable(xml,tag){
   if(!m)return null; var lines=m[1].split(/[\r\n]+/).filter(function(l){return l.trim();});
   var rows=lines.slice(1).map(function(l){return l.split(";");}); return rows;
 }
-function applyFoliant(pandoraXml, machineName){
-  model = defaults();
-  model._machine = machineName || "Foliant geladen";
-  // consumables -> toner + parts rows
-  var cons = parseCsvTable(pandoraXml,"ConsumableCodes")||[];
-  var toners=[], parts=[];
-  cons.forEach(function(r){
-    var name=(r[0]||"").trim(), mat=(r[1]||"").trim(), desc=(r[2]||"").trim();
-    if(/^TN/i.test(name)){
-      var col = /K$/.test(name)?"K":/C$/.test(name)?"C":/M$/.test(name)?"M":/Y$/.test(name)?"Y":"K";
-      toners.push({color:col,code:name,matCode:mat,price:0,qty:1,curve:[[5, col==="K"?28000:26000]]});
-    } else if(/^DR/i.test(name)){
-      parts.push({name:desc||"Trommel",code:name,matCode:mat,type:"cons",price:0,yield:120000,qty:1,yspread:1,fkt:"print",unit:"rl"});
-    } else if(/^DV/i.test(name)){
-      parts.push({name:desc||"Entwickler",code:name,matCode:mat,type:"cons",price:0,yield:600000,qty:1,yspread:1,fkt:"print",unit:"rl"});
-    } else if(/^WX/i.test(name)){
-      parts.push({name:desc||"Resttonerbox",code:name,matCode:mat,type:"cons",price:0,yield:80000,qty:1,yspread:1,fkt:"print",unit:"rl"});
-    }
-  });
-  // keep only one toner per colour (first)
-  var seen={}; toners=toners.filter(function(t){if(seen[t.color])return false;seen[t.color]=1;return true;});
-  model.toners = toners.length?toners:presetC251().toners;
-  model.parts = parts.length?parts:presetC251().parts;
-  model.volumes=[
-    { name:"S/W-Klick", type:"print", colorMode:"K",    images:2000, coverage:5, plexity:1, refMul:1 },
-    { name:"Farbklick", type:"print", colorMode:"CMYK", images:1000, coverage:5, plexity:1, refMul:1 }
-  ];
-  renderAll();
-  var chips=document.getElementById("consChips");
-  chips.innerHTML="";
-  var codes=parseCsvTable(pandoraXml,"ConsumableCodes")||[];
-  codes.slice(0,14).forEach(function(r){ chips.appendChild(el("span",{class:"chip"}, (r[0]||"").trim())); });
-  document.getElementById("foliantInfo").textContent = toners.length+" Toner, "+parts.length+" Verbrauchspositionen erkannt.";
+/* ---------- Foliant-Daten aus Pandora-XML lesen -------------------------- */
+function tableObjects(xml, tag){
+  var rows = parseCsvTable(xml, tag) || [];
+  return rows.map(function(r){ return { name:(r[0]||"").trim(), code:(r[1]||"").trim(), desc:(r[2]||"").trim() }; });
+}
+function parseFoliantData(pandoraXml, name){
+  var articles = tableObjects(pandoraXml,"ArticleCodes");
+  var consumables = tableObjects(pandoraXml,"ConsumableCodes");
+  var models = articles.filter(function(a){return a.desc==="Mainbody";}).map(function(a){return a.name;});
+  return {
+    id:(name||"foliant").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,""),
+    name:name||"Foliant", file:"", version:"",
+    models:models, articles:articles, consumables:consumables
+  };
+}
+async function parseFoliantPdf(file){
+  var pdfjs=await loadPdfJs();
+  var pdf=await pdfjs.getDocument({data:await file.arrayBuffer()}).promise;
+  var fields=await pdf.getFieldObjects();
+  function grab(n){ return fields[n]&&fields[n][0]?fields[n][0].value:null; }
+  var pandora=grab("Pandora"), topline=grab("Text_TopLine");
+  if(!pandora){
+    for(var p=1;p<=pdf.numPages;p++){ var pg=await pdf.getPage(p); var ann=await pg.getAnnotations();
+      ann.forEach(function(a){ if(a.fieldName==="Pandora"&&a.fieldValue)pandora=a.fieldValue; if(a.fieldName==="Text_TopLine"&&a.fieldValue)topline=a.fieldValue; }); if(pandora)break; }
+  }
+  if(!pandora) throw new Error("Keine Pandora-Daten in "+file.name);
+  var nm=(topline||"").trim()||file.name.replace(/\.pdf$/i,"");
+  var f=parseFoliantData(String(pandora), nm); f.file=file.name; return f;
 }
 
-async function importFoliant(file){
-  var info=document.getElementById("foliantInfo");
-  info.textContent="Lade "+file.name+" …";
-  try{
-    var pdfjs=await loadPdfJs();
-    var buf=await file.arrayBuffer();
-    var pdf=await pdfjs.getDocument({data:buf}).promise;
-    var fields=await pdf.getFieldObjects();
-    var pandora=null, topline=null;
-    function grab(name){ if(fields[name]&&fields[name][0]) return fields[name][0].value; return null; }
-    pandora=grab("Pandora"); topline=grab("Text_TopLine");
-    if(!pandora){
-      // fall back: scan annotations
-      for(var p=1;p<=pdf.numPages;p++){
-        var page=await pdf.getPage(p); var ann=await page.getAnnotations();
-        ann.forEach(function(a){ if(a.fieldName==="Pandora"&&a.fieldValue)pandora=a.fieldValue;
-                                 if(a.fieldName==="Text_TopLine"&&a.fieldValue)topline=a.fieldValue; });
-        if(pandora)break;
-      }
-    }
-    if(!pandora){ info.textContent="Keine Pandora-Daten im PDF gefunden – ist es ein Foliant?"; return; }
-    var machine = (topline||"").trim() || file.name.replace(/\.pdf$/i,"");
-    applyFoliant(String(pandora), machine);
-  }catch(e){
-    info.innerHTML="<span style='color:var(--warn)'>"+e.message+"</span>";
+/* ---------- Bibliothek (Foliants + Preisliste) --------------------------- */
+var LS_KEY="abacus.library.v1";
+var library = loadLibrary();
+function loadLibrary(){
+  try{ var s=localStorage.getItem(LS_KEY); if(s) return JSON.parse(s); }catch(e){}
+  if(window.ABACUS_LIBRARY) return JSON.parse(JSON.stringify(window.ABACUS_LIBRARY));
+  return { generated:"", foliants:[], priceList:null };
+}
+function saveLibrary(){ try{ localStorage.setItem(LS_KEY, JSON.stringify(library)); }catch(e){} }
+function currentFoliant(){ var i=parseInt(document.getElementById("libFoliant").value); return library.foliants[i]||null; }
+
+function renderLibrary(){
+  var sel=document.getElementById("libFoliant"); sel.innerHTML="";
+  if(!library.foliants.length) sel.appendChild(el("option",{},"— keine —"));
+  library.foliants.forEach(function(f,i){ var o=el("option",{}, f.name+(f.version?"  ("+f.version+")":"")); o.value=i; sel.appendChild(o); });
+  renderConfigForFoliant();
+  document.getElementById("libInfo").textContent = library.foliants.length+" Foliant(s) in Bibliothek"+(library.priceList?" · Preisliste: "+library.priceList.file:"")+".";
+}
+function renderConfigForFoliant(){
+  var f=currentFoliant();
+  var mSel=document.getElementById("cfgModel"); mSel.innerHTML="";
+  var opts=document.getElementById("cfgOptions"); opts.innerHTML="";
+  var chips=document.getElementById("consChips"); chips.innerHTML="";
+  if(!f) return;
+  (f.models||[]).forEach(function(m){ var o=el("option",{},m); o.value=m; mSel.appendChild(o); });
+  AbacusConfig.optionList(f).forEach(function(g){
+    var box=el("div",{class:"optgroup"});
+    box.appendChild(el("div",{class:"optgroup-t"}, g.title));
+    var wrap=el("div",{class:"optitems"});
+    g.items.forEach(function(it){
+      var lab=el("label",{class:"optchk",title:(it.desc||it.code)});
+      var cb=el("input",{type:"checkbox"}); cb.value=it.code;
+      lab.appendChild(cb); lab.appendChild(document.createTextNode(" "+it.code));
+      wrap.appendChild(lab);
+    });
+    box.appendChild(wrap); opts.appendChild(box);
+  });
+  (f.consumables||[]).slice(0,16).forEach(function(c){ chips.appendChild(el("span",{class:"chip"}, c.name)); });
+}
+function selectedOptions(){
+  return Array.prototype.slice.call(document.querySelectorAll("#cfgOptions input:checked")).map(function(c){return c.value;});
+}
+function applyConfig(){
+  var f=currentFoliant(); if(!f){ doCalc(); return; }
+  var modelName=document.getElementById("cfgModel").value || (f.models||[])[0];
+  var cfg=AbacusConfig.build(f, modelName, selectedOptions());
+  model.toners=cfg.toners;
+  model.parts=cfg.parts;
+  for(var k in cfg.service) model.service[k]=cfg.service[k];
+  model._machine=cfg.machineLabel;
+  if(!model.volumes || !model.volumes.length){
+    model.volumes=[
+      { name:"S/W-Klick", type:"print", colorMode:"K",    images:2000, coverage:5, plexity:1, refMul:1 },
+      { name:"Farbklick", type:"print", colorMode:"CMYK", images:1000, coverage:5, plexity:1, refMul:1 }
+    ];
   }
+  renderAll();
+  if(priceRows) matchPrices(); else doCalc();
+}
+async function addFoliants(files){
+  var info=document.getElementById("libInfo"); info.textContent="Lese "+files.length+" Datei(en) …";
+  var added=0;
+  for(var i=0;i<files.length;i++){
+    try{
+      var f=await parseFoliantPdf(files[i]);
+      var idx=-1; library.foliants.forEach(function(x,j){ if(x.id===f.id) idx=j; });
+      if(idx>=0) library.foliants[idx]=f; else library.foliants.push(f);
+      added++;
+    }catch(e){ info.innerHTML="<span style='color:var(--warn)'>"+e.message+"</span>"; }
+  }
+  if(added){ saveLibrary(); renderLibrary(); document.getElementById("libFoliant").value=library.foliants.length-1; renderConfigForFoliant();
+    info.textContent=added+" Foliant(s) hinzugefügt & im Browser gespeichert."; }
+}
+function exportLibrary(){
+  var text="/* Abacus-Bibliothek – exportiert. In data/library.js ablegen zum Vorladen. */\nwindow.ABACUS_LIBRARY = "+JSON.stringify(library,null,1)+";\n";
+  var blob=new Blob([text],{type:"application/javascript"});
+  var a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download="library.js"; document.body.appendChild(a); a.click();
+  setTimeout(function(){ URL.revokeObjectURL(a.href); a.remove(); },2000);
 }
 
 /* ---------- Parts-Preisliste (CSV / Excel) importieren -------------------- */
@@ -680,11 +740,12 @@ function fillColSelectors(rows,det){
   }
   opts(pc,det.priceCol); opts(cc,det.codeCol);
 }
-function applyPriceList(rows){
+function applyPriceList(rows, fileName, skipPersist){
   if(!rows||!rows.length){ document.getElementById("priceInfo").textContent="Leere Datei."; return; }
   priceRows=rows;
   var det=autoDetectCols(rows);
   fillColSelectors(rows,det);
+  if(!skipPersist){ library.priceList={ file:fileName||"Preisliste", rows:rows }; saveLibrary(); }
   matchPrices();
 }
 function matchPrices(){
@@ -728,17 +789,17 @@ async function importPriceList(file){
     } else {
       rows=parseCsv(await file.text());
     }
-    applyPriceList(rows);
+    applyPriceList(rows, file.name);
   }catch(e){ info.innerHTML="<span style='color:var(--warn)'>"+e.message+"</span>"; }
 }
 
 /* ---------- wire up UI ---------------------------------------------------- */
-var drop=document.getElementById("drop"), file=document.getElementById("file");
-drop.addEventListener("click",function(){file.click();});
-file.addEventListener("change",function(){ if(file.files[0])importFoliant(file.files[0]); });
-["dragenter","dragover"].forEach(function(ev){drop.addEventListener(ev,function(e){e.preventDefault();drop.classList.add("over");});});
-["dragleave","drop"].forEach(function(ev){drop.addEventListener(ev,function(e){e.preventDefault();drop.classList.remove("over");});});
-drop.addEventListener("drop",function(e){ var f=e.dataTransfer.files[0]; if(f)importFoliant(f); });
+document.getElementById("libFoliant").addEventListener("change",renderConfigForFoliant);
+document.getElementById("applyConfig").addEventListener("click",applyConfig);
+document.getElementById("exportLib").addEventListener("click",exportLibrary);
+var foliantFiles=document.getElementById("foliantFiles");
+document.getElementById("addFoliantBtn").addEventListener("click",function(){foliantFiles.click();});
+foliantFiles.addEventListener("change",function(){ if(foliantFiles.files.length) addFoliants(foliantFiles.files); });
 
 document.querySelectorAll("[data-preset]").forEach(function(b){
   b.addEventListener("click",function(){
@@ -770,9 +831,14 @@ document.getElementById("copyReport").addEventListener("click",function(){
 });
 
 /* ---------- init ---------------------------------------------------------- */
-model._machine="bizhub C251i (Beispiel)";
-renderAll();
-doCalc();
+renderLibrary();
+// Preisliste aus Bibliothek vorladen (falls vorhanden)
+if(library.priceList && library.priceList.rows){
+  applyPriceList(library.priceList.rows, library.priceList.file, true);
+}
+// erstes Foliant automatisch konfigurieren, sonst C251i-Beispiel
+if(library.foliants.length){ applyConfig(); }
+else { model=presetC251(); model._machine="bizhub C251i (Beispiel)"; renderAll(); doCalc(); }
 </script>
 </body>
 </html>

@@ -31,15 +31,39 @@ dem eingebetteten Abacus-JavaScript übernommen** (Funktionen `calcVolumeValues(
 
 ---
 
+## Gerätebibliothek – Foliants im Ordner lassen
+
+Damit du Foliants **nicht bei jedem Start neu laden** musst, gibt es eine
+**Bibliothek**, die beim Öffnen automatisch vorgeladen wird:
+
+- Lege deine Foliant-PDFs und (optional) eine Preisliste in den Ordner **`foliants/`**.
+- Erzeuge einmalig die Bibliotheksdatei:  `python3 tools/build-library.py`
+  → schreibt `data/library.js`, das der Rechner beim Start lädt (offline, jede
+  Browser-Engine).
+- Ab dann sind **alle Foliant-Infos vorgeladen**: In Abschnitt 1 wählst du
+  **Foliant → Modell → Optionen** und klickst **Konfiguration übernehmen**.
+
+Ohne Python geht es auch komplett im Browser: **„＋ Foliants hinzufügen"** liest
+die PDFs direkt ein und speichert die Bibliothek **im Browser** (localStorage) –
+bleibt also über Sitzungen erhalten. Mit **„Bibliothek exportieren"** lädst du
+eine `library.js` herunter, die du nach `data/` legen und einchecken kannst.
+
+### Gerät & Konfiguration
+- **Modell** wählen (z. B. C251i … C751i) → setzt automatisch die passende
+  Toner-/Trommel-/Entwickler-Generation (TN328/TN626/TN715 …) und Richtwerte für
+  die Servicewerte.
+- **Optionen** ankreuzen (Finisher, Locher, Papier, Einzug, Fax) → Finisher fügen
+  z. B. die zugehörige Heftklammer als Verbrauchsposition hinzu.
+- Preise werden – sofern eine Preisliste geladen ist – **automatisch** zugeordnet.
+
+---
+
 ## Benutzung
 
 1. `index.html` im Browser öffnen (Doppelklick genügt).
-2. **Foliant laden** – ein Foliant-PDF ins Feld ziehen. Der Rechner liest automatisch:
-   - die Maschinen-Kennung (z. B. *bizhub C251i/C301i/…/C751i*),
-   - die Toner-Codes (TN…) → Toner-Zeilen,
-   - Trommeln/Entwickler/Resttonerbox (DR…, DV…, WX…) → Verbrauchszeilen.
-
-   *Alternativ* die Buttons **Beispiel: bizhub C251i** oder **Validierung: bizhub 4000i**.
+2. **Gerät konfigurieren** (Abschnitt 1) – Foliant, Modell und Optionen wählen,
+   dann **Konfiguration übernehmen**. Der Foliant liefert Maschinen-Kennung,
+   Toner-Codes (TN…) und Verbrauchsmaterial (DR…, DV…, WX…) vorbelegt.
 3. **Parts-Preisliste laden** (Abschnitt 1b) – **CSV oder Excel (.xlsx)** ins Feld ziehen.
    Der Rechner erkennt die Code- und Preis-Spalte automatisch und ordnet die Preise per
    Artikel- bzw. Materialcode den Toner- und Teile-Zeilen zu. Passt die Auto-Erkennung
@@ -106,10 +130,14 @@ Nachvollziehbar über den Button **„Validierung: bizhub 4000i"** bzw.
 ```
 index.html                     Der Rechner (UI + Verdrahtung)
 js/abacus-engine.js            Rechen-Engine (Abacus-Formeln, framework-frei)
+js/abacus-config.js            Konfigurator: Modell/Optionen -> Toner-/Teile-Vorbelegung
 js/pdf.min.js                  pdf.js – Foliant-Import (lokal gebündelt, offline)
 js/pdf.worker.min.js           pdf.js Worker
 js/xlsx.full.min.js            SheetJS – Excel-Preislisten-Import (lokal gebündelt)
+foliants/                      Ablage für Foliant-PDFs + Preisliste
+data/library.js                Vorgeladene Bibliothek (aus foliants/ erzeugt)
 data/foliant-c251i-seed.json   Aus dem C251i-Foliant extrahierte Artikel-/Verbrauchscodes
+tools/build-library.py         Erzeugt data/library.js aus dem Ordner foliants/
 docs/abacus-analyse.md         Technische Analyse des Abacus (Datenmodell + Formeln)
 test/validate.cjs              Validierung gegen das 4000i-Beispiel (Node)
 ```
