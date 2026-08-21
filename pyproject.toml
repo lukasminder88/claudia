@@ -16,16 +16,17 @@ dependencies = [
 
 [project.optional-dependencies]
 pdf = ["pypdf>=4.0"]
-dev = ["pytest>=7.4"]
+web = ["fastapi>=0.110", "uvicorn[standard]>=0.27", "python-multipart>=0.0.9"]
+dev = ["pytest>=7.4", "httpx>=0.27"]
 
 [project.scripts]
 offerttool = "offerttool.cli:main"
 
 [tool.setuptools]
-packages = ["offerttool", "offerttool.docxutil"]
+packages = ["offerttool", "offerttool.docxutil", "offerttool.web"]
 
 [tool.setuptools.package-data]
-offerttool = ["resources/*.yaml", "resources/*.docx"]
+offerttool = ["resources/*.yaml", "resources/*.docx", "web/static/*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

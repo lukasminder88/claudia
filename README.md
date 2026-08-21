@@ -42,6 +42,89 @@ offerttool generate standort_a.xlsx standort_b.xlsx -o Offerte.docx -c crm.json
 
 ---
 
+## Web-Oberfläche im Firmennetz
+
+Für den Betrieb auf einem internen Server, damit alle Verkäufer die App über
+eine URL erreichen. Die Oberfläche ist eine dünne Hülle um dieselbe Pipeline –
+sie trifft keine eigenen Entscheidungen über den Inhalt der Offerte.
+
+### Mit Docker (empfohlen)
+
+LibreOffice muss auf dem Server liegen, sonst fehlen die Seitenzahlen im
+Inhaltsverzeichnis. Das Image bringt es mit:
+
+```bash
+docker compose up -d          # erreichbar auf http://<server>:8080
+```
+
+`compose.yaml` legt `/tmp` als `tmpfs` an: hochgeladene Kalktools und fertige
+Offerten liegen im Arbeitsspeicher und überleben keinen Neustart.
+
+### Ohne Docker
+
+```bash
+apt-get install libreoffice-writer-nogui poppler-utils
+pip install ".[web]"
+offerttool serve --host 0.0.0.0 --port 8080
+```
+
+Ohne `--host` hört der Server nur auf `127.0.0.1` und ist im Netz nicht
+erreichbar. Ein systemd-Beispiel liegt unter `deploy/offerttool.service`.
+
+### Bedienung
+
+Kalktools hineinziehen, bei mehreren Standorten die Reihenfolge mit den Pfeilen
+setzen — **die Reihenfolge ist die Reihenfolge der Standorte im Dokument**. Die
+CRM-Felder sind freiwillig. „Werte prüfen" zeigt, was gelesen wird, ohne ein
+Dokument zu erzeugen; „Offerte erzeugen" liefert Offerte und Prüfprotokoll zum
+Download.
+
+Bricht der Generator ab, erscheint der Fehlercode im Klartext und es entsteht
+keine Datei.
+
+### Was auf dem Server liegenbleibt
+
+Nichts Dauerhaftes. Kalktools enthalten Marge, CIF und Kundendaten — genau das,
+was die Sperrliste nie ins Dokument lässt. Deshalb:
+
+- Jeder Auftrag lebt in einem eigenen temporären Verzeichnis.
+- Die hochgeladenen Kalktools werden **direkt nach der Generierung** gelöscht.
+- Das Ergebnis bleibt 30 Minuten abholbar und wird dann gelöscht; über den
+  Knopf im Browser oder `DELETE /api/holen/<id>` auch sofort.
+- Beim Herunterfahren des Servers bleibt nichts zurück.
+- Es gibt keine Datenbank, kein Archiv und kein Zugriffsprotokoll mit Inhalten.
+
+Eine Anmeldung bringt die App **nicht** mit. Sie gehört ins interne Netz, nicht
+ins Internet; wer sie weiter öffnen will, stellt einen Reverse Proxy mit
+Authentisierung davor.
+
+### Grenzen
+
+| Grenze | Wert | Wo geändert |
+|---|---|---|
+| Dateigrösse je Kalktool | 15 MB | `MAX_DATEIGROESSE` in `offerttool/web/app.py` |
+| Kalktools je Offerte | 20 | `MAX_DATEIEN` ebenda |
+| Gleichzeitige Generierungen | 2 | `MAX_PARALLEL` in `offerttool/web/jobs.py` |
+| Aufbewahrung des Ergebnisses | 30 Minuten | `LEBENSDAUER_SEKUNDEN` ebenda |
+
+Die Parallelitätsgrenze schützt vor LibreOffice: Schritt 8 startet je Auftrag
+einen eigenen Prozess.
+
+### Schnittstelle
+
+| Weg | Zweck |
+|---|---|
+| `POST /api/pruefen` | gelesene Werte, ohne ein Dokument zu erzeugen |
+| `POST /api/erzeugen` | Offerte erzeugen, liefert Auftragskennung und Zusammenfassung |
+| `GET /api/holen/<id>/offerte` | fertige `.docx` |
+| `GET /api/holen/<id>/protokoll` | Prüfprotokoll |
+| `DELETE /api/holen/<id>` | Ergebnis sofort löschen |
+| `GET /api/gesundheit` | Version, laufende Aufträge, ob Seitenzahlen möglich sind |
+
+Ein Abbruch kommt als HTTP 422 mit `{"fehler": {"code": "E401", …}}`.
+
+---
+
 ## Befehle
 
 | Befehl | Zweck |
@@ -51,6 +134,7 @@ offerttool generate standort_a.xlsx standort_b.xlsx -o Offerte.docx -c crm.json
 | `offerttool check [-t VORLAGE]` | prüft eine Vorlage gegen den Ankerkatalog |
 | `offerttool prepare` | erzeugt die ankerbasierte Vorlage aus den Rohvorlagen |
 | `offerttool mappings` | listet die hinterlegten Kalktool-Versionen |
+| `offerttool serve` | startet die Web-Oberfläche |
 
 Wichtige Optionen von `generate`:
 
@@ -220,7 +304,7 @@ Datei – **nie im Dokument selbst** (Abschnitt 13.3).
 ## Tests
 
 ```bash
-python -m pytest -q      # 74 Tests
+python -m pytest -q      # 89 Tests
 ```
 
 `tests/test_golden_birsfelden.py` prüft den Referenzfall aus Abschnitt 14 Wert für
@@ -231,7 +315,8 @@ finanzierten Positionen 200 und 115, sowie die Abwesenheit von `2’645`, `1’5
 
 `tests/test_pipeline.py` erzeugt vollständige Dokumente (ein Standort, zwei Standorte,
 Kauf) und prüft die Abbruchregeln `E401`, `E402`, `E403`, `E404`, `E413` sowie den
-Determinismus.
+Determinismus. `tests/test_web.py` prüft die Web-Schnittstelle, besonders dass keine
+Kalktools auf dem Server liegenbleiben und ein Abbruch als lesbarer Code ankommt.
 
 ---
 

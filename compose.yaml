@@ -1,0 +1,21 @@
+# Start im Firmennetz:  docker compose up -d
+services:
+  offerttool:
+    build: .
+    image: offerttool:3.0.0
+    restart: unless-stopped
+    ports:
+      # Nur im internen Netz veröffentlichen, nicht ins Internet.
+      - "8080:8080"
+    tmpfs:
+      # Hochgeladene Kalktools und fertige Offerten liegen im Arbeitsspeicher
+      # und überleben einen Neustart des Containers nicht.
+      - /tmp:size=512m
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    deploy:
+      resources:
+        limits:
+          # LibreOffice braucht Luft; zwei Generierungen laufen parallel.
+          memory: 2g

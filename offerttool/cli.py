@@ -64,6 +64,14 @@ def _parser() -> argparse.ArgumentParser:
     i.add_argument("--json", action="store_true", help="Ausgabe als JSON")
 
     sub.add_parser("mappings", help="Verfügbare Kalktool-Versionen auflisten")
+
+    w = sub.add_parser("serve", help="Web-Oberfläche im Firmennetz bereitstellen")
+    w.add_argument("--host", default="127.0.0.1",
+                   help="Adresse; 0.0.0.0 macht die App im Netz erreichbar")
+    w.add_argument("--port", type=int, default=8080)
+    w.add_argument("--workers", type=int, default=1,
+                   help="Anzahl Serverprozesse")
+    w.add_argument("--reload", action="store_true", help="nur für die Entwicklung")
     return p
 
 
@@ -86,6 +94,13 @@ def _dispatch(args) -> int:
     if args.befehl == "prepare":
         from .prepare import prepare
 
+        for pfad in (args.miete, args.kauf):
+            if not pfad.exists():
+                raise OfferteError(
+                    "E101",
+                    f"Rohvorlage nicht gefunden: {pfad}. "
+                    "'prepare' arbeitet auf den Vorlagen im Projektverzeichnis.",
+                )
         out = prepare(args.miete, args.kauf, args.out)
         print(f"Vorlage präpariert und geprüft: {out}")
         return 0
@@ -97,6 +112,8 @@ def _dispatch(args) -> int:
         return 0
     if args.befehl == "inspect":
         return _inspect(args)
+    if args.befehl == "serve":
+        return _serve(args)
     if args.befehl == "mappings":
         for version, pfad in available_mappings().items():
             print(f"{version}\t{pfad.name}")
@@ -126,6 +143,41 @@ def _generate(args) -> int:
             print(f"  {w}")
     else:
         print("Warnungen:    keine")
+    return 0
+
+
+def _serve(args) -> int:
+    try:
+        import uvicorn
+    except ImportError:
+        print(
+            "Die Web-Oberfläche braucht zusätzliche Pakete:\n"
+            '    pip install "offerttool[web]"',
+            file=sys.stderr,
+        )
+        return 3
+
+    from .docxutil.toc import soffice_verfuegbar
+
+    if not STANDARD_VORLAGE.exists():
+        raise OfferteError("E101", f"Vorlage nicht gefunden: {STANDARD_VORLAGE}")
+    if not soffice_verfuegbar():
+        log.warning(
+            "LibreOffice (soffice) nicht gefunden – das Inhaltsverzeichnis "
+            "entsteht ohne Seitenzahlen (W321)."
+        )
+
+    print(f"Offerttool auf http://{args.host}:{args.port}")
+    if args.host == "127.0.0.1":
+        print("Nur lokal erreichbar. Für das Firmennetz: --host 0.0.0.0")
+    uvicorn.run(
+        "offerttool.web.app:app",
+        host=args.host,
+        port=args.port,
+        workers=args.workers if not args.reload else 1,
+        reload=args.reload,
+        log_level="info" if args.verbose else "warning",
+    )
     return 0
 
 

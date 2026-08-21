@@ -1,0 +1,30 @@
+# Betrieb ohne Container, direkt auf einem Linux-Server.
+#   sudo cp deploy/offerttool.service /etc/systemd/system/
+#   sudo systemctl enable --now offerttool
+#
+# Voraussetzungen auf dem Server:
+#   apt-get install python3-venv libreoffice-writer-nogui poppler-utils
+#   python3 -m venv /opt/offerttool/venv
+#   /opt/offerttool/venv/bin/pip install "/opt/offerttool/quelle[web]"
+[Unit]
+Description=Offerttool V3 – Offerte aus Kalktool
+After=network.target
+
+[Service]
+Type=exec
+User=offerttool
+Group=offerttool
+Environment=HOME=/tmp
+ExecStart=/opt/offerttool/venv/bin/offerttool serve --host 0.0.0.0 --port 8080
+Restart=on-failure
+RestartSec=5
+
+# Die App schreibt nur in temporäre Verzeichnisse.
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+NoNewPrivileges=true
+MemoryMax=2G
+
+[Install]
+WantedBy=multi-user.target
