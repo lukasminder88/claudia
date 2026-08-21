@@ -103,7 +103,7 @@ erfolgt automatisch über `KM!C1` (`"Version: Q4 2025"`).
 Der Generator adressiert ausschliesslich über `w:tag` von Inhaltssteuerelementen –
 nie über Textsuche. Die gelieferten Dateien `Offerte_deCH_Miete.docx` und
 `Offerte_deCH_Kauf.docx` sind ausgefüllte Beispieldokumente **ohne** solche Anker.
-`offerttool prepare` erzeugt daraus einmalig `templates/Offerte_anchored.docx`:
+`offerttool prepare` erzeugt daraus einmalig `offerttool/resources/Offerte_anchored.docx`:
 
 - setzt die 24 Anker aus Abschnitt 3.2,
 - reduziert jede Tabelle auf Kopfzeile und **eine** Musterzeile (Abschnitt 10.1),
@@ -117,13 +117,13 @@ nie über Textsuche. Die gelieferten Dateien `Offerte_deCH_Miete.docx` und
 Die unvermeidbare Strukturerkennung passiert damit **offline, überprüfbar und genau
 einmal**. Jede Suche in `prepare.py` ist eine Behauptung: trifft sie nicht zu, bricht
 die Präparation mit `E101` ab – eine geänderte Vorlage schlägt hier auf, nicht später
-still im fertigen Dokument. `templates/Offerte_anchored.docx` ist eingecheckt;
+still im fertigen Dokument. `offerttool/resources/Offerte_anchored.docx` ist eingecheckt;
 `tests/test_template.py` prüft, dass eine frische Präparation dieselbe Struktur ergibt.
 
 Die ausgelieferte Vorlage neu erzeugen:
 
 ```bash
-offerttool prepare        # schreibt templates/Offerte_anchored.docx und prüft sie
+offerttool prepare        # schreibt offerttool/resources/Offerte_anchored.docx und prüft sie
 offerttool check          # prüft sie erneut gegen den Ankerkatalog
 ```
 

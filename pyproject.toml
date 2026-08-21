@@ -25,7 +25,7 @@ offerttool = "offerttool.cli:main"
 packages = ["offerttool", "offerttool.docxutil"]
 
 [tool.setuptools.package-data]
-offerttool = ["resources/*.yaml"]
+offerttool = ["resources/*.yaml", "resources/*.docx"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

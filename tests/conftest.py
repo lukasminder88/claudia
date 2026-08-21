@@ -8,7 +8,7 @@ ROOT = Path(__file__).resolve().parent.parent
 KALKTOOL = ROOT / "examples" / "Kalktool_Birsfelden_C3351i.xlsx"
 CRM_JSON = ROOT / "examples" / "crm_birsfelden.json"
 MAPPING = ROOT / "offerttool" / "resources" / "mapping_q4_2025.yaml"
-VORLAGE = ROOT / "templates" / "Offerte_anchored.docx"
+VORLAGE = ROOT / "offerttool" / "resources" / "Offerte_anchored.docx"
 ROH_MIETE = ROOT / "templates" / "Offerte_deCH_Miete.docx"
 ROH_KAUF = ROOT / "templates" / "Offerte_deCH_Kauf.docx"
 

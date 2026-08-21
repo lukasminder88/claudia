@@ -17,11 +17,15 @@ import sys
 from pathlib import Path
 
 from .errors import OfferteError
-from .mapping import available_mappings
+from .mapping import RESOURCES, available_mappings
 
-STANDARD_VORLAGE = Path(__file__).resolve().parent.parent / "templates" / "Offerte_anchored.docx"
-STANDARD_MIETE = Path(__file__).resolve().parent.parent / "templates" / "Offerte_deCH_Miete.docx"
-STANDARD_KAUF = Path(__file__).resolve().parent.parent / "templates" / "Offerte_deCH_Kauf.docx"
+# Die ankerbasierte Vorlage wird als Paketdatei mitgeliefert und ist damit auch
+# nach einem gewöhnlichen ``pip install`` auffindbar.  Die beiden Rohvorlagen
+# sind nur Eingaben für ``prepare`` und liegen im Repository.
+STANDARD_VORLAGE = RESOURCES / "Offerte_anchored.docx"
+_REPO_TEMPLATES = Path(__file__).resolve().parent.parent / "templates"
+STANDARD_MIETE = _REPO_TEMPLATES / "Offerte_deCH_Miete.docx"
+STANDARD_KAUF = _REPO_TEMPLATES / "Offerte_deCH_Kauf.docx"
 
 log = logging.getLogger("offerttool")
 
@@ -102,6 +106,9 @@ def _dispatch(args) -> int:
 
 def _generate(args) -> int:
     from .pipeline import generiere
+
+    if not args.template.exists():
+        raise OfferteError("E101", f"Vorlage nicht gefunden: {args.template}")
 
     ergebnis = generiere(
         args.kalktools,
