@@ -1,0 +1,127 @@
+# Vollständiges Mapping für Kalktool-Version "Q4 2025".
+# Im Code steht keine einzige Zelladresse (Spezifikation V3, Abschnitt 2.4/15).
+version: "Q4 2025"
+version_cell: "KM!C1"
+
+sheets:
+  KM:  {index: 0, expect_name: "KM - Système couleur "}
+  SOL: {index: 1, expect_name: "Détail Solutions"}
+
+fields:
+  kunde.firma:            {cell: "KM!B5",   type: TXT,  fmt: trim,                  req: M}
+  kunde.strasse:          {cell: "KM!D5",   type: TXT,  fmt: trim,                  req: M}
+  kunde.plz_ort_roh:      {cell: "KM!G5",   type: TXT,  fmt: parse_plz_ort,         req: M}
+  kunde.nr:               {cell: "KM!J3",   type: TXT,  fmt: trim,                  req: O}
+  kunde.kontakt_roh:      {cell: "KM!J5",   type: TXT,  fmt: parse_kontakt,         req: W}
+  standort.name:          {cell: "KM!B7",   type: TXT,  fmt: trim,                  req: M}
+  standort.strasse:       {cell: "KM!D7",   type: TXT,  fmt: trim,                  req: M}
+  standort.plz_ort_roh:   {cell: "KM!G7",   type: TXT,  fmt: parse_plz_ort,         req: M}
+  vk.name:                {cell: "KM!B3",   type: TXT,  fmt: trim,                  req: M}
+  vk.nr:                  {cell: "KM!E3",   type: TXT,  fmt: trim,                  req: O}
+  verkaufschance:         {cell: "KM!M8",   type: TXT,  fmt: trim,                  req: M}
+  datum:                  {cell: "KM!M9",   type: DATE, fmt: date_de,               req: M}
+  kalktool.version:       {cell: "KM!C1",   type: TXT,  fmt: trim,                  req: M}
+  finanzierungsart:       {cell: "KM!I16",  type: ENUM, values: [1, 2, 3, 4, 5],     req: M}
+  laufzeit:               {cell: "KM!J16",  type: INT,  fmt: monate,                req: M}
+  fakt.pauschale:         {cell: "KM!M15",  type: TXT,  fmt: trim,                  req: M}
+  fakt.mehrseiten:        {cell: "KM!M16",  type: TXT,  fmt: trim,                  req: M}
+  fakt.gebuehren:         {cell: "KM!L98",  type: TXT,  fmt: trim,                  req: O}
+  vertragsbeginn_roh:     {cell: "KM!A100", type: TXT,  fmt: parse_vertragsbeginn,  req: W}
+  anlieferungsart:        {cell: "KM!C96",  type: TXT,  fmt: trim,                  req: O}
+  business.type:          {cell: "KM!A15",  type: TXT,  fmt: trim,                  req: O}
+  business.subtype:       {cell: "KM!A16",  type: TXT,  fmt: trim,                  req: O}
+  sla.type:               {cell: "KM!J58",  type: TXT,  fmt: trim,                  req: O}
+  sla.preis:              {cell: "KM!M58",  type: CUR,  fmt: chf,                   req: O}
+  grundpauschale:         {cell: "KM!M59",  type: CUR,  fmt: chf,                   req: O}
+  volumen.sw:             {cell: "KM!H56",  type: INT,  fmt: int_ch,                req: M}
+  preis.sw:               {cell: "KM!H59",  type: RATE, fmt: rate,                  req: M}
+  volumen.color:          {cell: "KM!H61",  type: INT,  fmt: int_ch,                req: M}
+  preis.color:            {cell: "KM!H64",  type: RATE, fmt: rate,                  req: M}
+  volumen.scan:           {cell: "KM!H66",  type: INT,  fmt: int_ch,                req: O}
+  preis.scan:             {cell: "KM!H69",  type: RATE, fmt: rate,                  req: O}
+  fleet.level:            {cell: "KM!J64",  type: TXT,  fmt: trim,                  req: O}
+  fleet.preis:            {cell: "KM!M64",  type: CUR,  fmt: chf,                   req: O}
+  zaehlerversand:         {cell: "KM!C10",  type: TXT,  fmt: trim,                  req: O}
+  service.solution:       {cell: "KM!L93",  type: CUR,  fmt: chf,                   req: O}
+  service.geraet:         {cell: "KM!L94",  type: CUR,  fmt: chf,                   req: M}
+  pauschale_ohne_service: {cell: "KM!L92",  type: CUR,  fmt: chf, req: M, only: [MIETE, LEASING]}
+  monatspauschale_total:  {cell: "KM!L95",  type: CUR,  fmt: chf, req: M, only: [MIETE, LEASING]}
+  summenlabel:            {cell: "KM!H92",  type: TXT,  fmt: trim, req: M, only: [MIETE, LEASING]}
+  netto_verkaufspreis:    {cell: "KM!C59",  type: CUR,  fmt: chf, req: M, only: [KAUF]}
+  restwert_altvertrag:    {cell: "KM!C60",  type: CUR,  fmt: chf, req: O}
+  dl_eingerechnet:        {cell: "KM!C61",  type: CUR,  fmt: chf, req: O}
+  vertragswert:           {cell: "KM!C62",  type: CUR,  fmt: chf, req: M, only: [KAUF]}
+
+# Zellen, die nur für Ableitungen und Prüfungen gelesen werden.
+probes:
+  stueck_summe:      "KM!C53"
+  solutions.sw_tot:  "SOL!E39"
+  solutions.mnt_tot: "SOL!E57"
+  solutions.dl_tot:  "SOL!H71"
+  divzero.hw:        "KM!H32"
+  divzero.sw:        "KM!H39"
+
+lists:
+  hardware:
+    range: "KM!A27:E52"
+    cols: {bezeichnung: A, listenpreis: C}
+    skip_if: ["bezeichnung leer", "bezeichnung == 'Support :'"]
+    stueck_fix: 1
+    stueck_check: "KM!C53 == sum(KM!C27:C52)"
+  dienstleistung:
+    range: "KM!A72:D93"
+    layout: paired          # Zeile n = Label, Zeile n+1 = Werte
+    cols: {verrechnet: A, finanziert: B, total: C, amortisation: D}
+    use_col: verrechnet
+    skip_if: ["verrechnet <= 0"]
+    label_fmt: label_clean
+    label_override:
+      "Wegpauschale - I n t e g r a t i o n - Netzwerk - Fax - Scan - LDAP":
+        "Wegpauschale – Integration Netzwerk / Fax / Scan / LDAP"
+      "I n t e g r a t i o n - Netzwerk": "Integration Netzwerk"
+      "I n t e g r a t i o n - Fax": "Integration Fax"
+      "LDAP - C O N F I G U R A T I O N": "LDAP-Konfiguration"
+      "T r a n s p o r t": "Transport"
+  solutions.sw:
+    range: "SOL!A21:H38"
+    cols: {anzahl: A, artnr: B, bezeichnung: C, netto: H}
+    skip_if: ["bezeichnung leer", "netto <= 0"]
+  solutions.maint:
+    range: "SOL!A43:H56"
+    cols: {anzahl: A, artnr: B, bezeichnung: C, netto: H}
+    skip_if: ["bezeichnung leer", "netto <= 0"]
+  solutions.dl:
+    range: "SOL!A61:H71"
+    cols: {stunden: A, artnr: B, bezeichnung: C, preis_std: G, total: H}
+    skip_if: ["bezeichnung leer", "total <= 0"]
+
+# Sperrliste (Abschnitt 13.2): nie lesen, nie ausgeben.
+# Ausnahme KM!C53: darf zur Plausibilisierung gelesen, aber nicht ausgegeben werden.
+blocked:
+  - "KM!D27:E52"
+  - "KM!C53"
+  - "KM!E53"
+  - "KM!B54:E58"
+  - "KM!C57"
+  - "KM!B63:B67"
+  - "KM!E21"
+  - "KM!H83:M90"
+  - "KM!J72:M78"
+  - "KM!G32"
+  - "KM!G39"
+  - "SOL!F1:F91"
+  - "SOL!G1:G91"
+
+blocked_readable:
+  - "KM!C53"
+
+styles:
+  heading_standort:    Heading3
+  adresszeile:         "05Klein"
+  nachweis:            "05Klein"
+  tabelle_liste:       graphax11
+  tabelle_summe:       graphax100
+  tabelle_service:     graphax1000
+  tabelle_konditionen: graphax20
+  tbllook_liste:       "04A0"
+  tbllook_summe:       "04E0"
