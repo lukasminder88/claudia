@@ -10,3 +10,5 @@ venv/
 # Erzeugte Offerten und Prüfprotokolle
 *.pruefprotokoll.md
 /out/
+node_modules/
+dist/

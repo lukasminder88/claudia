@@ -42,6 +42,65 @@ offerttool generate standort_a.xlsx standort_b.xlsx -o Offerte.docx -c crm.json
 
 ---
 
+## Browser-Fassung (Offline-PoC)
+
+Eine **einzelne HTML-Datei**, die per Doppelklick funktioniert – ohne Python,
+ohne Installation, ohne Server und ohne Netzwerk. Die Offerte entsteht
+vollständig im Browser; weder Kalktool noch Offerte verlassen den Rechner.
+
+```bash
+python tools/browser_bauen.py --test    # dist/Offerttool.html und dist/Pruefung.html
+python tools/offline_paket.py           # dist/Offerttool-PoC.zip zum Weitergeben
+```
+
+Das ZIP enthält `Offerttool.html`, ein Beispiel-Kalktool und eine Kurzanleitung.
+Voraussetzung ist nur ein aktueller Browser: Chrome/Edge ab 103, Firefox ab 113,
+Safari ab 16.4 – dort gibt es `DecompressionStream`, mit dem sich ein `.xlsx`
+ohne Fremdbibliothek entpacken lässt. Ältere Browser meldet die Seite beim Öffnen.
+
+### Aufbau
+
+`file://` blockiert ES-Module, deshalb muss für den Doppelklick alles in einer
+Datei liegen. Entwickelt wird trotzdem getrennt unter `browser/src/`; das
+Ladepräfix im Dateinamen bestimmt die Reihenfolge, `tools/browser_bauen.py`
+fügt zusammen.
+
+| Datei | Inhalt |
+|---|---|
+| `10-zip.js` | ZIP lesen und schreiben über `DecompressionStream` |
+| `11-xlsx.js` | Kalktool lesen (nur Zellwerte, wie `data_only=True`) |
+| `20-formatters.js`, `21-parsers.js` | Abschnitte 7 und 6 |
+| `30-mapping.js` | **erzeugt** aus `mapping_q4_2025.yaml` |
+| `31-extract.js` … `43-toc.js` | Abschnitte 4, 5, 8, 10, 12, 13 |
+| `50-vorlage.js` | **erzeugt**: die ankerbasierte Vorlage als Base64 |
+| `60-app.js` | Oberfläche |
+
+Die beiden erzeugten Dateien schreibt `tools/browser_daten.py`; sie werden nicht
+von Hand bearbeitet. Mapping und Vorlage haben damit **eine** Quelle, die beide
+Fassungen teilen.
+
+### Zwei Implementierungen
+
+Die Regeln liegen jetzt in Python **und** in JavaScript vor. Für einen PoC ist
+das vertretbar, produktiv ist es eine Quelle für Abweichungen. Abgesichert wird
+das über denselben Golden Record: `browser/test/golden.js` prüft 83 Punkte im
+Browser, gestartet über `dist/Pruefung.html` oder `npm run pruefen`.
+`tests/test_browser.py` prüft zusätzlich, dass Mapping, Vorlage und Einzeldatei
+aktuell sind und dass die Seite nichts nachlädt.
+
+Der Fliesstext beider Fassungen wurde für den Referenzfall Zeichen für Zeichen
+verglichen – 112 Absätze, kein Unterschied.
+
+### Was die Browser-Fassung nicht kann
+
+**Seitenzahlen im Inhaltsverzeichnis** vorausberechnen: dafür bräuchte es einen
+PDF-Rendervorgang. Das Verzeichnis wird vollständig neu aufgebaut und richtig
+nummeriert (Abschnitt 12.1, Schritte 1–3, 5 und 6); nur die Zahlen trägt Word
+beim Öffnen selbst nach, weil `updateFields` gesetzt ist. Die Fassung meldet
+deshalb immer `W321`.
+
+---
+
 ## Web-Oberfläche im Firmennetz
 
 Für den Betrieb auf einem internen Server, damit alle Verkäufer die App über
@@ -304,7 +363,7 @@ Datei – **nie im Dokument selbst** (Abschnitt 13.3).
 ## Tests
 
 ```bash
-python -m pytest -q      # 89 Tests
+python -m pytest -q      # 94 Tests
 ```
 
 `tests/test_golden_birsfelden.py` prüft den Referenzfall aus Abschnitt 14 Wert für
@@ -317,6 +376,8 @@ finanzierten Positionen 200 und 115, sowie die Abwesenheit von `2’645`, `1’5
 Kauf) und prüft die Abbruchregeln `E401`, `E402`, `E403`, `E404`, `E413` sowie den
 Determinismus. `tests/test_web.py` prüft die Web-Schnittstelle, besonders dass keine
 Kalktools auf dem Server liegenbleiben und ein Abbruch als lesbarer Code ankommt.
+`tests/test_browser.py` deckt die Browser-Fassung ab und startet deren Golden
+Record in einem echten Browser.
 
 ---
 

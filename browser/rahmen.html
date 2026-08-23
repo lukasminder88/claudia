@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="de-CH">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Offerttool – Offerte aus Kalktool</title>
+<style>/*STIL*/</style>
+</head>
+<body>
+
+<header class="kopf">
+  <div class="kopf-inhalt">
+    <div>
+      <h1>Offerttool</h1>
+      <p class="untertitel">Offerte aus dem Kalktool – regelbasiert, ohne KI</p>
+    </div>
+    <div class="status" id="status" aria-live="polite"></div>
+  </div>
+</header>
+
+<main class="raster" id="raster">
+
+  <section class="spalte" aria-labelledby="h-eingabe">
+    <h2 id="h-eingabe">1 · Kalktools</h2>
+
+    <p class="offline-hinweis">
+      Diese Seite rechnet vollständig im Browser. Es werden keine Daten übertragen
+      und keine Datei verlässt diesen Rechner.
+    </p>
+
+    <div id="ablage" class="ablage" tabindex="0" role="button" aria-describedby="ablage-hinweis">
+      <svg viewBox="0 0 24 24" aria-hidden="true" class="ablage-symbol">
+        <path d="M12 16V4m0 0L8 8m4-4 4 4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/>
+      </svg>
+      <p class="ablage-text">Kalktool hierher ziehen oder klicken</p>
+      <p id="ablage-hinweis" class="ablage-hinweis">.xlsx – ein Kalktool je Standort</p>
+      <input type="file" id="dateiwahl" accept=".xlsx,.xlsm" multiple hidden>
+    </div>
+
+    <ol id="liste" class="liste" aria-label="Gewählte Kalktools in Reihenfolge der Standorte"></ol>
+    <p id="reihenfolge-hinweis" class="hinweis versteckt">
+      Die Reihenfolge ist die Reihenfolge der Standorte im Dokument.
+    </p>
+
+    <h2>2 · Angaben aus dem CRM <span class="freiwillig">freiwillig</span></h2>
+    <p class="hinweis">
+      Leer gelassene Felder erzeugen keine leere Zeile im Dokument. Fehlt die
+      Offertnummer, tritt die Verkaufschance an ihre Stelle.
+    </p>
+
+    <div class="felder">
+      <label>Offertnummer <input id="offertnummer" placeholder="OF-2026-04768"></label>
+      <label>Version <input id="offertversion" placeholder="1.0"></label>
+      <label>Anrede <input id="anrede" placeholder="Herr"></label>
+      <label>Vorname <input id="vorname" placeholder="Tom"></label>
+      <label>Nachname <input id="nachname" placeholder="Wiedmer"></label>
+      <label class="breit">Funktion Verkauf <input id="vk_funktion" placeholder="Account Manager"></label>
+      <label class="breit">E-Mail Verkauf <input id="vk_email" type="email" placeholder="vorname.name@graphax.ch"></label>
+      <label class="breit">Direktwahl Verkauf <input id="vk_telefon" placeholder="+41 58 551 11 22"></label>
+    </div>
+
+    <div class="knopfleiste">
+      <button id="pruefen" class="knopf zweitrangig" disabled>Werte prüfen</button>
+      <button id="erzeugen" class="knopf" disabled>Offerte erzeugen</button>
+    </div>
+  </section>
+
+  <section class="spalte" aria-labelledby="h-ergebnis" aria-live="polite">
+    <h2 id="h-ergebnis">Ergebnis</h2>
+    <div id="ergebnis">
+      <p class="leer">Noch nichts erzeugt. Links ein Kalktool wählen.</p>
+    </div>
+  </section>
+
+</main>
+
+<footer class="fuss">
+  <span>Alle Beträge netto, exklusive MWST und vRB.</span>
+  <span id="fuss-status"></span>
+</footer>
+
+<script>/*SKRIPT*/</script>
+</body>
+</html>
