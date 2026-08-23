@@ -1,0 +1,16 @@
+{
+  "crm": {
+    "offertnummer": "OF-2026-04768",
+    "offertversion": "1.0",
+    "kontakt": {
+      "anrede": "Herr",
+      "vorname": "Tom",
+      "nachname": "Wiedmer"
+    },
+    "vk": {
+      "funktion": "Account Manager",
+      "email": "thomas.steiner@graphax.ch",
+      "telefon": "+41 58 551 11 22"
+    }
+  }
+}

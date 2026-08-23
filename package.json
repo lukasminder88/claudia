@@ -1,0 +1,13 @@
+{
+  "name": "offerttool-browser",
+  "version": "3.0.0",
+  "private": true,
+  "description": "Prüfläufe der Browser-Fassung; für die Auslieferung wird nichts davon gebraucht.",
+  "scripts": {
+    "pruefen": "node tools/browser_pruefen.mjs",
+    "bauen": "python3 tools/browser_bauen.py --test && python3 tools/offline_paket.py"
+  },
+  "devDependencies": {
+    "playwright": "^1.40.0"
+  }
+}
