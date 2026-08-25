@@ -1,0 +1,90 @@
+# ============================================================================
+# Minder Product Management — Serverkonfiguration (Apache, z. B. Hostpoint)
+# ----------------------------------------------------------------------------
+# Diese Datei gehoert ins Document-Root der Website, also neben index.html.
+# Sie ist rein statisch: keine Umschreibregeln fuer die URLs noetig, weil
+# jede Seite als index.html in einem eigenen Verzeichnis liegt.
+# ============================================================================
+
+AddDefaultCharset UTF-8
+DirectoryIndex index.html
+
+# Kein Verzeichnislisting, wenn einmal ein index.html fehlt
+Options -Indexes
+
+# Eigene Fehlerseite
+ErrorDocument 404 /404.html
+
+
+# ----------------------------------------------------------------------------
+# 1  Kanonische Adresse: immer HTTPS, immer ohne www
+# ----------------------------------------------------------------------------
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+
+  # www.minder-productmanagement.ch -> minder-productmanagement.ch
+  RewriteCond %{HTTP_HOST} ^www\.(.+)$ [NC]
+  RewriteRule ^ https://%1%{REQUEST_URI} [R=301,L]
+
+  # http -> https. Die zweite Bedingung verhindert eine Endlosschleife,
+  # falls die Verschluesselung bereits vorgelagert abgeschlossen wurde.
+  RewriteCond %{HTTPS} !=on
+  RewriteCond %{HTTP:X-Forwarded-Proto} !=https
+  RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [R=301,L]
+</IfModule>
+
+
+# ----------------------------------------------------------------------------
+# 2  Zwischenspeicherung im Browser
+#    Schriften und Bilder aendern sich nie, HTML immer, CSS und JS gelegentlich.
+#    Nach einer Aenderung an style.css oder site.js sehen wiederkehrende
+#    Besucher die neue Fassung spaetestens nach einer Woche. Wer sie sofort
+#    ausliefern will, haengt in den HTML-Dateien ein ?v=2 an den Dateinamen.
+# ----------------------------------------------------------------------------
+<IfModule mod_expires.c>
+  ExpiresActive On
+  ExpiresDefault                        "access plus 1 week"
+  ExpiresByType text/html               "access plus 0 seconds"
+  ExpiresByType text/css                "access plus 1 week"
+  ExpiresByType application/javascript  "access plus 1 week"
+  ExpiresByType font/woff2              "access plus 1 year"
+  ExpiresByType image/png               "access plus 1 year"
+  ExpiresByType image/svg+xml           "access plus 1 year"
+  ExpiresByType application/xml         "access plus 1 day"
+</IfModule>
+
+
+# ----------------------------------------------------------------------------
+# 3  Komprimierung. woff2 und png sind bereits komprimiert und bleiben aussen vor.
+# ----------------------------------------------------------------------------
+<IfModule mod_deflate.c>
+  AddOutputFilterByType DEFLATE text/html text/plain text/css text/xml
+  AddOutputFilterByType DEFLATE application/javascript application/xml
+  AddOutputFilterByType DEFLATE image/svg+xml
+</IfModule>
+
+
+# ----------------------------------------------------------------------------
+# 4  Sicherheitskopfzeilen
+#    Die Website laedt ausschliesslich eigene Dateien — keine CDN, keine
+#    Fremdschriften, keine Tracker. Die Richtlinie schreibt das fest.
+# ----------------------------------------------------------------------------
+<IfModule mod_headers.c>
+  Header always set X-Content-Type-Options "nosniff"
+  Header always set Referrer-Policy "strict-origin-when-cross-origin"
+  Header always set X-Frame-Options "SAMEORIGIN"
+  Header always set Permissions-Policy "geolocation=(), microphone=(), camera=()"
+  Header always set Content-Security-Policy "default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; font-src 'self'; connect-src 'self'; form-action 'self'; frame-ancestors 'self'; base-uri 'self'; object-src 'none'"
+
+  # HSTS erst einschalten, wenn HTTPS ueber Wochen stabil laeuft — die
+  # Angabe laesst sich im Browser der Besucher nicht mehr zuruecknehmen.
+  # Header always set Strict-Transport-Security "max-age=31536000"
+</IfModule>
+
+
+# ----------------------------------------------------------------------------
+# 5  Versteckte Dateien nicht ausliefern
+# ----------------------------------------------------------------------------
+<FilesMatch "^\.">
+  Require all denied
+</FilesMatch>

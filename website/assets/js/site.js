@@ -17,14 +17,18 @@
   /* =========================================================================
      KONFIGURATION
      -------------------------------------------------------------------------
-     FORM_ENDPOINT: URL eines Formulardienstes (z. B. Formspree, Netlify Forms
-     oder ein eigener Handler), der ein JSON-POST entgegennimmt.
-     Solange der Wert leer ist, oeffnet das Formular eine vorausgefuellte
-     E-Mail an die unten hinterlegte Adresse. Zum Aktivieren genuegt es, hier
-     die Ziel-URL einzutragen — am Markup aendert sich nichts.
+     FORM_ENDPOINT: Adresse, die den Formularinhalt als JSON entgegennimmt.
+     Voreingestellt ist der mitgelieferte Handler api/kontakt.php, der auf
+     dem eigenen Hosting laeuft. Alternativ laesst sich hier die URL eines
+     Formulardienstes eintragen; ein leerer Wert schaltet den Handler ab.
+
+     Antwortet der Handler nicht — weil er fehlt, PHP abgeschaltet ist oder
+     der Server streikt —, oeffnet das Formular ersatzweise eine
+     vorausgefuellte E-Mail an CONTACT_MAIL. Eine Anfrage geht also in
+     keinem Fall verloren.
      ========================================================================= */
 
-  var FORM_ENDPOINT = ""; // z. B. "https://formspree.io/f/xxxxxxxx"
+  var FORM_ENDPOINT = "/api/kontakt.php";
   var CONTACT_MAIL = "lukas@minder-productmanagement.ch";
 
   /* =========================================================================
@@ -195,7 +199,10 @@
         firma: (form.elements.firma || {}).value || "",
         email: (form.elements.email || {}).value || "",
         telefon: (form.elements.telefon || {}).value || "",
-        situation: (form.elements.situation || {}).value || ""
+        situation: (form.elements.situation || {}).value || "",
+        /* Immer leer — der Server verwirft die Anfrage, falls doch etwas
+           darin steht, und prueft damit unabhaengig vom Browser. */
+        website: (form.elements.website || {}).value || ""
       };
 
       /** Blendet das Formular aus und die Bestaetigung ein. */

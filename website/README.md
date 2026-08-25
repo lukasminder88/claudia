@@ -25,6 +25,9 @@ website/
 ├── kontakt/index.html            Kontakt mit Formular
 ├── impressum/index.html          Vorlage, Inhalt folgt vor dem Launch
 ├── datenschutz/index.html        Vorlage, Inhalt folgt vor dem Launch
+├── 404.html                      Fehlerseite
+├── .htaccess                     Apache: HTTPS, Caching, Sicherheitskopfzeilen
+├── api/kontakt.php               Formular-Handler (versendet die Anfrage)
 ├── robots.txt
 ├── sitemap.xml
 └── assets/
@@ -53,37 +56,127 @@ python3 -m http.server 8000
 
 ---
 
-## Veröffentlichen
+## Veröffentlichen auf Hostpoint
 
-Den gesamten Inhalt von `website/` in das Wurzelverzeichnis der Domain
-kopieren (FTP, rsync, Git-Deploy). Es ist kein Node, kein PHP und keine
-Datenbank nötig. Empfohlene Servereinstellungen:
+Es braucht kein Node, keine Datenbank und keinen Build-Schritt. Die Dateien
+werden hochgeladen, fertig. PHP wird nur für das Kontaktformular benötigt.
 
-- HTTPS erzwingen, `www` auf die Hauptdomain umleiten
-- `.woff2` und Bilder mit langer Cache-Dauer ausliefern, HTML ohne Cache
-- 404 auf die Startseite oder eine eigene Fehlerseite leiten
+### 1 · Website im Control Panel anlegen
+
+Control Panel → **Websites** → Website für `minder-productmanagement.ch`
+erstellen. Hostpoint legt dabei automatisch das passende Verzeichnis an.
+Der Pfad steht danach in der Spalte **Document-Root** und lautet in der
+Regel:
+
+```
+/home/<benutzername>/www/minder-productmanagement.ch/
+```
+
+### 2 · Dateien hochladen
+
+Der **gesamte Inhalt** von `website/` kommt in dieses Verzeichnis — der
+Ordner `website` selbst nicht. Im Document-Root muss also `index.html`
+direkt liegen, daneben `assets/`, `api/`, `.htaccess` und die
+Seitenverzeichnisse.
+
+Per SFTP (FileZilla, Cyberduck, Transmit) — Zugangsdaten stehen im Control
+Panel unter «Zusatzeinstellungen» → «FTP»:
+
+| Feld     | Wert                          |
+|----------|-------------------------------|
+| Protokoll| SFTP                          |
+| Server   | `ftp.<ihre-domain>.ch`        |
+| Port     | 22                            |
+| Benutzer | Hostpoint-Benutzername        |
+
+SSH ist bei allen Hostpoint-Produkten enthalten. Damit geht es schneller
+und wiederholbar — der Befehl lädt nur geänderte Dateien hoch:
+
+```bash
+rsync -avz --delete \
+  website/ \
+  <benutzer>@<benutzer>.hostpoint.ch:/home/<benutzer>/www/minder-productmanagement.ch/
+```
+
+Der abschliessende Schrägstrich hinter `website/` ist wichtig: ohne ihn
+landet der Ordner selbst auf dem Server statt sein Inhalt. `--delete`
+entfernt auf dem Server, was lokal nicht mehr existiert — beim ersten Mal
+besser weglassen und mit `--dry-run` prüfen.
+
+### 3 · Verschlüsselung einschalten
+
+Control Panel → **Websites** → «SSL-Verschlüsselung» → **FreeSSL**
+(Let's Encrypt, kostenlos, erneuert sich selbst). Meist ist das beim
+Anlegen der Website bereits geschehen.
+
+Die mitgelieferte `.htaccess` erzwingt danach HTTPS und leitet `www` auf
+die Hauptadresse um. Sie muss dafür nichts konfigurieren.
+
+### 4 · PHP für das Formular
+
+Control Panel → **Websites** → «Web-Einstellungen» → PHP-Version auf eine
+aktuelle Fassung (8.2 oder neuer) setzen. Der Handler nutzt nur
+Bordmittel, keine Erweiterungen.
+
+### 5 · E-Mail-Postfächer
+
+Zwei Adressen anlegen:
+
+- `lukas@minder-productmanagement.ch` — Ihr Postfach, dorthin gehen die Anfragen
+- `website@minder-productmanagement.ch` — Absender des Formulars
+
+Die zweite Adresse ist kein Schmuck: Versendet der Server im Namen einer
+fremden Adresse, stufen Empfänger die Nachricht wegen SPF und DMARC oft
+als Fälschung ein. Die Adresse des Anfragenden steht stattdessen im
+Antwort-an-Feld, ein «Antworten» im Mailprogramm geht also direkt an ihn.
+
+### 6 · Nach dem Hochladen prüfen
+
+- `https://minder-productmanagement.ch` lädt, Schloss-Symbol sichtbar
+- `http://` und `www.` leiten beide auf die kanonische Adresse um
+- `/leistungen`, `/mandat-interim#mandat` und die übrigen Adressen greifen
+- Eine Testanfrage über das Formular kommt an
+- Eine erfundene Adresse wie `/gibtsnicht` zeigt die 404-Seite
+
+Erscheint nach dem Hochladen ein Fehler 500, liegt es fast immer an einer
+einzelnen Anweisung in `.htaccess`, die der Server nicht erlaubt. Die Datei
+ist in nummerierte Abschnitte gegliedert — Abschnitt für Abschnitt
+auskommentieren, bis die Ursache gefunden ist.
 
 ---
 
 ## Kontaktformular
 
-`assets/js/site.js` prüft die Eingaben und versendet auf zwei Wegen:
+Der Versand läuft über `api/kontakt.php` auf dem eigenen Hosting. Es ist
+kein Formulardienst eines Drittanbieters beteiligt, und es wird nichts
+gespeichert — die Anfrage wird entgegengenommen, als E-Mail zugestellt und
+ist damit erledigt.
 
-1. **Endpoint** — ist in `FORM_ENDPOINT` (oben in der Datei) eine URL
-   hinterlegt, wird das Formular als JSON dorthin geschickt. Geeignet sind
-   Dienste wie Formspree oder Netlify Forms ebenso wie ein eigener Handler.
-2. **E-Mail** — solange kein Endpoint hinterlegt ist oder dieser nicht
-   antwortet, öffnet sich eine vorausgefüllte E-Mail an
-   `lukas@minder-productmanagement.ch`.
+Der Handler prüft die Pflichtfelder, begrenzt die Feldlängen, entfernt
+Zeilenumbrüche aus allem, was in einer Kopfzeile landet (sonst liessen sich
+zusätzliche Empfänger einschleusen), wertet das versteckte Honeypot-Feld
+aus und lässt pro Absender höchstens alle zwanzig Sekunden eine Nachricht
+durch.
 
-Zum Umschalten genügt eine Zeile:
+Empfänger und Absender stehen als Konstanten oben in der Datei:
 
-```js
-var FORM_ENDPOINT = "https://formspree.io/f/xxxxxxxx";
+```php
+const EMPFAENGER = 'lukas@minder-productmanagement.ch';
+const ABSENDER   = 'website@minder-productmanagement.ch';
 ```
 
-Am Markup ändert sich dabei nichts. Ein verstecktes Honeypot-Feld fängt
-einfache Bots ab.
+**Fällt der Handler aus** — PHP abgeschaltet, Datei nicht hochgeladen,
+Server gestört —, öffnet das Formular ersatzweise eine vorausgefüllte
+E-Mail im Mailprogramm des Besuchers. Eine Anfrage geht in keinem Fall
+verloren. Dieser Rückfallweg ist auch der Grund, weshalb sich die Seite
+ohne PHP betreiben lässt: dann einfach `api/` weglassen.
+
+Ein anderer Dienst (Formspree, Netlify Forms, eigener Endpoint) lässt sich
+in einer Zeile in `assets/js/site.js` einsetzen:
+
+```js
+var FORM_ENDPOINT = "/api/kontakt.php";
+```
 
 ---
 
@@ -127,6 +220,6 @@ versehentlich online gehen.
 3. `referenzen/` — je Fall optional eine konkrete Kennzahl. Ohne Kennzahl
    den Platzhalter ersatzlos löschen; keine Zahl erfinden.
 4. `impressum/` und `datenschutz/` — Inhalte einfügen (revDSG-konform).
-5. `assets/js/site.js` — `FORM_ENDPOINT` setzen, falls das Formular über
-   einen Dienst laufen soll.
+5. Postfächer `lukas@` und `website@` anlegen (siehe «Veröffentlichen»),
+   danach eine Testanfrage über das Formular senden.
 6. `sitemap.xml` — `lastmod` beim Launch aktualisieren.
