@@ -1,0 +1,5 @@
+# Minder Product Management
+User-agent: *
+Allow: /
+
+Sitemap: https://minder-productmanagement.ch/sitemap.xml
