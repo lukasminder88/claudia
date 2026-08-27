@@ -1,9 +1,11 @@
-import { useState } from 'react'
-import { useStore } from './lib/store'
+import { useEffect, useRef, useState } from 'react'
+import { runningEntry, useStore } from './lib/store'
 import { TimerScreen } from './components/TimerScreen'
 import { ProjectsScreen } from './components/ProjectsScreen'
 import { ReportsScreen } from './components/ReportsScreen'
 import { SettingsScreen } from './components/SettingsScreen'
+import { pushPending, pushableEntries, useMocoSettings } from './lib/moco'
+import type { AppState } from './lib/types'
 import {
   TimerIcon,
   ListIcon,
@@ -13,9 +15,30 @@ import {
 
 type Tab = 'timer' | 'projects' | 'reports' | 'settings'
 
+/** Überträgt abgeschlossene Einträge automatisch nach Moco, sobald Auto-Sync
+ *  aktiv ist und gerade kein Timer läuft. */
+function useMocoAutoSync(state: AppState) {
+  const settings = useMocoSettings()
+  const running = runningEntry(state)
+  const ready = pushableEntries(state).filter((p) => p.ok).length
+  const lastAttempt = useRef(-1)
+
+  useEffect(() => {
+    if (!settings.autoSync || !settings.token || running || ready === 0) return
+    // Nur einmal pro „Ready-Stand" versuchen (verhindert Schleifen bei Fehlern).
+    if (lastAttempt.current === ready) return
+    lastAttempt.current = ready
+    const id = setTimeout(() => {
+      void pushPending(state)
+    }, 1500)
+    return () => clearTimeout(id)
+  }, [settings.autoSync, settings.token, running, ready, state])
+}
+
 export default function App() {
   const state = useStore()
   const [tab, setTab] = useState<Tab>('timer')
+  useMocoAutoSync(state)
 
   return (
     <div className="app">

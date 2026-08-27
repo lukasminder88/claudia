@@ -1,0 +1,19 @@
+# Netlify-Konfiguration für Zeitraum.
+
+[build]
+  command = "npm run build"
+  publish = "dist"
+  functions = "netlify/functions"
+
+# API-Proxy zur Moco-Function (muss VOR dem SPA-Fallback stehen).
+[[redirects]]
+  from = "/api/moco"
+  to = "/.netlify/functions/moco"
+  status = 200
+  force = true
+
+# SPA-Fallback: alle übrigen Routen an die App.
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

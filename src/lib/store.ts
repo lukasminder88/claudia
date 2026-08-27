@@ -243,6 +243,134 @@ export function deleteTask(id: string) {
   }))
 }
 
+// ---- Moco-Import (Kunden/Projekte/Tasks abgleichen) -----------------------
+
+export interface MocoTree {
+  clients: { externalId: string; name: string }[]
+  projects: {
+    externalId: string
+    name: string
+    clientExternalId?: string
+    hourlyRate?: number
+    billable?: boolean
+  }[]
+  tasks: {
+    externalId: string
+    name: string
+    projectExternalId: string
+    billable?: boolean
+  }[]
+}
+
+/** Gleicht Kunden, Projekte und Tasks aus Moco mit dem lokalen Bestand ab.
+ *  Zuordnung erfolgt über die externe Moco-ID (`externalId`); vorhandene
+ *  Einträge werden aktualisiert, neue angelegt. Lokale Zusatzdaten (z. B.
+ *  Farbe) bleiben erhalten. */
+export function applyMocoImport(tree: MocoTree): {
+  clients: number
+  projects: number
+  tasks: number
+} {
+  let counts = { clients: 0, projects: 0, tasks: 0 }
+  setState((prev) => {
+    const now = new Date().toISOString()
+
+    // --- Kunden ---
+    const clientIdByExt = new Map<string, string>()
+    prev.clients.forEach((c) => c.externalId && clientIdByExt.set(c.externalId, c.id))
+    let clients = [...prev.clients]
+    for (const c of tree.clients) {
+      const localId = clientIdByExt.get(c.externalId)
+      if (localId) {
+        clients = clients.map((x) => (x.id === localId ? { ...x, name: c.name } : x))
+      } else {
+        const nc: Client = {
+          id: newId(),
+          name: c.name,
+          archived: false,
+          createdAt: now,
+          externalId: c.externalId,
+        }
+        clients.push(nc)
+        clientIdByExt.set(c.externalId, nc.id)
+      }
+    }
+
+    // --- Projekte ---
+    const projIdByExt = new Map<string, string>()
+    prev.projects.forEach((p) => p.externalId && projIdByExt.set(p.externalId, p.id))
+    let projects = [...prev.projects]
+    let colorIdx = projects.length
+    for (const p of tree.projects) {
+      const clientId = p.clientExternalId
+        ? clientIdByExt.get(p.clientExternalId)
+        : undefined
+      const localId = projIdByExt.get(p.externalId)
+      if (localId) {
+        projects = projects.map((x) =>
+          x.id === localId
+            ? { ...x, name: p.name, clientId, hourlyRate: p.hourlyRate ?? x.hourlyRate }
+            : x,
+        )
+      } else {
+        const np: Project = {
+          id: newId(),
+          name: p.name,
+          clientId,
+          color: DEFAULT_COLORS[colorIdx++ % DEFAULT_COLORS.length],
+          hourlyRate: p.hourlyRate,
+          archived: false,
+          createdAt: now,
+          externalId: p.externalId,
+        }
+        projects.push(np)
+        projIdByExt.set(p.externalId, np.id)
+      }
+    }
+
+    // --- Tasks ---
+    const taskIdByExt = new Map<string, string>()
+    prev.tasks.forEach((t) => t.externalId && taskIdByExt.set(t.externalId, t.id))
+    let tasks = [...prev.tasks]
+    for (const t of tree.tasks) {
+      const projectId = projIdByExt.get(t.projectExternalId)
+      if (!projectId) continue
+      const localId = taskIdByExt.get(t.externalId)
+      if (localId) {
+        tasks = tasks.map((x) =>
+          x.id === localId ? { ...x, name: t.name, projectId } : x,
+        )
+      } else {
+        tasks.push({
+          id: newId(),
+          projectId,
+          name: t.name,
+          archived: false,
+          createdAt: now,
+          externalId: t.externalId,
+        })
+        taskIdByExt.set(t.externalId, 'new')
+      }
+    }
+
+    counts = {
+      clients: tree.clients.length,
+      projects: tree.projects.length,
+      tasks: tree.tasks.length,
+    }
+    return { ...prev, clients, projects, tasks }
+  })
+  return counts
+}
+
+/** Markiert einen Eintrag als zu Moco übertragen. */
+export function markEntrySynced(entryId: string, mocoActivityId: string | number) {
+  updateEntry(entryId, {
+    externalId: String(mocoActivityId),
+    syncedAt: new Date().toISOString(),
+  })
+}
+
 // ---- Aktionen: Zeiteinträge ----------------------------------------------
 
 /** Aktuell laufender Eintrag (end === null), falls vorhanden. */
