@@ -5,18 +5,17 @@ on:
     branches: [main]
   workflow_dispatch:
 
+# contents:write genügt – wir veröffentlichen über den gh-pages-Branch und
+# brauchen NICHT die (für die Integration gesperrte) Pages-API.
 permissions:
-  contents: read
-  pages: write
-  id-token: write
+  contents: write
 
-# Nur ein gleichzeitiges Deployment; laufende werden nicht abgebrochen.
 concurrency:
   group: pages
   cancel-in-progress: false
 
 jobs:
-  build:
+  build-deploy:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -24,22 +23,11 @@ jobs:
         with:
           node-version: 20
           cache: npm
-      - name: GitHub Pages konfigurieren (aktiviert Pages beim ersten Lauf)
-        uses: actions/configure-pages@v5
-        with:
-          enablement: true
       - run: npm ci
       - run: npm run build
-      - uses: actions/upload-pages-artifact@v3
+      - run: touch dist/.nojekyll
+      - name: Auf gh-pages veröffentlichen
+        uses: peaceiris/actions-gh-pages@v4
         with:
-          path: ./dist
-
-  deploy:
-    needs: build
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - id: deployment
-        uses: actions/deploy-pages@v4
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./dist
