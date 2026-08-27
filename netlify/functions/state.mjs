@@ -4,7 +4,7 @@
 // Laptop denselben Stand teilen. Abgesichert über dasselbe Sync-Token
 // (APP_SYNC_TOKEN) wie die Moco-Function.
 
-import { getStore } from '@netlify/blobs'
+import { connectLambda, getStore } from '@netlify/blobs'
 
 const KEY = 'state'
 
@@ -23,6 +23,8 @@ export async function handler(event) {
 
   let store
   try {
+    // Blobs-Umgebung aus dem Lambda-Event verdrahten (klassische Signatur).
+    connectLambda(event)
     store = getStore('zeitraum')
   } catch (err) {
     return json(500, { error: `Blob-Store nicht verfügbar: ${String(err)}` })
