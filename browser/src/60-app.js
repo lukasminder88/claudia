@@ -146,7 +146,10 @@
   knopfErzeugen.onclick = async () => {
     laden(knopfErzeugen, "Wird erzeugt …");
     try {
-      zeigeOfferte(await PIPELINE.erzeugen(dateien, crmFelder()));
+      zeigeOfferte(await PIPELINE.erzeugen(dateien, crmFelder(), {
+        datenblaetter: $("datenblaetter").checked,
+        spezifikation: $("spezifikation").checked,
+      }));
     } catch (e) {
       zeigeFehler(e);
     } finally {
@@ -330,6 +333,46 @@
   }
 
   // --- Start -----------------------------------------------------------
+
+  // --- Gerätedatenblätter ----------------------------------------------
+
+  $("db-waehlen").onclick = () => $("db-datei").click();
+  $("db-datei").onchange = () => {
+    DATENBLAETTER.setzeEigene($("db-datei").files);
+    $("db-datei").value = "";
+    datenblattStandMelden();
+  };
+
+  async function datenblattStandMelden() {
+    const vomServer = (await DATENBLAETTER.alle()).filter((e) => e.herkunft === "server").length;
+    const eigene = DATENBLAETTER.anzahlEigene();
+    const hinweis = $("db-hinweis");
+
+    if (vomServer) {
+      hinweis.textContent =
+        `${vomServer} Datenblätter liegen auf dem Server bereit; geladen wird nur das gebrauchte.`;
+      $("db-eigene").classList.add("versteckt");
+    } else {
+      hinweis.textContent =
+        "Diese Seite läuft ohne Server. Das Datenblatt zum Gerät bitte von Hand wählen.";
+      $("db-eigene").classList.remove("versteckt");
+    }
+    $("db-eigene-anzahl").textContent = eigene
+      ? (eigene === 1 ? " – 1 Datei gewählt" : ` – ${eigene} Dateien gewählt`)
+      : "";
+
+    const verfuegbar = vomServer + eigene;
+    $("datenblaetter").disabled = verfuegbar === 0 && vomServer === 0 && eigene === 0;
+    umschaltenSpezifikation();
+  }
+
+  function umschaltenSpezifikation() {
+    const an = $("datenblaetter").checked && !$("datenblaetter").disabled;
+    $("schalter-spezifikation").style.opacity = an ? "1" : ".45";
+    $("spezifikation").disabled = !an;
+  }
+  $("datenblaetter").onchange = umschaltenSpezifikation;
+  datenblattStandMelden();
 
   $("status").textContent = "Version 3.0.0 · Kalktool " + MAPPING.version;
   $("fuss-status").textContent =

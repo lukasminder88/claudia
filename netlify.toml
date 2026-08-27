@@ -17,5 +17,6 @@
   [headers.values]
     X-Content-Type-Options = "nosniff"
     Referrer-Policy = "no-referrer"
-    # Die Seite lädt nichts nach; alles steckt in der Datei selbst.
-    Content-Security-Policy = "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:; connect-src 'none'; base-uri 'none'; form-action 'none'"
+    # Die Seite lädt nur die Gerätedatenblätter nach, und nur vom eigenen
+    # Server: connect-src 'self' statt 'none'. Alles Übrige bleibt gesperrt.
+    Content-Security-Policy = "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:; connect-src 'self'; base-uri 'none'; form-action 'none'"

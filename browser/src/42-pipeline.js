@@ -119,7 +119,10 @@ const PIPELINE = (() => {
   }
 
   /** Vollständige Generierung; liefert Blob, Dateiname und Prüfprotokoll. */
-  async function erzeugen(dateien, crmFelder) {
+  async function erzeugen(dateien, crmFelder, optionen) {
+    const wahl = Object.assign(
+      { datenblaetter: true, spezifikation: true }, optionen || {}
+    );
     const { standorte, warn } = await pruefen(dateien);
     const gesamt = DERIVE.gesamttotal(standorte);
     const crm = CRM.neu(crmFelder);
@@ -131,7 +134,17 @@ const PIPELINE = (() => {
       throw new OfferteError("E101", "Vorlage nicht lesbar");
     }
 
-    const gesetzt = RENDER.render(doc, standorte, gesamt, crm, warn);
+    // Datenblätter beschaffen und übernehmen, bevor gerendert wird: die
+    // Formatvorlagen des Datenblatts müssen im Ziel stehen, bevor ein Absatz
+    // sie benutzt.
+    let vorbereitet = [];
+    if (wahl.datenblaetter) {
+      vorbereitet = await datenblaetterUebernehmen(
+        vorlage, doc, standorte, warn, wahl.spezifikation
+      );
+    }
+
+    const gesetzt = RENDER.render(doc, standorte, gesamt, crm, warn, vorbereitet);
 
     // Nachbearbeitung: TIME-Felder einfrieren (Abschnitt 12.2).
     const koerper = DOCX.alle(doc, "body")[0];
@@ -157,6 +170,30 @@ const PIPELINE = (() => {
       warn,
       protokoll: protokoll(standorte, warn),
     };
+  }
+
+  /** Die gebrauchten Datenblätter laden und ihre Blöcke übernehmen. */
+  async function datenblaetterUebernehmen(vorlage, doc, standorte, warn, mitSpezifikation) {
+    const treffer = await DATENBLAETTER.fuerStandorte(standorte, warn);
+    if (!treffer.length) return [];
+
+    const uebernahme = new UEBERNAHME.Uebernahme(vorlage, doc, DATENBLAETTER.STIL_ABBILDUNG);
+    const aus = [];
+    for (const eintrag of treffer) {
+      let quelle;
+      try {
+        quelle = await UEBERNAHME.quelleLesen(await DATENBLAETTER.puffer(eintrag));
+      } catch (e) {
+        warn.add("W331", `${eintrag.modell}: nicht lesbar`);
+        continue;
+      }
+      uebernahme.vorbereiten(quelle, eintrag.kennung);
+      const bloecke = DATENBLAETTER.bloecke(quelle, mitSpezifikation)
+        .map((b) => uebernahme.block(b, quelle, eintrag.kennung));
+      aus.push({ modell: eintrag.modell, bloecke });
+    }
+    uebernahme.abschliessen();
+    return aus;
   }
 
   function setzeUpdateFields(dateien) {

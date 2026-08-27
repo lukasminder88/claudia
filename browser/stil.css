@@ -295,6 +295,11 @@ details.standort .inhalt { padding: 12px 13px; }
 }
 .zuruecksetzen[hidden] { display: none; }
 
+.verweis {
+  border: none; background: none; color: var(--blau); font: inherit;
+  font-size: 13px; cursor: pointer; padding: 0; text-decoration: underline;
+}
+
 #texte-suche {
   border: 1px solid var(--linie); border-radius: 6px; padding: 8px 11px;
   font: inherit; font-size: 14px; min-width: 220px; background: var(--flaeche);

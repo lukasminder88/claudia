@@ -73,6 +73,19 @@
     wahr("unbekannter Schlüssel beim Laden abgewiesen", abgewiesen);
     BAUSTEINE.zuruecksetzen();
 
+    // --- Datenblätter (Zuordnung ohne Raten) ---
+    gleich("Modellname normalisiert",
+      DATENBLAETTER.normalisieren("bizhub C3351i de"), DATENBLAETTER.normalisieren("bizhub C3351i"));
+    gleich("Sprachkürzel und Version fallen weg",
+      DATENBLAETTER.normalisieren("brother MFC-L3750CDW de v2"), "brothermfcl3750cdw");
+
+    {
+      const w = new Warnungen();
+      DATENBLAETTER.setzeEigene([]);
+      const treffer = await DATENBLAETTER.finde("bizhub C3351i", w);
+      wahr("ohne Quellen kein Treffer", treffer === null);
+    }
+
     if (!datei) return zeige();
 
     // --- Referenzfall (Abschnitt 14) ---

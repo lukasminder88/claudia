@@ -90,6 +90,28 @@ nennen ihre Überschriften `berschrift1`, die Offerte `Heading1`.
 Ohne die Zuordnung der Überschriften fände das Inhaltsverzeichnis das Kapitel
 nicht – deshalb prüft ein Test genau das.
 
+### In der Browser-Fassung
+
+Die Datenblätter werden **nicht** in die HTML-Datei eingebettet – sie bliebe
+sonst nicht bei 434 kB, sondern wüchse auf rund 7 MB, und auf einer
+öffentlichen Seite lägen alle Geschäftsunterlagen offen. Stattdessen liegen sie
+neben der Seite; geladen wird nur das eine gebrauchte:
+
+```bash
+python tools/datenblaetter_bereitstellen.py     # nach public/datenblaetter/
+```
+
+Das Werkzeug legt die Dateien samt `index.json` ab. `netlify.toml` erlaubt der
+Seite dafür `connect-src 'self'` – sie darf vom eigenen Server laden, sonst
+nichts. **Damit sind die Datenblätter über den Webserver abrufbar**; wer das
+nicht will, schützt das Netlify-Projekt unter *Site configuration → Access
+control*. `public/datenblaetter/` steht in der `.gitignore`.
+
+Läuft die Seite als Datei (Offline-Paket, Doppelklick), gibt es keinen Server.
+Dann meldet sie das und man wählt das Datenblatt von Hand – wie das Kalktool.
+Beide Wege erzeugen dasselbe Dokument; ein Vergleich mit der Python-Fassung
+ergab 195 Absätze ohne Unterschied.
+
 ### Noch nicht enthalten
 
 Die Datenblätter führen rund 1300 **Artikelnummern**, die dem Kalktool fehlen.
@@ -219,7 +241,7 @@ Fassungen teilen.
 
 Die Regeln liegen jetzt in Python **und** in JavaScript vor. Für einen PoC ist
 das vertretbar, produktiv ist es eine Quelle für Abweichungen. Abgesichert wird
-das über denselben Golden Record: `browser/test/golden.js` prüft 98 Punkte im
+das über denselben Golden Record: `browser/test/golden.js` prüft 101 Punkte im
 Browser, gestartet über `dist/pruefung.html` oder `npm run pruefen`.
 `tests/test_browser.py` prüft zusätzlich, dass Mapping, Vorlage und Einzeldatei
 aktuell sind und dass die Seite nichts nachlädt.
@@ -504,7 +526,7 @@ Datei – **nie im Dokument selbst** (Abschnitt 13.3).
 ## Tests
 
 ```bash
-python -m pytest -q      # 127 Tests
+python -m pytest -q      # 129 Tests
 ```
 
 `tests/test_golden_birsfelden.py` prüft den Referenzfall aus Abschnitt 14 Wert für

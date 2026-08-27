@@ -193,6 +193,32 @@ const RENDER = (() => {
       this.total(sdt, TEXT.gesamtZeilen(g, variante));
     }
 
+    // --- Gerätedatenblätter --------------------------------------------
+
+    /**
+     * Je Gerät ein Abschnitt aus dem zugehörigen Datenblatt.
+     * Ohne Datenblätter entfällt das Kapitel ersatzlos.
+     */
+    hardwareKapitel(vorbereitet) {
+      const sdt = this.anker("SEC.HARDWARE");
+      if (!vorbereitet || !vorbereitet.length) {
+        DOCX.entfernen(sdt);
+        return;
+      }
+      const inhalt = DOCX.sdtInhalt(sdt);
+      const muster = DOCX.kinder(inhalt, "p")[0];
+      if (!muster) throw new OfferteError("E101", "SEC.HARDWARE ohne Absatz");
+
+      const bloecke = [
+        DOCX.neuerAbsatz(muster, TEXT.hardwareKapitel(), "Heading1"),
+        DOCX.neuerAbsatz(muster, TEXT.hardwareGruppe(), "Heading2"),
+      ];
+      for (const eintrag of vorbereitet) bloecke.push(...eintrag.bloecke);
+
+      while (inhalt.firstChild) inhalt.removeChild(inhalt.firstChild);
+      for (const b of bloecke) inhalt.appendChild(b);
+    }
+
     // --- Vertragstext, Konditionen, Schluss ----------------------------
 
     vertragstext(ctx, d) {
@@ -226,7 +252,7 @@ const RENDER = (() => {
     }
   }
 
-  function render(doc, standorte, gesamt, crm, warn) {
+  function render(doc, standorte, gesamt, crm, warn, datenblaetter) {
     const r = new Renderer(doc, crm, warn);
     const erste = standorte[0];
 
@@ -239,6 +265,7 @@ const RENDER = (() => {
 
     // Bei unterschiedlichen Laufzeiten nennt der Vertragstext die längste (W310).
     const leit = standorte.reduce((a, b) => (num(b.ctx, "laufzeit") > num(a.ctx, "laufzeit") ? b : a));
+    r.hardwareKapitel(datenblaetter);
     r.vertragstext(leit.ctx, erste.d);
     r.konditionen(erste.ctx, erste.d);
     r.schluss(standorte);

@@ -9,6 +9,7 @@ Record läuft im Browser (``browser/test/golden.js``, gestartet über
 from __future__ import annotations
 
 import json
+import re
 import shutil
 import subprocess
 import sys
@@ -90,9 +91,14 @@ def test_einzeldatei_zieht_nichts_nach():
     """
     html = (PUBLIC / "index.html").read_text("utf-8")
 
-    for verboten in ("<script src=", "<link rel", "@import", "fetch(",
+    # fetch() ist erlaubt, aber nur für die Gerätedatenblätter neben der
+    # Seite; die CSP begrenzt es auf den eigenen Server.
+    for verboten in ("<script src=", "<link rel", "@import",
                      "XMLHttpRequest", "import(", "new Worker(", "EventSource"):
         assert verboten not in html, f"Die Einzeldatei lädt nach: {verboten}"
+    for treffer in re.findall(r"fetch\(([^)]*)", html):
+        assert "datenblaetter" in treffer or "VERZEICHNIS" in treffer or "INDEX" in treffer, \
+            f"fetch auf etwas anderes als die Datenblätter: {treffer[:60]}"
 
     ohne_namensraum = html.replace("http://schemas.openxmlformats.org", "")
     for schema in ("http://", "https://"):
@@ -114,3 +120,28 @@ def test_golden_record_im_browser(tmp_path):
         pytest.skip(f"Playwright/Chromium nicht verfügbar: {ergebnis.stderr.strip()[:200]}")
     assert ergebnis.returncode == 0, ergebnis.stdout + ergebnis.stderr
     assert "bestanden" in ergebnis.stdout, ergebnis.stdout
+
+
+def test_datenblaetter_werden_nicht_eingebettet():
+    """Die Einzeldatei bleibt klein: die Datenblätter holt sie vom Server.
+
+    Wären sie eingebettet, wüchse die Datei um rund 6,5 MB – und auf einer
+    öffentlichen Seite lägen alle Geschäftsunterlagen offen.
+    """
+    html = (PUBLIC / "index.html").read_text("utf-8")
+    assert len(html) < 1_000_000, f"Einzeldatei zu gross: {len(html)} Zeichen"
+    # Der Pfad wird zur Laufzeit zusammengesetzt; geprüft wird die Konstante.
+    assert 'VERZEICHNIS = "datenblaetter/"' in html, "Verweis auf das Verzeichnis fehlt"
+
+
+def test_bereitgestellte_datenblaetter_haben_ein_verzeichnis():
+    """Falls Datenblätter bereitgestellt wurden, muss die index.json passen."""
+    ordner = PUBLIC / "datenblaetter"
+    if not ordner.is_dir():
+        pytest.skip("keine Datenblätter bereitgestellt")
+    daten = json.loads((ordner / "index.json").read_text("utf-8"))
+    eintraege = daten["datenblaetter"]
+    assert eintraege
+    for e in eintraege:
+        assert (ordner / e["datei"]).exists(), e["datei"]
+        assert e["modell"]

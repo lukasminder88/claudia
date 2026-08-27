@@ -191,12 +191,15 @@ const TEXT = (() => {
   const gueltigkeit = (d) => B().text("gueltigkeit", { gueltig_bis: FMT.dateDe(d.gueltigBis) });
   const ortDatum = (ctx) => B().text("ort_datum", { datum: FMT.dateDe(ctx.values.datum) });
   const klassifizierung = () => B().text("klassifizierung");
+  const hardwareKapitel = () => B().text("hardware_kapitel");
+  const hardwareGruppe = () => B().text("hardware_gruppe");
   const dlTotalLabel = () => B().text("total_dienstleistung");
 
   return {
     headStandort, headDl, lineAdresse, serviceKopf, serviceZeilen, totalZeilen,
     gesamtZeilen, vertragstext, konditionenAbrechnung, konditionenRechnung,
     nachweis, gueltigkeit, ortDatum, klassifizierung, dlTotalLabel,
+    hardwareKapitel, hardwareGruppe,
     kopfHardware, kopfDienstleistung, kopfService,
   };
 })();
