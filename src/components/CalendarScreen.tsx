@@ -72,6 +72,7 @@ export function CalendarScreen({ state, onGoToSettings }: Props) {
   const [events, setEvents] = useState<CalendarEvent[]>([])
   const [loading, setLoading] = useState(false)
   const [loadError, setLoadError] = useState('')
+  const [days, setDays] = useState(30)
 
   const configured = !!config.clientId && !!config.tenantId
 
@@ -82,14 +83,14 @@ export function CalendarScreen({ state, onGoToSettings }: Props) {
       const start = new Date()
       start.setHours(0, 0, 0, 0)
       const end = new Date(start)
-      end.setDate(end.getDate() + 7)
+      end.setDate(end.getDate() + days)
       setEvents(await fetchCalendar(start, end))
     } catch (err) {
       setLoadError(err instanceof Error ? err.message : String(err))
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [days])
 
   useEffect(() => {
     if (email) void load()
@@ -168,9 +169,21 @@ export function CalendarScreen({ state, onGoToSettings }: Props) {
           {loading ? 'Lädt…' : 'Aktualisieren'}
         </button>
       </div>
-      <p className="hint" style={{ marginTop: 4, marginBottom: 16 }}>
+      <p className="hint" style={{ marginTop: 4, marginBottom: 12 }}>
         Angemeldet als {email}
       </p>
+
+      <div className="segmented" style={{ marginBottom: 16, display: 'flex' }}>
+        {[7, 14, 30, 90].map((d) => (
+          <button
+            key={d}
+            className={days === d ? 'active' : ''}
+            onClick={() => setDays(d)}
+          >
+            {d} Tage
+          </button>
+        ))}
+      </div>
 
       {loadError && (
         <p className="hint" style={{ color: 'var(--danger)' }}>
@@ -179,7 +192,7 @@ export function CalendarScreen({ state, onGoToSettings }: Props) {
       )}
 
       {!loading && timed.length === 0 && (
-        <div className="empty">Keine Termine in den nächsten 7 Tagen.</div>
+        <div className="empty">Keine Termine in den nächsten {days} Tagen.</div>
       )}
 
       {groups.map((g) => (

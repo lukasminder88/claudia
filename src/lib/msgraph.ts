@@ -212,32 +212,36 @@ export async function fetchCalendar(
     $orderby: 'start/dateTime',
     $top: '100',
   })
-  const res = await fetch(
-    `https://graph.microsoft.com/v1.0/me/calendarView?${params}`,
-    {
-      headers: {
-        Authorization: `Bearer ${token}`,
-        Prefer: 'outlook.timezone="UTC"',
-      },
-    },
-  )
-  if (!res.ok) {
-    const text = await res.text()
-    throw new Error(`Graph ${res.status}: ${text.slice(0, 200)}`)
+  const headers = {
+    Authorization: `Bearer ${token}`,
+    Prefer: 'outlook.timezone="UTC"',
   }
-  const data = await res.json()
-  return (data.value ?? []).map(
-    (ev: any): CalendarEvent => ({
-      id: ev.id,
-      subject: ev.subject || '(ohne Titel)',
-      start: toIso(ev.start),
-      end: toIso(ev.end),
-      isAllDay: !!ev.isAllDay,
-      isOnline: !!ev.isOnlineMeeting,
-      provider: ev.onlineMeetingProvider ?? undefined,
-      organizer: ev.organizer?.emailAddress?.name ?? undefined,
-    }),
-  )
+
+  const events: CalendarEvent[] = []
+  let url: string | null = `https://graph.microsoft.com/v1.0/me/calendarView?${params}`
+  // Bis zu 10 Seiten folgen (deckt sehr volle Kalender ab).
+  for (let page = 0; page < 10 && url; page++) {
+    const res: Response = await fetch(url, { headers })
+    if (!res.ok) {
+      const text = await res.text()
+      throw new Error(`Graph ${res.status}: ${text.slice(0, 200)}`)
+    }
+    const data = await res.json()
+    for (const ev of data.value ?? []) {
+      events.push({
+        id: ev.id,
+        subject: ev.subject || '(ohne Titel)',
+        start: toIso(ev.start),
+        end: toIso(ev.end),
+        isAllDay: !!ev.isAllDay,
+        isOnline: !!ev.isOnlineMeeting,
+        provider: ev.onlineMeetingProvider ?? undefined,
+        organizer: ev.organizer?.emailAddress?.name ?? undefined,
+      })
+    }
+    url = data['@odata.nextLink'] ?? null
+  }
+  return events
 }
 
 function friendly(err: unknown): string {
