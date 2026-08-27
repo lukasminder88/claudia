@@ -259,6 +259,60 @@ deshalb immer `W321`.
 
 ---
 
+## Betrieb im Intranet
+
+Zwei Wege, je nachdem, was im Netz stehen soll. Beide erzeugen dasselbe
+Dokument – der Unterschied liegt in Betriebsaufwand und Seitenzahlen.
+
+| | Statische Seite | Anwendungsserver |
+|---|---|---|
+| Was läuft | ein Webserver, sonst nichts | Python und LibreOffice |
+| Auszuliefern | `public/` | `offerttool[web]` als Dienst oder Container |
+| Wo gerechnet wird | im Browser des Anwenders | auf dem Server |
+| Seitenzahlen im Verzeichnis | Word trägt sie beim Öffnen ein | vorberechnet |
+| Textbausteine | je Browser, teilbar als Datei | zentral in einer YAML |
+| Kalktool verlässt den Rechner | nein | ja, für die Dauer der Generierung |
+
+**Die statische Seite genügt in den meisten Fällen** – sie braucht keinen
+Python-Unterhalt, und die Kalktools mit Marge und CIF verlassen den Rechner
+des Verkäufers gar nicht. Der Anwendungsserver lohnt sich, wenn die Texte
+zentral gelten sollen oder das Verzeichnis auch ohne Word korrekte Seitenzahlen
+tragen muss.
+
+### Statische Seite
+
+```bash
+python tools/browser_bauen.py --test            # public/index.html
+python tools/datenblaetter_bereitstellen.py     # public/datenblaetter/
+```
+
+Den Inhalt von `public/` auf den Webserver legen. Fertige Konfigurationen mit
+denselben Sicherheitskopfzeilen wie auf Netlify liegen bei:
+
+| Datei | Für |
+|---|---|
+| `deploy/nginx-offerttool.conf` | nginx |
+| `deploy/web.config` | IIS |
+
+Beide setzen die Kopfzeilen und die MIME-Typen für `.dotx` und `.json` – ohne
+letztere liefert IIS die Datenblätter gar nicht aus. Die nginx-Fassung wurde
+gegen einen laufenden nginx geprüft: Seite, `index.json` und Datenblätter
+kommen mit den erwarteten Kopfzeilen, und die Offerte entsteht vollständig.
+
+### Anwendungsserver
+
+Siehe [Web-Oberfläche im Firmennetz](#web-oberfläche-im-firmennetz) – Dockerfile,
+`compose.yaml` und ein systemd-Beispiel liegen bereit.
+
+### Zugriff
+
+Im Intranet ist die Netzgrenze meist der Schutz. Beide Fassungen bringen
+**keine Anmeldung** mit. Soll der Zugriff enger sein, gehört eine Authentisierung
+davor – in `deploy/nginx-offerttool.conf` ist ein `auth_basic`-Block für das
+Verzeichnis der Datenblätter vorbereitet und auskommentiert.
+
+---
+
 ## Web-Oberfläche im Firmennetz
 
 Für den Betrieb auf einem internen Server, damit alle Verkäufer die App über
