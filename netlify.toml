@@ -5,10 +5,16 @@
   publish = "dist"
   functions = "netlify/functions"
 
-# API-Proxy zur Moco-Function (muss VOR dem SPA-Fallback stehen).
+# API-Proxys zu den Functions (müssen VOR dem SPA-Fallback stehen).
 [[redirects]]
   from = "/api/moco"
   to = "/.netlify/functions/moco"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/api/state"
+  to = "/.netlify/functions/state"
   status = 200
   force = true
 

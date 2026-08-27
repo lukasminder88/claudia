@@ -11,6 +11,7 @@ import {
   useMocoSettings,
 } from '../lib/moco'
 import { setMsConfig, signIn, signOut, useMsAuth } from '../lib/msgraph'
+import { setSyncEnabled, syncOnce, useSyncStatus } from '../lib/sync'
 
 type Props = { state: AppState }
 
@@ -52,6 +53,8 @@ export function SettingsScreen({ state }: Props) {
       <h1 className="screen-title">Einstellungen</h1>
 
       <MocoSection state={state} />
+
+      <SyncSection />
 
       <MsCalendarSection />
 
@@ -102,6 +105,74 @@ export function SettingsScreen({ state }: Props) {
         Zeitraum · v0.2
       </p>
     </div>
+  )
+}
+
+// ---- Geräte-Synchronisation -----------------------------------------------
+
+function SyncSection() {
+  const sync = useSyncStatus()
+  const moco = useMocoSettings()
+  const hasToken = moco.token.trim().length > 0
+
+  return (
+    <>
+      <div className="section-label">Geräte-Synchronisation</div>
+      <div className="card" style={{ marginBottom: 20 }}>
+        <p className="hint" style={{ marginTop: 0 }}>
+          Speichert deine Daten serverseitig, damit PC und Laptop denselben
+          Stand teilen. Nutzt dasselbe Sync-Token wie Moco.
+        </p>
+
+        {!hasToken && (
+          <p className="hint" style={{ color: 'var(--danger)' }}>
+            Bitte zuerst oben unter „Moco-Synchronisation" das Sync-Token
+            eintragen.
+          </p>
+        )}
+
+        <label className="toggle" style={{ marginTop: 6 }}>
+          <input
+            type="checkbox"
+            checked={sync.enabled}
+            disabled={!hasToken}
+            onChange={(e) => setSyncEnabled(e.target.checked)}
+          />
+          Zwischen Geräten synchronisieren
+        </label>
+
+        {sync.enabled && (
+          <button
+            className="btn btn-block"
+            style={{ marginTop: 12 }}
+            disabled={sync.busy}
+            onClick={() => void syncOnce()}
+          >
+            {sync.busy ? 'Synchronisiere…' : 'Jetzt synchronisieren'}
+          </button>
+        )}
+
+        {sync.lastSyncAt && (
+          <p className="hint" style={{ marginTop: 10 }}>
+            Zuletzt abgeglichen:{' '}
+            {new Date(sync.lastSyncAt).toLocaleString('de-CH')}
+          </p>
+        )}
+
+        {sync.error && (
+          <p className="hint" style={{ color: 'var(--danger)', marginTop: 10 }}>
+            {sync.error}
+          </p>
+        )}
+
+        <p className="hint" style={{ marginTop: 10 }}>
+          Beim ersten Aktivieren werden lokale und serverseitige Daten
+          zusammengeführt. Danach gilt: die zuletzt gespeicherte Änderung
+          gewinnt – bearbeite darum möglichst nicht gleichzeitig offline auf
+          beiden Geräten.
+        </p>
+      </div>
+    </>
   )
 }
 

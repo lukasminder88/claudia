@@ -137,6 +137,20 @@ export function useStore(): AppState {
   return useSyncExternalStore(subscribe, getSnapshot, getSnapshot)
 }
 
+/** Direkter Zugriff für Nicht-Komponenten (z. B. Geräte-Sync). */
+export function subscribeState(listener: () => void): () => void {
+  return subscribe(listener)
+}
+
+export function getStateSnapshot(): AppState {
+  return state
+}
+
+/** Ersetzt den gesamten Zustand (für Geräte-Sync). Läuft durch die Migration. */
+export function replaceState(next: AppState) {
+  setState(() => migrate(next))
+}
+
 // ---- Aktionen: Kunden -----------------------------------------------------
 
 export function addClient(name: string): Client {
