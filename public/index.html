@@ -398,8 +398,14 @@ const ZIP = (() => {
 
   // --- Schreiben ---------------------------------------------------------
 
-  /** Schreibt eine Map (Name -> Uint8Array | string) als ZIP-Blob. */
-  async function schreiben(dateien, reihenfolge) {
+  /**
+   * Schreibt eine Map (Name -> Uint8Array | string) als ZIP-Blob.
+   *
+   * ``typ`` bestimmt den MIME-Typ des Ergebnisses. Ein .docx ist zwar ein
+   * ZIP, muss aber als Word-Dokument ausgezeichnet werden: sonst hängt der
+   * Browser beim Herunterladen ".zip" an den Dateinamen an.
+   */
+  async function schreiben(dateien, reihenfolge, typ) {
     const namen = reihenfolge || [...dateien.keys()];
     const teile = [];
     const verzeichnis = [];
@@ -469,7 +475,7 @@ const ZIP = (() => {
     ev.setUint32(16, zentralStart, true);
     teile.push(ende);
 
-    return new Blob(teile, { type: "application/zip" });
+    return new Blob(teile, { type: typ || "application/zip" });
   }
 
   return { lesen, schreiben, text, crc32 };
@@ -2446,6 +2452,11 @@ const PIPELINE = (() => {
   const RE_PLATZHALTER = /%%[^%\s]+%%|\{[a-z][\w.|]*\}/;
   const RE_ZAHL = /-?\d[\d’]*(?:\.\d+)?/g;
 
+  // Ein .docx ist ein ZIP, muss aber als Word-Dokument ausgezeichnet werden,
+  // sonst speichert der Browser es als .zip.
+  const MIME_DOCX =
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+
   /** Abbruchregeln je Standort (Abschnitt 13.1). */
   function pruefeEingabe(ctx, d) {
     for (const [name, spez] of Object.entries(MAPPING.fields)) {
@@ -2581,7 +2592,7 @@ const PIPELINE = (() => {
     pruefeAusgabe(text, gesperrteZeichenketten(standorte), gesetzt);
 
     vorlage.set("word/document.xml", DOCX.serializer.serializeToString(doc));
-    const blob = await ZIP.schreiben(vorlage, vorlage.reihenfolge);
+    const blob = await ZIP.schreiben(vorlage, vorlage.reihenfolge, MIME_DOCX);
 
     return {
       blob,

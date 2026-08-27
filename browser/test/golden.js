@@ -104,6 +104,11 @@
       "vk.email": "thomas.steiner@graphax.ch",
     });
     wahr("Blob erzeugt", fertig.blob.size > 50000);
+    // Ein .docx ist ein ZIP; ohne den richtigen MIME-Typ hängt der Browser
+    // beim Herunterladen ".zip" an den Dateinamen an.
+    gleich("MIME-Typ der Offerte", fertig.blob.type,
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document");
+    wahr("Dateiname endet auf .docx", fertig.dateiname.endsWith(".docx"));
     gleich("Dateiname", fertig.dateiname, "Offerte_Gemeindeverwaltung_Birsfelden_V-2026-04768.docx");
 
     const dateien = await ZIP.lesen(await fertig.blob.arrayBuffer());

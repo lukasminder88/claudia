@@ -8,6 +8,11 @@ const PIPELINE = (() => {
   const RE_PLATZHALTER = /%%[^%\s]+%%|\{[a-z][\w.|]*\}/;
   const RE_ZAHL = /-?\d[\d’]*(?:\.\d+)?/g;
 
+  // Ein .docx ist ein ZIP, muss aber als Word-Dokument ausgezeichnet werden,
+  // sonst speichert der Browser es als .zip.
+  const MIME_DOCX =
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+
   /** Abbruchregeln je Standort (Abschnitt 13.1). */
   function pruefeEingabe(ctx, d) {
     for (const [name, spez] of Object.entries(MAPPING.fields)) {
@@ -143,7 +148,7 @@ const PIPELINE = (() => {
     pruefeAusgabe(text, gesperrteZeichenketten(standorte), gesetzt);
 
     vorlage.set("word/document.xml", DOCX.serializer.serializeToString(doc));
-    const blob = await ZIP.schreiben(vorlage, vorlage.reihenfolge);
+    const blob = await ZIP.schreiben(vorlage, vorlage.reihenfolge, MIME_DOCX);
 
     return {
       blob,
