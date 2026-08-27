@@ -135,7 +135,8 @@ input:focus-visible { outline: 2px solid var(--blau); outline-offset: -1px; bord
 /* ---------- Ergebnis ---------- */
 .leer { color: var(--text-leise); font-size: 14px; }
 .hinweis { font-size: 13px; color: var(--text-leise); margin: 8px 0 0; }
-.versteckt { display: none; }
+/* Hilfsklasse: schlägt jede Anzeigeart, die sonst gälte. */
+.versteckt { display: none !important; }
 
 .marke {
   display: inline-block; font-size: 12px; font-weight: 700; letter-spacing: .5px;
@@ -215,3 +216,87 @@ details.standort .inhalt { padding: 12px 13px; }
   max-width: 640px; margin: 80px auto; padding: 28px;
   border: 1px solid #e6b7b7; background: var(--fehler-bg); border-radius: var(--radius);
 }
+
+
+/* --- Reiter ------------------------------------------------------------ */
+.reiter { display: flex; gap: 4px; }
+.reiter-knopf {
+  border: none; background: rgba(255, 255, 255, .12); color: #fff;
+  font: inherit; font-size: 14px; font-weight: 600;
+  padding: 8px 18px; border-radius: 6px; cursor: pointer;
+}
+.reiter-knopf:hover { background: rgba(255, 255, 255, .22); }
+.reiter-knopf.aktiv { background: #fff; color: var(--blau); }
+
+/* --- Editor der Textbausteine ------------------------------------------ */
+.texte { max-width: 1240px; margin: 24px auto; padding: 0 28px; }
+.texte-kopf {
+  display: flex; justify-content: space-between; align-items: flex-start;
+  gap: 24px; flex-wrap: wrap; margin-bottom: 20px;
+}
+.texte-kopf h2 { margin: 0 0 4px; }
+.texte-kopf .hinweis { max-width: 62ch; margin: 0; }
+.texte-werkzeuge { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.texte-werkzeuge .knopf { flex: none; padding: 8px 14px; font-size: 14px; }
+
+.texte-gruppe {
+  background: var(--flaeche); border: 1px solid var(--linie);
+  border-radius: var(--radius); margin-bottom: 16px;
+}
+.texte-gruppe > summary {
+  cursor: pointer; padding: 14px 20px; font-weight: 700; font-size: 15px;
+  display: flex; justify-content: space-between; align-items: center; gap: 12px;
+}
+.texte-gruppe > summary::-webkit-details-marker { display: none; }
+.texte-gruppe[open] > summary { border-bottom: 1px solid var(--linie); }
+.texte-gruppe .anzahl { font-size: 12px; font-weight: 500; color: var(--text-leise); }
+
+.baustein { padding: 16px 20px; border-bottom: 1px solid var(--linie); }
+.baustein:last-child { border-bottom: none; }
+.baustein.geaendert { border-left: 3px solid var(--blau); background: #fbfcfe; }
+.baustein-kopf {
+  display: flex; justify-content: space-between; align-items: baseline;
+  gap: 12px; margin-bottom: 3px;
+}
+.baustein-titel { font-weight: 600; font-size: 14.5px; }
+.baustein-hinweis { font-size: 13px; color: var(--text-leise); margin: 0 0 9px; }
+.baustein textarea {
+  width: 100%; border: 1px solid var(--linie); border-radius: 6px;
+  padding: 9px 11px; font: inherit; font-size: 14px; color: var(--text);
+  resize: vertical; min-height: 40px; background: var(--flaeche);
+}
+.baustein textarea:focus-visible {
+  outline: 2px solid var(--blau); outline-offset: -1px; border-color: var(--blau);
+}
+.baustein textarea.fehlerhaft { border-color: var(--fehler); background: var(--fehler-bg); }
+
+.chips { display: flex; flex-wrap: wrap; gap: 5px; margin: 8px 0 0; align-items: center; }
+.chips .beschriftung { font-size: 12px; color: var(--text-leise); margin-right: 2px; }
+.chip {
+  font-family: "Cascadia Mono", Consolas, monospace; font-size: 12px;
+  border: 1px solid var(--linie); background: var(--grund); color: var(--blau-dunkel);
+  border-radius: 4px; padding: 2px 7px; cursor: pointer;
+}
+.chip:hover { border-color: var(--blau); background: var(--blau-hell); }
+
+.baustein-fuss {
+  display: flex; justify-content: space-between; align-items: flex-start;
+  gap: 12px; margin-top: 8px;
+}
+.vorschau {
+  font-size: 13px; color: var(--text-leise); flex: 1; min-width: 0;
+  border-left: 2px solid var(--linie); padding-left: 10px;
+}
+.vorschau strong { color: var(--text); font-weight: 500; }
+.vorschau.fehler { color: var(--fehler); border-left-color: var(--fehler); }
+.zuruecksetzen {
+  flex: none; border: none; background: none; color: var(--blau);
+  font: inherit; font-size: 13px; cursor: pointer; padding: 0; text-decoration: underline;
+}
+.zuruecksetzen[hidden] { display: none; }
+
+#texte-suche {
+  border: 1px solid var(--linie); border-radius: 6px; padding: 8px 11px;
+  font: inherit; font-size: 14px; min-width: 220px; background: var(--flaeche);
+}
+#texte-suche:focus-visible { outline: 2px solid var(--blau); outline-offset: -1px; }

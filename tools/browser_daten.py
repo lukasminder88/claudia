@@ -10,12 +10,14 @@ from __future__ import annotations
 
 import base64
 import json
+import sys
 from pathlib import Path
 
 import yaml
 
 WURZEL = Path(__file__).resolve().parent.parent
 QUELLE = WURZEL / "browser" / "src"
+sys.path.insert(0, str(WURZEL))
 
 KOPF = "/* Erzeugt von tools/browser_daten.py – nicht von Hand bearbeiten. */\n"
 
@@ -33,6 +35,28 @@ def mapping_schreiben() -> Path:
         + "   Im Code steht keine Zelladresse; sie stehen alle hier. */\n"
         + "const MAPPING = "
         + json.dumps(daten, ensure_ascii=False, indent=2)
+        + ";\n",
+        encoding="utf-8",
+    )
+    return ziel
+
+
+def bausteine_schreiben() -> Path:
+    """Die Textbausteine als JavaScript-Objekt herausschreiben.
+
+    Der Wortlaut hat damit auch für die Browser-Fassung genau eine Quelle:
+    ``textbausteine.yaml``.
+    """
+    from offerttool.bausteine import lade
+
+    b = lade()
+    ziel = QUELLE / "26-bausteine-standard.js"
+    ziel.write_text(
+        KOPF
+        + "/* Mitgelieferte Textbausteine (Abschnitt 8).\n"
+        + "   Änderungen gehören in offerttool/resources/textbausteine.yaml. */\n"
+        + "const BAUSTEINE_STANDARD = "
+        + json.dumps(b.als_dict(), ensure_ascii=False, indent=2)
         + ";\n",
         encoding="utf-8",
     )
@@ -59,7 +83,7 @@ def vorlage_schreiben() -> Path:
 
 
 def main() -> int:
-    for pfad in (mapping_schreiben(), vorlage_schreiben()):
+    for pfad in (mapping_schreiben(), bausteine_schreiben(), vorlage_schreiben()):
         print(f"{pfad.relative_to(WURZEL)}  ({pfad.stat().st_size / 1024:.0f} kB)")
     return 0
 

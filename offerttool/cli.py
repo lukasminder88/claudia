@@ -47,6 +47,8 @@ def _parser() -> argparse.ArgumentParser:
     g.add_argument("-c", "--crm", type=Path, default=None, help="CRM-Datensatz (JSON)")
     g.add_argument("-m", "--mapping", type=Path, default=None,
                    help="Mapping erzwingen statt über KM!C1 zu wählen")
+    g.add_argument("-b", "--bausteine", type=Path, default=None,
+                   help="eigene Textbausteine (YAML) statt der mitgelieferten")
     g.add_argument("--ohne-seitenzahlen", action="store_true",
                    help="Inhaltsverzeichnis ohne PDF-Rendervorgang aufbauen")
 
@@ -57,6 +59,11 @@ def _parser() -> argparse.ArgumentParser:
 
     c = sub.add_parser("check", help="Ankerkatalog gegen eine Vorlage prüfen")
     c.add_argument("-t", "--template", type=Path, default=STANDARD_VORLAGE)
+
+    t = sub.add_parser("bausteine", help="Textbausteine prüfen oder ausgeben")
+    t.add_argument("-b", "--datei", type=Path, default=None,
+                   help="eigene Textbausteine (YAML); ohne Angabe die mitgelieferten")
+    t.add_argument("--json", action="store_true", help="als JSON ausgeben")
 
     i = sub.add_parser("inspect", help="Gelesene Werte eines Kalktools zeigen")
     i.add_argument("kalktool", type=Path)
@@ -112,6 +119,8 @@ def _dispatch(args) -> int:
         return 0
     if args.befehl == "inspect":
         return _inspect(args)
+    if args.befehl == "bausteine":
+        return _bausteine(args)
     if args.befehl == "serve":
         return _serve(args)
     if args.befehl == "mappings":
@@ -134,6 +143,7 @@ def _generate(args) -> int:
         args.crm,
         args.mapping,
         toc_seitenzahlen=not args.ohne_seitenzahlen,
+        bausteine_pfad=args.bausteine,
     )
     print(f"Offerte:      {ergebnis.offerte}")
     print(f"Prüfprotokoll: {ergebnis.protokoll}")
@@ -143,6 +153,37 @@ def _generate(args) -> int:
             print(f"  {w}")
     else:
         print("Warnungen:    keine")
+    return 0
+
+
+def _bausteine(args) -> int:
+    """Textbausteine prüfen und auflisten.
+
+    Das Laden prüft jeden Baustein gegen seine erlaubten Platzhalter; ein
+    Tippfehler bricht hier ab, nicht erst beim Erzeugen einer Offerte.
+    """
+    import json
+
+    from .bausteine import lade
+
+    b = lade(args.datei)
+    if args.json:
+        print(json.dumps(b.als_dict(), ensure_ascii=False, indent=2))
+        return 0
+
+    quelle = b.quelle.name if b.quelle else "mitgeliefert"
+    print(f"{quelle}: {len(b.bausteine)} Bausteine, Version {b.version} – geprüft, in Ordnung.\n")
+    for gruppe, titel in b.gruppen.items():
+        eintraege = [x for x in b.bausteine.values() if x.gruppe == gruppe]
+        if not eintraege:
+            continue
+        print(f"{titel}")
+        for x in eintraege:
+            vorschau = " / ".join(x.absaetze)
+            if len(vorschau) > 74:
+                vorschau = vorschau[:71] + "…"
+            print(f"  {x.schluessel:32} {vorschau}")
+        print()
     return 0
 
 

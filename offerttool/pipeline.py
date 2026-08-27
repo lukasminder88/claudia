@@ -25,6 +25,7 @@ from pathlib import Path
 
 import docx
 
+from .bausteine import Bausteine, lade as lade_bausteine
 from .crm import CRM
 from .derive import Derived, derive, gesamttotal
 from .docxutil.anchor_ops import find
@@ -60,6 +61,7 @@ def generiere(
     mapping_pfad: str | Path | None = None,
     *,
     toc_seitenzahlen: bool = True,
+    bausteine_pfad: str | Path | None = None,
 ) -> Ergebnis:
     """Eine Offerte aus n Kalktools erzeugen.
 
@@ -71,9 +73,12 @@ def generiere(
     warn = WarningCollector()
     ziel = Path(ziel)
 
-    # 1 LOAD_TEMPLATE
+    # 1 LOAD_TEMPLATE – die Textbausteine werden hier geprüft, nicht erst
+    # beim Rendern: ein Tippfehler im Wortlaut soll auffallen, bevor
+    # irgendetwas geschrieben wird.
     log.info("1 LOAD_TEMPLATE %s", vorlage)
     validate_template(vorlage)
+    bausteine: Bausteine = lade_bausteine(bausteine_pfad)
 
     # 2 LOAD_SOURCES / 3 EXTRACT / 4 PARSE / 5 DERIVE
     crm = CRM.load(crm_pfad)
@@ -109,7 +114,7 @@ def generiere(
     # 7 RENDER – erst hier entsteht ein Dokument.
     log.info("7 RENDER")
     doc = docx.Document(str(vorlage))
-    emitted = render(doc, standorte, gesamt, mapping, crm, warn)
+    emitted = render(doc, standorte, gesamt, mapping, crm, warn, bausteine)
 
     # 8 POSTPROCESS
     log.info("8 POSTPROCESS")
@@ -123,7 +128,8 @@ def generiere(
     ziel.parent.mkdir(parents=True, exist_ok=True)
     doc.save(str(ziel))
     protokoll = schreibe_protokoll(
-        ziel, standorte, warn, mapping.version, str(vorlage)
+        ziel, standorte, warn, mapping.version, str(vorlage),
+        bausteine=str(bausteine.quelle) if bausteine.quelle else "mitgeliefert",
     )
     for w in warn.items:
         # Der Aufrufer gibt die Warnungen selbst aus; im Log stehen sie nur,

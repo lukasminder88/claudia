@@ -42,6 +42,59 @@ offerttool generate standort_a.xlsx standort_b.xlsx -o Offerte.docx -c crm.json
 
 ---
 
+## Formulierungen ändern
+
+Alle Texte der Offerte stehen in `offerttool/resources/textbausteine.yaml` –
+49 Bausteine, gruppiert nach Kapitel. Im Code steht kein Wortlaut mehr, so wie
+dort auch keine Zelladresse steht.
+
+```yaml
+head_standort:
+  titel: "Standortüberschrift"
+  hinweis: "Überschrift über der Geräteliste und über der Servicetabelle."
+  platzhalter: [index, name]
+  text: "Standort {index}: {name}"
+```
+
+Was in geschweiften Klammern steht, wird beim Erzeugen ersetzt. Je Baustein
+sind **nur die unter `platzhalter` genannten** erlaubt; alles andere bricht mit
+einer Meldung ab, die die zulässigen aufzählt:
+
+```
+ABBRUCH E801: Baustein «Standortüberschrift» (head_standort) verwendet den
+unbekannten Platzhalter {naem}. Erlaubt: {index}, {name}
+```
+
+Geprüft wird in Schritt 1 der Pipeline – **bevor** irgendetwas geschrieben
+wird. Eine geschweifte Klammer als Zeichen schreibt man doppelt: `{{`.
+
+```bash
+offerttool bausteine                    # alle Bausteine prüfen und auflisten
+offerttool bausteine -b meine.yaml      # eine eigene Fassung prüfen
+offerttool generate k.xlsx -o o.docx -b meine.yaml
+```
+
+Das Prüfprotokoll hält fest, welche Bausteine galten.
+
+### Im Browser, ohne Datei
+
+Die Browser-Fassung hat dafür einen eigenen Reiter **Textbausteine**: jeder
+Baustein mit Titel, Erklärung, Eingabefeld, den erlaubten Platzhaltern zum
+Anklicken und einer Vorschau mit Beispielwerten. Geprüft wird bei jedem
+Tastendruck; ein unzulässiger Platzhalter wird sofort gemeldet und nicht
+gespeichert.
+
+Änderungen wirken sofort, bleiben im Browser erhalten und lassen sich einzeln
+oder gesamt zurücksetzen. Über **Sichern** entsteht eine `Textbausteine.json`,
+die sich weitergeben und über **Laden** wieder einspielen lässt – so gelten im
+Firmennetz dieselben Texte wie im PoC.
+
+Beide Fassungen lesen dieselbe Quelle: `tools/browser_daten.py` erzeugt aus der
+YAML die Datei `browser/src/26-bausteine-standard.js`. Ein Test vergleicht
+beide, damit die Browser-Fassung nicht veraltet.
+
+---
+
 ## Browser-Fassung (Offline-PoC)
 
 Eine **einzelne HTML-Datei**, die per Doppelklick funktioniert – ohne Python,
@@ -106,7 +159,7 @@ Fassungen teilen.
 
 Die Regeln liegen jetzt in Python **und** in JavaScript vor. Für einen PoC ist
 das vertretbar, produktiv ist es eine Quelle für Abweichungen. Abgesichert wird
-das über denselben Golden Record: `browser/test/golden.js` prüft 83 Punkte im
+das über denselben Golden Record: `browser/test/golden.js` prüft 98 Punkte im
 Browser, gestartet über `dist/pruefung.html` oder `npm run pruefen`.
 `tests/test_browser.py` prüft zusätzlich, dass Mapping, Vorlage und Einzeldatei
 aktuell sind und dass die Seite nichts nachlädt.
@@ -217,6 +270,7 @@ Ein Abbruch kommt als HTTP 422 mit `{"fehler": {"code": "E401", …}}`.
 | `offerttool prepare` | erzeugt die ankerbasierte Vorlage aus den Rohvorlagen |
 | `offerttool mappings` | listet die hinterlegten Kalktool-Versionen |
 | `offerttool serve` | startet die Web-Oberfläche |
+| `offerttool bausteine` | prüft und listet die Textbausteine |
 
 Wichtige Optionen von `generate`:
 
@@ -225,6 +279,7 @@ Wichtige Optionen von `generate`:
 | `-c, --crm` | CRM-Datensatz (JSON). Fehlt er, greifen die Ersatzregeln aus Abschnitt 4.4 (`W305`, `W306`). |
 | `-t, --template` | andere ankerbasierte Vorlage |
 | `-m, --mapping` | Mapping erzwingen statt es über `KM!C1` zu wählen |
+| `-b, --bausteine` | eigene Textbausteine (YAML) statt der mitgelieferten |
 | `--ohne-seitenzahlen` | Inhaltsverzeichnis ohne PDF-Rendervorgang (schneller, Seitenzahlen fehlen) |
 | `-v` | Pipeline-Schritte mitloggen |
 
@@ -253,7 +308,8 @@ Erst Schritt 7 berührt das Dokument, erst nach bestandenem Schritt 9 wird gesch
 |---|---|
 | `offerttool/resources/mapping_q4_2025.yaml` | **jede** Zelladresse, Positionslisten, Sperrliste, Style-IDs |
 | `offerttool/anchors.py` | Ankerkatalog (Abschnitt 3.2) |
-| `offerttool/textblocks.py` | alle Textbausteine (Abschnitt 8) |
+| `offerttool/resources/textbausteine.yaml` | **jede** Formulierung der Offerte |
+| `offerttool/textblocks.py` | welcher Baustein wann gebraucht wird (Abschnitt 8) |
 | `offerttool/formatters.py` | `chf`, `rate`, `int_ch`, `monate`, `date_de`, `label_clean` (Abschnitt 7) |
 | `offerttool/validate.py` | Abbruchregeln und Sperrlistenprüfung (Abschnitt 13) |
 | `offerttool/prepare.py` | einmalige Präparation der Vorlage |
@@ -386,7 +442,7 @@ Datei – **nie im Dokument selbst** (Abschnitt 13.3).
 ## Tests
 
 ```bash
-python -m pytest -q      # 95 Tests
+python -m pytest -q      # 115 Tests
 ```
 
 `tests/test_golden_birsfelden.py` prüft den Referenzfall aus Abschnitt 14 Wert für

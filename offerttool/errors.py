@@ -24,6 +24,8 @@ ERROR_TEXTS = {
     "E413": "MIETE/LEASING und L92 = 0",
     "E414": "KAUF und C62 = 0",
     "E601": "Wert aus der Sperrliste im gerenderten Dokument",
+    "E801": "Textbaustein fehlerhaft",
+    "E802": "Textbaustein fehlt oder ist unbekannt",
     "E602": "Unaufgelöster Platzhalter im gerenderten Dokument",
 }
 

@@ -92,7 +92,7 @@ const RENDER = (() => {
       }
       this.block("OFF.KONTAKT", vk.filter(Boolean));
 
-      this.text("OFF.KLASSIFIZIERUNG", TEXT.KLASSIFIZIERUNG);
+      this.text("OFF.KLASSIFIZIERUNG", TEXT.klassifizierung());
       this.text("OFF.NUMMER", this.crm.offertnummer(txt(ctx, "verkaufschance"), this.warn));
       this.text("OFF.VERSION", this.crm.offertversion(this.warn));
       this.text("OFF.DATUM", FMT.dateDe(ctx.values.datum));
@@ -136,20 +136,11 @@ const RENDER = (() => {
       // sie, solange keine einzige Position eine Nummer trägt.
       const mitArtNr = positionen.some((p) => p.artnr !== "" && p.artnr !== "–");
 
-      let saetze;
-      let kopf = DOCX.zellen(DOCX.zeilen(tbl)[0]);
-      if (mitArtNr) {
-        DOCX.setzeZelle(kopf[0], ["Artikel No."]);
-        DOCX.setzeZelle(kopf[1], ["Bezeichnung"]);
-        DOCX.setzeZelle(kopf[2], ["Stück"]);
-        saetze = positionen.map((p) => [p.artnr, p.bezeichnung, p.stueck]);
-      } else {
-        DOCX.spalteEntfernen(tbl, 0);
-        kopf = DOCX.zellen(DOCX.zeilen(tbl)[0]);
-        DOCX.setzeZelle(kopf[0], ["Bezeichnung"]);
-        DOCX.setzeZelle(kopf[1], ["Stück"]);
-        saetze = positionen.map((p) => [p.bezeichnung, p.stueck]);
-      }
+      if (!mitArtNr) DOCX.spalteEntfernen(tbl, 0);
+      const kopf = DOCX.zellen(DOCX.zeilen(tbl)[0]);
+      TEXT.kopfHardware(mitArtNr).forEach((titel, i) => DOCX.setzeZelle(kopf[i], [titel]));
+      const saetze = positionen.map((p) =>
+        (mitArtNr ? [p.artnr] : []).concat([p.bezeichnung, p.stueck]));
       DOCX.fuelleZeilen(tbl, 1, saetze);
       // Listentabelle ohne Summenzeile: lastRow aus.
       DOCX.setzeTblLook(tbl, STIL.tbllook_liste || "04A0");
@@ -164,12 +155,11 @@ const RENDER = (() => {
       this.text("HEAD.DL", TEXT.headDl(ctx), wurzel);
       const [, tbl] = this.tabelle("TBL.DIENSTLEISTUNG", wurzel);
       const kopf = DOCX.zellen(DOCX.zeilen(tbl)[0]);
-      DOCX.setzeZelle(kopf[0], ["Leistung"]);
-      DOCX.setzeZelle(kopf[1], ["Betrag"]);
+      TEXT.kopfDienstleistung().forEach((titel, i) => DOCX.setzeZelle(kopf[i], [titel]));
 
       const saetze = (ctx.listen.dienstleistung || []).map((p) => [p.bezeichnung, FMT.chf(p.betrag)]);
       for (const p of ctx.listen["solutions.dl"] || []) saetze.push([p.bezeichnung, FMT.chf(p.betrag)]);
-      saetze.push([TEXT.DL_TOTAL_LABEL, FMT.chf(d.dienstleistungTotal)]);
+      saetze.push([TEXT.dlTotalLabel(), FMT.chf(d.dienstleistungTotal)]);
       this.merkeAlle(saetze);
       DOCX.fuelleZeilen(tbl, 1, saetze);
       DOCX.setzeTblLook(tbl, STIL.tbllook_summe || "04E0");
@@ -178,8 +168,7 @@ const RENDER = (() => {
     service(ctx, d, wurzel) {
       const [, tbl] = this.tabelle("TBL.SERVICE", wurzel);
       const kopf = DOCX.zellen(DOCX.zeilen(tbl)[0]);
-      DOCX.setzeZelle(kopf[0], [TEXT.serviceKopf(d)]);
-      DOCX.setzeZelle(kopf[1], ["Total"]);
+      TEXT.kopfService(d).forEach((titel, i) => DOCX.setzeZelle(kopf[i], [titel]));
 
       const saetze = TEXT.serviceZeilen(ctx, d).map(([texte, betraege]) => [texte, betraege]);
       this.merkeAlle(saetze);
@@ -201,12 +190,7 @@ const RENDER = (() => {
     gesamttotal(g, variante, anzahl) {
       const sdt = this.anker("TBL.GESAMTTOTAL");
       if (anzahl <= 1) { DOCX.entfernen(sdt); return; }
-      const zeilen = [];
-      if (g.einmalig > 0) zeilen.push([TEXT.GESAMT_EINMALIG, FMT.chf(g.einmalig)]);
-      zeilen.push(variante === "KAUF"
-        ? [TEXT.GESAMT_KAUF, FMT.chf(g.kauf)]
-        : [TEXT.GESAMT_MONATLICH, FMT.chf(g.monatlich)]);
-      this.total(sdt, zeilen);
+      this.total(sdt, TEXT.gesamtZeilen(g, variante));
     }
 
     // --- Vertragstext, Konditionen, Schluss ----------------------------

@@ -141,7 +141,8 @@ input:focus-visible { outline: 2px solid var(--blau); outline-offset: -1px; bord
 /* ---------- Ergebnis ---------- */
 .leer { color: var(--text-leise); font-size: 14px; }
 .hinweis { font-size: 13px; color: var(--text-leise); margin: 8px 0 0; }
-.versteckt { display: none; }
+/* Hilfsklasse: schlägt jede Anzeigeart, die sonst gälte. */
+.versteckt { display: none !important; }
 
 .marke {
   display: inline-block; font-size: 12px; font-weight: 700; letter-spacing: .5px;
@@ -221,6 +222,90 @@ details.standort .inhalt { padding: 12px 13px; }
   max-width: 640px; margin: 80px auto; padding: 28px;
   border: 1px solid #e6b7b7; background: var(--fehler-bg); border-radius: var(--radius);
 }
+
+
+/* --- Reiter ------------------------------------------------------------ */
+.reiter { display: flex; gap: 4px; }
+.reiter-knopf {
+  border: none; background: rgba(255, 255, 255, .12); color: #fff;
+  font: inherit; font-size: 14px; font-weight: 600;
+  padding: 8px 18px; border-radius: 6px; cursor: pointer;
+}
+.reiter-knopf:hover { background: rgba(255, 255, 255, .22); }
+.reiter-knopf.aktiv { background: #fff; color: var(--blau); }
+
+/* --- Editor der Textbausteine ------------------------------------------ */
+.texte { max-width: 1240px; margin: 24px auto; padding: 0 28px; }
+.texte-kopf {
+  display: flex; justify-content: space-between; align-items: flex-start;
+  gap: 24px; flex-wrap: wrap; margin-bottom: 20px;
+}
+.texte-kopf h2 { margin: 0 0 4px; }
+.texte-kopf .hinweis { max-width: 62ch; margin: 0; }
+.texte-werkzeuge { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.texte-werkzeuge .knopf { flex: none; padding: 8px 14px; font-size: 14px; }
+
+.texte-gruppe {
+  background: var(--flaeche); border: 1px solid var(--linie);
+  border-radius: var(--radius); margin-bottom: 16px;
+}
+.texte-gruppe > summary {
+  cursor: pointer; padding: 14px 20px; font-weight: 700; font-size: 15px;
+  display: flex; justify-content: space-between; align-items: center; gap: 12px;
+}
+.texte-gruppe > summary::-webkit-details-marker { display: none; }
+.texte-gruppe[open] > summary { border-bottom: 1px solid var(--linie); }
+.texte-gruppe .anzahl { font-size: 12px; font-weight: 500; color: var(--text-leise); }
+
+.baustein { padding: 16px 20px; border-bottom: 1px solid var(--linie); }
+.baustein:last-child { border-bottom: none; }
+.baustein.geaendert { border-left: 3px solid var(--blau); background: #fbfcfe; }
+.baustein-kopf {
+  display: flex; justify-content: space-between; align-items: baseline;
+  gap: 12px; margin-bottom: 3px;
+}
+.baustein-titel { font-weight: 600; font-size: 14.5px; }
+.baustein-hinweis { font-size: 13px; color: var(--text-leise); margin: 0 0 9px; }
+.baustein textarea {
+  width: 100%; border: 1px solid var(--linie); border-radius: 6px;
+  padding: 9px 11px; font: inherit; font-size: 14px; color: var(--text);
+  resize: vertical; min-height: 40px; background: var(--flaeche);
+}
+.baustein textarea:focus-visible {
+  outline: 2px solid var(--blau); outline-offset: -1px; border-color: var(--blau);
+}
+.baustein textarea.fehlerhaft { border-color: var(--fehler); background: var(--fehler-bg); }
+
+.chips { display: flex; flex-wrap: wrap; gap: 5px; margin: 8px 0 0; align-items: center; }
+.chips .beschriftung { font-size: 12px; color: var(--text-leise); margin-right: 2px; }
+.chip {
+  font-family: "Cascadia Mono", Consolas, monospace; font-size: 12px;
+  border: 1px solid var(--linie); background: var(--grund); color: var(--blau-dunkel);
+  border-radius: 4px; padding: 2px 7px; cursor: pointer;
+}
+.chip:hover { border-color: var(--blau); background: var(--blau-hell); }
+
+.baustein-fuss {
+  display: flex; justify-content: space-between; align-items: flex-start;
+  gap: 12px; margin-top: 8px;
+}
+.vorschau {
+  font-size: 13px; color: var(--text-leise); flex: 1; min-width: 0;
+  border-left: 2px solid var(--linie); padding-left: 10px;
+}
+.vorschau strong { color: var(--text); font-weight: 500; }
+.vorschau.fehler { color: var(--fehler); border-left-color: var(--fehler); }
+.zuruecksetzen {
+  flex: none; border: none; background: none; color: var(--blau);
+  font: inherit; font-size: 13px; cursor: pointer; padding: 0; text-decoration: underline;
+}
+.zuruecksetzen[hidden] { display: none; }
+
+#texte-suche {
+  border: 1px solid var(--linie); border-radius: 6px; padding: 8px 11px;
+  font: inherit; font-size: 14px; min-width: 220px; background: var(--flaeche);
+}
+#texte-suche:focus-visible { outline: 2px solid var(--blau); outline-offset: -1px; }
 </style>
 </head>
 <body>
@@ -231,11 +316,17 @@ details.standort .inhalt { padding: 12px 13px; }
       <h1>Offerttool</h1>
       <p class="untertitel">Offerte aus dem Kalktool – regelbasiert, ohne KI</p>
     </div>
+    <nav class="reiter" role="tablist">
+      <button id="reiter-offerte" class="reiter-knopf aktiv" role="tab"
+              aria-selected="true" aria-controls="ansicht-offerte">Offerte</button>
+      <button id="reiter-texte" class="reiter-knopf" role="tab"
+              aria-selected="false" aria-controls="ansicht-texte">Textbausteine</button>
+    </nav>
     <div class="status" id="status" aria-live="polite"></div>
   </div>
 </header>
 
-<main class="raster" id="raster">
+<main class="raster" id="ansicht-offerte" role="tabpanel">
 
   <section class="spalte" aria-labelledby="h-eingabe">
     <h2 id="h-eingabe">1 · Kalktools</h2>
@@ -290,6 +381,30 @@ details.standort .inhalt { padding: 12px 13px; }
   </section>
 
 </main>
+
+<!-- ---------------- Textbausteine ---------------- -->
+<section class="texte versteckt" id="ansicht-texte" role="tabpanel" aria-labelledby="reiter-texte">
+  <div class="texte-kopf">
+    <div>
+      <h2>Textbausteine</h2>
+      <p class="hinweis">
+        Hier steht jede Formulierung der Offerte. Änderungen wirken sofort und
+        bleiben in diesem Browser gespeichert. Was in geschweiften Klammern
+        steht, wird beim Erzeugen durch einen Wert aus dem Kalktool ersetzt.
+      </p>
+    </div>
+    <div class="texte-werkzeuge">
+      <input type="search" id="texte-suche" placeholder="Baustein suchen …"
+             aria-label="Textbausteine durchsuchen">
+      <span id="texte-zaehler" class="marke versteckt"></span>
+      <button id="texte-sichern" class="knopf zweitrangig" type="button">Sichern</button>
+      <button id="texte-laden" class="knopf zweitrangig" type="button">Laden</button>
+      <button id="texte-alle-zuruecksetzen" class="knopf zweitrangig" type="button">Alle zurücksetzen</button>
+      <input type="file" id="texte-datei" accept=".json" hidden>
+    </div>
+  </div>
+  <div id="texte-liste"></div>
+</section>
 
 <footer class="fuss">
   <span>Alle Beträge netto, exklusive MWST und vRB.</span>
@@ -865,6 +980,669 @@ const PARSE = (() => {
   }
 
   return { plzOrt, kontakt, vertragsbeginn, slaKurz };
+})();
+
+
+/* ===== 26-bausteine-standard.js ===== */
+
+/* Erzeugt von tools/browser_daten.py – nicht von Hand bearbeiten. */
+/* Mitgelieferte Textbausteine (Abschnitt 8).
+   Änderungen gehören in offerttool/resources/textbausteine.yaml. */
+const BAUSTEINE_STANDARD = {
+  "version": "1.0",
+  "platzhalter": {
+    "index": "Nummer des Standorts: 1, 2, 3 …",
+    "name": "Name des Standorts, zum Beispiel Museum",
+    "strasse": "Strasse des Standorts",
+    "plz": "Postleitzahl des Standorts",
+    "ort": "Ort des Standorts",
+    "geraet": "Bezeichnung des Geräts, zum Beispiel bizhub C3351i",
+    "sla": "Stufe des Service Level Agreements, zum Beispiel Premium",
+    "volumen_sw": "Inkludierte Seiten schwarzweiss",
+    "volumen_color": "Inkludierte Seiten in Farbe",
+    "ab_seite_sw": "Erste zusätzlich verrechnete Seite schwarzweiss",
+    "ab_seite_color": "Erste zusätzlich verrechnete Seite in Farbe",
+    "ab_scan": "Erster zusätzlich verrechneter Scan",
+    "fleet": "Stufe des Fleet Managements",
+    "zaehlerversand": "Art der Zählerstandsmeldung",
+    "laufzeit": "Laufzeit in Monaten, als Zahl",
+    "summenlabel": "Bezeichnung der Pauschale aus dem Kalktool",
+    "vertragsart": "Mietvertrag oder Leasingvertrag",
+    "beginn": "Zeitpunkt des Vertragsbeginns, als Satzteil",
+    "vertragsbeginn": "Datum des Vertragsbeginns, TT.MM.JJJJ",
+    "gueltig_bis": "Letzter Tag der Gültigkeit, TT.MM.JJJJ",
+    "datum": "Offertdatum, TT.MM.JJJJ",
+    "pauschale_wort": "Miet-, Leasing- oder Servicepauschalen",
+    "fakt_pauschale": "Abrechnungsrhythmus der Pauschalen, zum Beispiel Quartalsweise",
+    "fakt_mehrseiten": "Abrechnungsrhythmus der Seitenpreise",
+    "fakt_gebuehren": "Regelung zu den Gebühren",
+    "kalktool_version": "Version des Kalktools",
+    "verkaufschance": "Nummer der Verkaufschance",
+    "anlieferungsart": "Art der Anlieferung"
+  },
+  "beispiele": {
+    "index": "1",
+    "name": "Museum",
+    "strasse": "Schulstrasse 29 1.OG",
+    "plz": "4127",
+    "ort": "Birsfelden",
+    "geraet": "bizhub C3351i",
+    "sla": "Premium",
+    "volumen_sw": "0",
+    "volumen_color": "0",
+    "ab_seite_sw": "1",
+    "ab_seite_color": "1",
+    "ab_scan": "1",
+    "fleet": "6020 Fleet Service Level Progress",
+    "zaehlerversand": "CS Remote Care Internet (https) Integration",
+    "laufzeit": "60",
+    "summenlabel": "Mietpauschale pro Monat (ohne Service)",
+    "vertragsart": "Mietvertrag",
+    "beginn": "am 01.08.2026",
+    "vertragsbeginn": "01.08.2026",
+    "gueltig_bis": "26.09.2026",
+    "datum": "28.07.2026",
+    "pauschale_wort": "Miet- und Servicepauschalen",
+    "fakt_pauschale": "Quartalsweise",
+    "fakt_mehrseiten": "Halbjährlich",
+    "fakt_gebuehren": "Offen gem. Offerte",
+    "kalktool_version": "Version: Q4 2025",
+    "verkaufschance": "V-2026-04768",
+    "anlieferungsart": "Normal"
+  },
+  "gruppen": {
+    "deckblatt": "Deckblatt",
+    "standort": "Überschriften je Standort",
+    "tabellen": "Tabellenköpfe",
+    "service": "Servicetabelle (Kapitel 1.2)",
+    "total": "Summen (Kapitel 1.3)",
+    "vertrag": "Vertragstext (Kapitel 1.4)",
+    "konditionen": "Konditionen (Kapitel 2)",
+    "schluss": "Schluss und Nachweis"
+  },
+  "bausteine": {
+    "klassifizierung": {
+      "titel": "Klassifizierung",
+      "hinweis": "Steht auf dem Deckblatt neben «Klassifizierung».",
+      "gruppe": "deckblatt",
+      "platzhalter": [],
+      "text": "Vertraulich"
+    },
+    "gueltigkeit": {
+      "titel": "Gültigkeit des Angebots",
+      "hinweis": "Deckblatt, unterste Zeile. Das Datum ist das Offertdatum plus 60 Tage.",
+      "gruppe": "deckblatt",
+      "platzhalter": [
+        "gueltig_bis"
+      ],
+      "text": "Dieses Angebot ist gültig bis {gueltig_bis}"
+    },
+    "ort_datum": {
+      "titel": "Ort und Datum",
+      "hinweis": "Im Kapitel «Verbindlichkeit», über «Graphax AG».",
+      "gruppe": "schluss",
+      "platzhalter": [
+        "datum"
+      ],
+      "text": "Spreitenbach, {datum}"
+    },
+    "head_standort": {
+      "titel": "Standortüberschrift",
+      "hinweis": "Überschrift über der Geräteliste und über der Servicetabelle.",
+      "gruppe": "standort",
+      "platzhalter": [
+        "index",
+        "name"
+      ],
+      "text": "Standort {index}: {name}"
+    },
+    "head_standort_ohne_name": {
+      "titel": "Standortüberschrift ohne Namen",
+      "hinweis": "Wird verwendet, wenn im Kalktool kein Standortname steht (Warnung W309).",
+      "gruppe": "standort",
+      "platzhalter": [
+        "index"
+      ],
+      "text": "Standort {index}"
+    },
+    "line_adresse": {
+      "titel": "Installationsadresse",
+      "hinweis": "Kleine Zeile direkt unter der Standortüberschrift. Steht bewusst nicht im Inhaltsverzeichnis.",
+      "gruppe": "standort",
+      "platzhalter": [
+        "strasse",
+        "plz",
+        "ort"
+      ],
+      "text": "Installationsadresse: {strasse}, {plz} {ort}"
+    },
+    "head_dienstleistung": {
+      "titel": "Überschrift Schulungen und Dienstleistungen",
+      "hinweis": "Nur wenn einmalige Kosten anfallen. Erscheint auch im Inhaltsverzeichnis – kurz halten.",
+      "gruppe": "standort",
+      "platzhalter": [
+        "index",
+        "name"
+      ],
+      "text": "Im Angebot enthaltene Schulungen und Dienstleistungen – Standort {index}: {name}"
+    },
+    "head_dienstleistung_ohne_name": {
+      "titel": "Überschrift Dienstleistungen ohne Standortnamen",
+      "hinweis": "Wird verwendet, wenn im Kalktool kein Standortname steht.",
+      "gruppe": "standort",
+      "platzhalter": [
+        "index"
+      ],
+      "text": "Im Angebot enthaltene Schulungen und Dienstleistungen – Standort {index}"
+    },
+    "tabelle_hardware_artnr": {
+      "titel": "Geräteliste: Spalte Artikelnummer",
+      "hinweis": "Die Spalte erscheint nur, wenn das Kalktool Artikelnummern führt.",
+      "gruppe": "tabellen",
+      "platzhalter": [],
+      "text": "Artikel No."
+    },
+    "tabelle_hardware_bezeichnung": {
+      "titel": "Geräteliste: Spalte Bezeichnung",
+      "hinweis": "",
+      "gruppe": "tabellen",
+      "platzhalter": [],
+      "text": "Bezeichnung"
+    },
+    "tabelle_hardware_stueck": {
+      "titel": "Geräteliste: Spalte Stück",
+      "hinweis": "",
+      "gruppe": "tabellen",
+      "platzhalter": [],
+      "text": "Stück"
+    },
+    "tabelle_dienstleistung_leistung": {
+      "titel": "Dienstleistungen: Spalte Leistung",
+      "hinweis": "",
+      "gruppe": "tabellen",
+      "platzhalter": [],
+      "text": "Leistung"
+    },
+    "tabelle_dienstleistung_betrag": {
+      "titel": "Dienstleistungen: Spalte Betrag",
+      "hinweis": "",
+      "gruppe": "tabellen",
+      "platzhalter": [],
+      "text": "Betrag"
+    },
+    "tabelle_service_kopf": {
+      "titel": "Servicetabelle: linke Kopfzelle",
+      "hinweis": "",
+      "gruppe": "tabellen",
+      "platzhalter": [
+        "geraet"
+      ],
+      "text": "Wartungs- und Klick-Kosten für {geraet}"
+    },
+    "tabelle_service_total": {
+      "titel": "Servicetabelle: rechte Kopfzelle",
+      "hinweis": "",
+      "gruppe": "tabellen",
+      "platzhalter": [],
+      "text": "Total"
+    },
+    "service_geraet": {
+      "titel": "Servicevertrag",
+      "hinweis": "Erste Zeile der Servicetabelle, immer vorhanden.",
+      "gruppe": "service",
+      "platzhalter": [
+        "geraet"
+      ],
+      "text": "Servicevertrag pro Monat und pro Gerät für {geraet}"
+    },
+    "service_sla": {
+      "titel": "Service Level Agreement",
+      "hinweis": "Nur wenn im Kalktool eine SLA-Stufe steht. Ohne Betrag, weil der SLA in der Servicepauschale steckt.",
+      "gruppe": "service",
+      "platzhalter": [
+        "sla"
+      ],
+      "text": "Service Level Agreement: {sla}"
+    },
+    "service_inklusiv": {
+      "titel": "Inkludierte Seiten",
+      "hinweis": "Immer vorhanden, ohne Betrag.",
+      "gruppe": "service",
+      "platzhalter": [
+        "volumen_color",
+        "volumen_sw"
+      ],
+      "text": "Mit {volumen_color} Seiten in Farbe und {volumen_sw} Seiten schwarzweiss inkludiert"
+    },
+    "service_color": {
+      "titel": "Mehrseiten Farbe",
+      "hinweis": "Nur wenn ein Farbvolumen oder ein Farbklickpreis hinterlegt ist.",
+      "gruppe": "service",
+      "platzhalter": [
+        "ab_seite_color"
+      ],
+      "text": "Zusätzliche Seiten ab der {ab_seite_color}. Seite in Farbe"
+    },
+    "service_sw": {
+      "titel": "Mehrseiten schwarzweiss",
+      "hinweis": "",
+      "gruppe": "service",
+      "platzhalter": [
+        "ab_seite_sw"
+      ],
+      "text": "Zusätzliche Seiten ab der {ab_seite_sw}. Seite schwarzweiss"
+    },
+    "service_scan": {
+      "titel": "Mehrscans",
+      "hinweis": "Nur wenn ein Scanvolumen oder ein Scanpreis hinterlegt ist.",
+      "gruppe": "service",
+      "platzhalter": [
+        "ab_scan"
+      ],
+      "text": "Zusätzliche Scans ab dem {ab_scan}. Scan"
+    },
+    "service_fleet": {
+      "titel": "Zählerstanderfassung",
+      "hinweis": "",
+      "gruppe": "service",
+      "platzhalter": [
+        "fleet"
+      ],
+      "text": "Zählerstanderfassung und Fleet Management: {fleet}"
+    },
+    "service_zaehlerversand": {
+      "titel": "Zählerstandsmeldung",
+      "hinweis": "",
+      "gruppe": "service",
+      "platzhalter": [
+        "zaehlerversand"
+      ],
+      "text": "Zählerstandsmeldung: {zaehlerversand}"
+    },
+    "total_kauf": {
+      "titel": "Summe bei Kauf",
+      "hinweis": "",
+      "gruppe": "total",
+      "platzhalter": [],
+      "text": "Total Kauf"
+    },
+    "total_pauschale": {
+      "titel": "Pauschale ohne Service",
+      "hinweis": "Erste Summenzeile bei Miete und Leasing.",
+      "gruppe": "total",
+      "platzhalter": [
+        "summenlabel",
+        "laufzeit"
+      ],
+      "text": "{summenlabel} bei einer Laufzeit von {laufzeit} Monaten"
+    },
+    "total_monatspauschale": {
+      "titel": "Monatspauschale total",
+      "hinweis": "Zweite Summenzeile bei Miete und Leasing.",
+      "gruppe": "total",
+      "platzhalter": [],
+      "text": "Monatspauschale total inkl. Service"
+    },
+    "total_dienstleistung": {
+      "titel": "Summe der einmaligen Kosten",
+      "hinweis": "Letzte Zeile der Dienstleistungstabelle.",
+      "gruppe": "total",
+      "platzhalter": [],
+      "text": "Total einmalige Kosten"
+    },
+    "gesamt_einmalig": {
+      "titel": "Gesamttotal einmalige Kosten",
+      "hinweis": "Nur bei mehr als einem Standort.",
+      "gruppe": "total",
+      "platzhalter": [],
+      "text": "Einmalige Kosten – alle Standorte"
+    },
+    "gesamt_monatlich": {
+      "titel": "Gesamttotal monatlich",
+      "hinweis": "Nur bei mehr als einem Standort, bei Miete und Leasing.",
+      "gruppe": "total",
+      "platzhalter": [],
+      "text": "Monatspauschale total – alle Standorte"
+    },
+    "gesamt_kauf": {
+      "titel": "Gesamttotal Kauf",
+      "hinweis": "Nur bei mehr als einem Standort, bei Kauf.",
+      "gruppe": "total",
+      "platzhalter": [],
+      "text": "Total Kauf – alle Standorte"
+    },
+    "vertrag_kauf_titel": {
+      "titel": "Überschrift Vertragstext bei Kauf",
+      "hinweis": "",
+      "gruppe": "vertrag",
+      "platzhalter": [],
+      "text": "Laufzeit und Kündigungsfrist für Serviceverträge beim Kauf"
+    },
+    "vertrag_kauf": {
+      "titel": "Vertragstext bei Kauf",
+      "hinweis": "Jeder Eintrag wird ein eigener Absatz.",
+      "gruppe": "vertrag",
+      "platzhalter": [],
+      "absaetze": [
+        "Der Start und die Laufzeit des Servicevertrags werden gemäss einer separaten Vereinbarung festgelegt. Nach Ablauf der vereinbarten Laufzeit verlängert sich der Servicevertrag automatisch um jeweils ein Jahr. Eine Kündigung des Servicevertrags ist möglich, indem er mit einer Kündigungsfrist von drei Monaten zum Ende der Laufzeit gekündigt wird."
+      ]
+    },
+    "vertrag_miete_titel": {
+      "titel": "Überschrift Vertragstext bei Miete und Leasing",
+      "hinweis": "",
+      "gruppe": "vertrag",
+      "platzhalter": [
+        "vertragsart"
+      ],
+      "text": "Laufzeit und Kündigungsfrist {vertragsart} und Servicevertrag"
+    },
+    "vertrag_miete": {
+      "titel": "Vertragstext bei Miete und Leasing",
+      "hinweis": "Jeder Eintrag wird ein eigener Absatz.",
+      "gruppe": "vertrag",
+      "platzhalter": [
+        "vertragsart",
+        "beginn",
+        "laufzeit"
+      ],
+      "absaetze": [
+        "Der {vertragsart} tritt {beginn} in Kraft und läuft für eine bestimmte Laufzeit von {laufzeit} Monaten. Die Laufzeit des Servicevertrags ist an diese Laufzeit gekoppelt und endet gleichzeitig. Nach Ablauf verlängern sich beide Verträge automatisch um jeweils ein weiteres Jahr. Eine Beendigung ist möglich, indem sie jeweils zum Ende der Laufzeit unter Einhaltung einer Kündigungsfrist von drei Monaten gekündigt werden."
+      ]
+    },
+    "vertrag_beginn_datum": {
+      "titel": "Vertragsbeginn mit Datum",
+      "hinweis": "Wird für {beginn} eingesetzt, wenn im Kalktool ein Datum steht.",
+      "gruppe": "vertrag",
+      "platzhalter": [
+        "vertragsbeginn"
+      ],
+      "text": "am {vertragsbeginn}"
+    },
+    "vertrag_beginn_offen": {
+      "titel": "Vertragsbeginn offen",
+      "hinweis": "Wird für {beginn} eingesetzt, wenn kein Datum lesbar ist (Warnung W304).",
+      "gruppe": "vertrag",
+      "platzhalter": [],
+      "text": "zum vereinbarten Zeitpunkt"
+    },
+    "kondition_pauschale": {
+      "titel": "Abrechnungsintervall: Pauschalen",
+      "hinweis": "",
+      "gruppe": "konditionen",
+      "platzhalter": [
+        "fakt_pauschale"
+      ],
+      "text": "Servicepauschalen: {fakt_pauschale}, im Voraus."
+    },
+    "kondition_mehrseiten": {
+      "titel": "Abrechnungsintervall: Seitenpreise",
+      "hinweis": "",
+      "gruppe": "konditionen",
+      "platzhalter": [
+        "fakt_mehrseiten"
+      ],
+      "text": "Mehrseitenpreise: {fakt_mehrseiten}, rückwirkend."
+    },
+    "kondition_gebuehren": {
+      "titel": "Abrechnungsintervall: Gebühren",
+      "hinweis": "Nur wenn im Kalktool eine Regelung zu den Gebühren steht.",
+      "gruppe": "konditionen",
+      "platzhalter": [
+        "fakt_gebuehren"
+      ],
+      "text": "Gebühren: {fakt_gebuehren}."
+    },
+    "rechnung_einmalig": {
+      "titel": "Rechnungsstellung: einmalige Kosten",
+      "hinweis": "",
+      "gruppe": "konditionen",
+      "platzhalter": [],
+      "text": "Die einmaligen Kosten werden nach der Installation in Rechnung gestellt."
+    },
+    "rechnung_pauschale": {
+      "titel": "Rechnungsstellung: Pauschalen",
+      "hinweis": "",
+      "gruppe": "konditionen",
+      "platzhalter": [
+        "pauschale_wort",
+        "fakt_pauschale"
+      ],
+      "text": "Die {pauschale_wort} werden {fakt_pauschale} im Voraus verrechnet."
+    },
+    "rechnung_seitenpreise": {
+      "titel": "Rechnungsstellung: Seitenpreise",
+      "hinweis": "",
+      "gruppe": "konditionen",
+      "platzhalter": [
+        "fakt_mehrseiten"
+      ],
+      "text": "Die Seitenpreise für Schwarzweiss- und Farbdruck werden {fakt_mehrseiten} rückwirkend in Rechnung gestellt."
+    },
+    "pauschale_wort_miete": {
+      "titel": "Bezeichnung der Pauschalen bei Miete",
+      "hinweis": "Wird für {pauschale_wort} eingesetzt.",
+      "gruppe": "konditionen",
+      "platzhalter": [],
+      "text": "Miet- und Servicepauschalen"
+    },
+    "pauschale_wort_leasing": {
+      "titel": "Bezeichnung der Pauschalen bei Leasing",
+      "hinweis": "",
+      "gruppe": "konditionen",
+      "platzhalter": [],
+      "text": "Leasing- und Servicepauschalen"
+    },
+    "pauschale_wort_kauf": {
+      "titel": "Bezeichnung der Pauschalen bei Kauf",
+      "hinweis": "",
+      "gruppe": "konditionen",
+      "platzhalter": [],
+      "text": "Servicepauschalen"
+    },
+    "nachweis_kalktool": {
+      "titel": "Nachweis: Kalkulationsgrundlage",
+      "hinweis": "Kleine Zeile ganz am Schluss. Fehlt ein Teil, entfällt er samt Trennzeichen.",
+      "gruppe": "schluss",
+      "platzhalter": [
+        "kalktool_version"
+      ],
+      "text": "Kalkulationsgrundlage: Kalktool {kalktool_version}"
+    },
+    "nachweis_verkaufschance": {
+      "titel": "Nachweis: Verkaufschance",
+      "hinweis": "",
+      "gruppe": "schluss",
+      "platzhalter": [
+        "verkaufschance"
+      ],
+      "text": "Verkaufschance {verkaufschance}"
+    },
+    "nachweis_anlieferung": {
+      "titel": "Nachweis: Anlieferungsart",
+      "hinweis": "",
+      "gruppe": "schluss",
+      "platzhalter": [
+        "anlieferungsart"
+      ],
+      "text": "Anlieferungsart: {anlieferungsart}"
+    },
+    "nachweis_trenner": {
+      "titel": "Nachweis: Trennzeichen",
+      "hinweis": "Steht zwischen den Teilen der Nachweiszeile.",
+      "gruppe": "schluss",
+      "platzhalter": [],
+      "text": " · "
+    }
+  }
+};
+
+
+/* ===== 27-bausteine.js ===== */
+
+/* Textbausteine zur Laufzeit (Abschnitt 8).
+
+   Grundlage sind die mitgelieferten Bausteine; eigene Fassungen werden im
+   Browser gespeichert und liegen darüber. Jeder Baustein wird gegen seine
+   erlaubten Platzhalter geprüft – ein Tippfehler bricht mit einer klaren
+   Meldung ab, statt ein kaputtes Dokument zu schreiben. */
+
+const BAUSTEINE = (() => {
+  "use strict";
+
+  const SPEICHER = "offerttool.bausteine.v1";
+  // {feld} – doppelte Klammern {{ }} sind ein Zeichen, kein Platzhalter.
+  const RE = /(?<!\{)\{([a-z_][a-z0-9_]*)\}(?!\})/g;
+
+  /** Eigene Texte aus dem Browserspeicher; fehlerhafte werden verworfen. */
+  function eigeneLesen() {
+    try {
+      const roh = localStorage.getItem(SPEICHER);
+      const daten = roh ? JSON.parse(roh) : {};
+      return daten && typeof daten === "object" ? daten : {};
+    } catch {
+      return {};
+    }
+  }
+
+  function eigeneSchreiben(eigene) {
+    try {
+      if (Object.keys(eigene).length) {
+        localStorage.setItem(SPEICHER, JSON.stringify(eigene));
+      } else {
+        localStorage.removeItem(SPEICHER);
+      }
+      return true;
+    } catch {
+      // Privates Fenster oder gesperrter Speicher: die Änderungen gelten
+      // dann nur für diese Sitzung.
+      return false;
+    }
+  }
+
+  let eigene = eigeneLesen();
+
+  const standard = (schluessel) => BAUSTEINE_STANDARD.bausteine[schluessel];
+
+  /** Absätze eines Bausteins: eigene Fassung, sonst die mitgelieferte. */
+  function absaetzeVon(schluessel) {
+    const s = standard(schluessel);
+    if (!s) throw new OfferteError("E802", `Unbekannter Textbaustein: ${schluessel}`);
+    const wert = eigene[schluessel];
+    if (wert !== undefined) return Array.isArray(wert) ? wert : [String(wert)];
+    return s.absaetze ? s.absaetze : [s.text];
+  }
+
+  const istMehrzeilig = (schluessel) => Boolean(standard(schluessel).absaetze);
+
+  const erlaubte = (schluessel) => standard(schluessel).platzhalter || [];
+
+  /** Fehlermeldung, wenn ein Baustein einen unzulässigen Platzhalter nutzt. */
+  function pruefeText(schluessel, absaetze) {
+    const s = standard(schluessel);
+    const erlaubt = new Set(erlaubte(schluessel));
+    const liste = erlaubt.size
+      ? [...erlaubt].map((p) => "{" + p + "}").join(", ")
+      : "keine";
+
+    for (const absatz of absaetze) {
+      RE.lastIndex = 0;
+      let treffer;
+      while ((treffer = RE.exec(absatz)) !== null) {
+        const name = treffer[1];
+        if (erlaubt.has(name)) continue;
+        const bekannt = name in BAUSTEINE_STANDARD.platzhalter;
+        return bekannt
+          ? `{${name}} ist in diesem Baustein nicht vorgesehen. Erlaubt: ${liste}`
+          : `{${name}} gibt es nicht. Erlaubt: ${liste}`;
+      }
+      const ohne = absatz.replace(RE, "").split("{{").join("").split("}}").join("");
+      if (ohne.includes("{") || ohne.includes("}")) {
+        return "Eine geschweifte Klammer steht allein. Als Zeichen bitte {{ oder }} schreiben.";
+      }
+    }
+    return null;
+  }
+
+  function fuellen(schluessel, vorlage, werte) {
+    RE.lastIndex = 0;
+    return vorlage
+      .replace(RE, (_, name) => String(werte[name] ?? ""))
+      .split("{{").join("{")
+      .split("}}").join("}");
+  }
+
+  return {
+    /** Einzeiligen Baustein füllen. */
+    text(schluessel, werte) {
+      return fuellen(schluessel, absaetzeVon(schluessel)[0], werte || {});
+    },
+
+    /** Mehrzeiligen Baustein füllen. */
+    absaetze(schluessel, werte) {
+      return absaetzeVon(schluessel).map((a) => fuellen(schluessel, a, werte || {}));
+    },
+
+    // -- Für den Editor -------------------------------------------------
+
+    katalog: BAUSTEINE_STANDARD,
+    istMehrzeilig,
+    erlaubte,
+    pruefeText,
+    rohtext: absaetzeVon,
+
+    /** Wurde dieser Baustein geändert? */
+    geaendert: (schluessel) => eigene[schluessel] !== undefined,
+
+    /** Gibt es überhaupt eigene Texte? */
+    anzahlGeaendert: () => Object.keys(eigene).length,
+
+    /** Eigenen Text setzen; null stellt den mitgelieferten wieder her. */
+    setzen(schluessel, absaetze) {
+      if (!standard(schluessel)) {
+        throw new OfferteError("E802", `Unbekannter Textbaustein: ${schluessel}`);
+      }
+      if (absaetze === null) {
+        delete eigene[schluessel];
+      } else {
+        const liste = Array.isArray(absaetze) ? absaetze : [String(absaetze)];
+        const fehler = pruefeText(schluessel, liste);
+        if (fehler) throw new OfferteError("E801", fehler);
+        eigene[schluessel] = istMehrzeilig(schluessel) ? liste : liste[0];
+      }
+      return eigeneSchreiben(eigene);
+    },
+
+    /** Alle eigenen Texte verwerfen. */
+    zuruecksetzen() {
+      eigene = {};
+      return eigeneSchreiben(eigene);
+    },
+
+    /** Eigene Texte zum Sichern. */
+    exportieren: () => JSON.parse(JSON.stringify(eigene)),
+
+    /** Gesicherte Texte laden; prüft jeden Eintrag. */
+    importieren(daten) {
+      if (!daten || typeof daten !== "object") {
+        throw new OfferteError("E801", "Die Datei enthält keine Textbausteine.");
+      }
+      const neu = {};
+      for (const [schluessel, wert] of Object.entries(daten)) {
+        if (!standard(schluessel)) {
+          throw new OfferteError("E802", `Unbekannter Textbaustein: ${schluessel}`);
+        }
+        const liste = Array.isArray(wert) ? wert.map(String) : [String(wert)];
+        const fehler = pruefeText(schluessel, liste);
+        if (fehler) {
+          throw new OfferteError("E801", `${standard(schluessel).titel}: ${fehler}`);
+        }
+        neu[schluessel] = istMehrzeilig(schluessel) ? liste : liste[0];
+      }
+      eigene = neu;
+      eigeneSchreiben(eigene);
+      return Object.keys(neu).length;
+    },
+  };
 })();
 
 
@@ -1643,74 +2421,98 @@ const CRM = (() => {
 
 /* ===== 33-textblocks.js ===== */
 
-/* Textbausteine (Abschnitt 8).
+/* Textbausteine zusammensetzen (Abschnitt 8).
 
-   Templates über die Felder der Abschnitte 4 und 5. Keine Bedingungen im
-   Text – Varianten sind eigene Bausteine. */
+   Der Wortlaut steht nicht hier, sondern in den Bausteinen. Dieses Modul
+   entscheidet nur, welcher Baustein wann gebraucht wird und mit welchen
+   Werten er gefüllt wird – die Regeln also, nicht die Formulierung. */
 
 const TEXT = (() => {
   "use strict";
 
   const num = DERIVE.num, txt = DERIVE.text;
+  const B = () => BAUSTEINE;
 
   const headStandort = (ctx) => {
     const name = txt(ctx, "standort.name");
-    return name ? `Standort ${ctx.index}: ${name}` : `Standort ${ctx.index}`;
+    return name
+      ? B().text("head_standort", { index: ctx.index, name })
+      : B().text("head_standort_ohne_name", { index: ctx.index });
   };
 
   const headDl = (ctx) => {
     const name = txt(ctx, "standort.name");
-    const basis = "Im Angebot enthaltene Schulungen und Dienstleistungen – Standort";
-    return name ? `${basis} ${ctx.index}: ${name}` : `${basis} ${ctx.index}`;
+    return name
+      ? B().text("head_dienstleistung", { index: ctx.index, name })
+      : B().text("head_dienstleistung_ohne_name", { index: ctx.index });
   };
 
   function lineAdresse(ctx) {
     const ort = ctx.values["standort.plz_ort"] || {};
-    const teile = [txt(ctx, "standort.strasse"), `${ort.plz || ""} ${ort.ort || ""}`.trim()];
-    return "Installationsadresse: " + teile.filter(Boolean).join(", ");
+    const text = B().text("line_adresse", {
+      strasse: txt(ctx, "standort.strasse"),
+      plz: ort.plz || "",
+      ort: ort.ort || "",
+    });
+    return text.replace(" ,", ",").replace("  ", " ").trim().replace(/,$/, "");
   }
 
-  const serviceKopf = (d) => `Wartungs- und Klick-Kosten für ${d.geraet}`;
+  const serviceKopf = (d) => B().text("tabelle_service_kopf", { geraet: d.geraet });
+
+  const kopfHardware = (mitArtNr) => {
+    const spalten = [
+      B().text("tabelle_hardware_bezeichnung"),
+      B().text("tabelle_hardware_stueck"),
+    ];
+    return mitArtNr ? [B().text("tabelle_hardware_artnr"), ...spalten] : spalten;
+  };
+
+  const kopfDienstleistung = () => [
+    B().text("tabelle_dienstleistung_leistung"),
+    B().text("tabelle_dienstleistung_betrag"),
+  ];
+
+  const kopfService = (d) => [serviceKopf(d), B().text("tabelle_service_total")];
 
   /** Zeilen der Servicetabelle in fester Reihenfolge (Abschnitt 8.2). */
   function serviceZeilen(ctx, d) {
     const zeilen = [];
 
-    const block1 = [`Servicevertrag pro Monat und pro Gerät für ${d.geraet}`];
+    const block1 = [B().text("service_geraet", { geraet: d.geraet })];
     if (d.show.sla) {
       // Ist sla.preis 0, wird kein Betrag ausgegeben – der SLA steckt in
       // service.geraet und würde sonst doppelt wirken.
-      block1.push(`Service Level Agreement: ${d.slaKurz}`);
+      block1.push(B().text("service_sla", { sla: d.slaKurz }));
     }
-    block1.push(
-      `Mit ${FMT.intCh(num(ctx, "volumen.color"))} Seiten in Farbe und ` +
-      `${FMT.intCh(num(ctx, "volumen.sw"))} Seiten schwarzweiss inkludiert`
-    );
+    block1.push(B().text("service_inklusiv", {
+      volumen_color: FMT.intCh(num(ctx, "volumen.color")),
+      volumen_sw: FMT.intCh(num(ctx, "volumen.sw")),
+    }));
     zeilen.push([block1, [FMT.chf(num(ctx, "service.geraet"))]]);
 
     const klickT = [], klickB = [];
     if (d.show.color) {
-      klickT.push(`Zusätzliche Seiten ab der ${d.abSeite.color}. Seite in Farbe`);
+      klickT.push(B().text("service_color", { ab_seite_color: d.abSeite.color }));
       klickB.push(FMT.rate(num(ctx, "preis.color")));
     }
     if (d.show.sw) {
-      klickT.push(`Zusätzliche Seiten ab der ${d.abSeite.sw}. Seite schwarzweiss`);
+      klickT.push(B().text("service_sw", { ab_seite_sw: d.abSeite.sw }));
       klickB.push(FMT.rate(num(ctx, "preis.sw")));
     }
     if (klickT.length) zeilen.push([klickT, klickB]);
 
     if (d.show.scan) {
-      zeilen.push([[`Zusätzliche Scans ab dem ${d.abSeite.scan}. Scan`],
+      zeilen.push([[B().text("service_scan", { ab_scan: d.abSeite.scan })],
                    [FMT.rate(num(ctx, "preis.scan"))]]);
     }
 
     const fleetT = [], fleetB = [];
     if (d.show.fleet) {
-      fleetT.push(`Zählerstanderfassung und Fleet Management: ${txt(ctx, "fleet.level")}`);
+      fleetT.push(B().text("service_fleet", { fleet: txt(ctx, "fleet.level") }));
       fleetB.push(num(ctx, "fleet.preis") > 0 ? FMT.chf(num(ctx, "fleet.preis")) : "");
     }
     if (d.show.zaehlerversand) {
-      fleetT.push(`Zählerstandsmeldung: ${txt(ctx, "zaehlerversand")}`);
+      fleetT.push(B().text("service_zaehlerversand", { zaehlerversand: txt(ctx, "zaehlerversand") }));
       fleetB.push("");
     }
     if (fleetT.length) zeilen.push([fleetT, fleetB.some(Boolean) ? fleetB : [""]]);
@@ -1721,82 +2523,104 @@ const TEXT = (() => {
   /** Summenzeilen eines Standorts (Abschnitt 5.4). */
   function totalZeilen(ctx, d) {
     if (d.variante === "KAUF") {
-      return [["Total Kauf", FMT.chf(num(ctx, "vertragswert"))]];
+      return [[B().text("total_kauf"), FMT.chf(num(ctx, "vertragswert"))]];
     }
-    const label = `${txt(ctx, "summenlabel")} bei einer Laufzeit von ` +
-                  `${FMT.intCh(num(ctx, "laufzeit"))} Monaten`;
+    const label = B().text("total_pauschale", {
+      summenlabel: txt(ctx, "summenlabel"),
+      laufzeit: FMT.intCh(num(ctx, "laufzeit")),
+    });
     return [
       [label, FMT.chf(num(ctx, "pauschale_ohne_service"))],
-      ["Monatspauschale total inkl. Service", FMT.chf(num(ctx, "monatspauschale_total"))],
+      [B().text("total_monatspauschale"), FMT.chf(num(ctx, "monatspauschale_total"))],
     ];
+  }
+
+  function gesamtZeilen(g, variante) {
+    const zeilen = [];
+    if (g.einmalig > 0) zeilen.push([B().text("gesamt_einmalig"), FMT.chf(g.einmalig)]);
+    zeilen.push(variante === "KAUF"
+      ? [B().text("gesamt_kauf"), FMT.chf(g.kauf)]
+      : [B().text("gesamt_monatlich"), FMT.chf(g.monatlich)]);
+    return zeilen;
   }
 
   /** Überschrift und Absätze des Vertragstexts (Abschnitt 8.3). */
   function vertragstext(ctx, d) {
     if (d.variante === "KAUF") {
-      return ["Laufzeit und Kündigungsfrist für Serviceverträge beim Kauf", [
-        "Der Start und die Laufzeit des Servicevertrags werden gemäss einer separaten " +
-        "Vereinbarung festgelegt. Nach Ablauf der vereinbarten Laufzeit verlängert sich " +
-        "der Servicevertrag automatisch um jeweils ein Jahr. Eine Kündigung des " +
-        "Servicevertrags ist möglich, indem er mit einer Kündigungsfrist von drei Monaten " +
-        "zum Ende der Laufzeit gekündigt wird.",
-      ]];
+      return [B().text("vertrag_kauf_titel"), B().absaetze("vertrag_kauf")];
     }
     const beginn = ctx.values.vertragsbeginn;
-    const phrase = beginn ? `am ${FMT.dateDe(beginn)}` : "zum vereinbarten Zeitpunkt";
-    return [`Laufzeit und Kündigungsfrist ${d.vertragsartWort} und Servicevertrag`, [
-      `Der ${d.vertragsartWort} tritt ${phrase} in Kraft und läuft für eine bestimmte ` +
-      `Laufzeit von ${FMT.intCh(num(ctx, "laufzeit"))} Monaten. Die Laufzeit des ` +
-      "Servicevertrags ist an diese Laufzeit gekoppelt und endet gleichzeitig. Nach Ablauf " +
-      "verlängern sich beide Verträge automatisch um jeweils ein weiteres Jahr. Eine " +
-      "Beendigung ist möglich, indem sie jeweils zum Ende der Laufzeit unter Einhaltung " +
-      "einer Kündigungsfrist von drei Monaten gekündigt werden.",
-    ]];
+    const phrase = beginn
+      ? B().text("vertrag_beginn_datum", { vertragsbeginn: FMT.dateDe(beginn) })
+      : B().text("vertrag_beginn_offen");
+    return [
+      B().text("vertrag_miete_titel", { vertragsart: d.vertragsartWort }),
+      B().absaetze("vertrag_miete", {
+        vertragsart: d.vertragsartWort,
+        beginn: phrase,
+        laufzeit: FMT.intCh(num(ctx, "laufzeit")),
+      }),
+    ];
   }
+
+  const PAUSCHALE_BAUSTEIN = {
+    MIETE: "pauschale_wort_miete",
+    LEASING: "pauschale_wort_leasing",
+    KAUF: "pauschale_wort_kauf",
+  };
 
   function konditionenAbrechnung(ctx) {
     const zeilen = [
-      `Servicepauschalen: ${txt(ctx, "fakt.pauschale")}, im Voraus.`,
-      `Mehrseitenpreise: ${txt(ctx, "fakt.mehrseiten")}, rückwirkend.`,
+      B().text("kondition_pauschale", { fakt_pauschale: txt(ctx, "fakt.pauschale") }),
+      B().text("kondition_mehrseiten", { fakt_mehrseiten: txt(ctx, "fakt.mehrseiten") }),
     ];
-    if (txt(ctx, "fakt.gebuehren")) zeilen.push(`Gebühren: ${txt(ctx, "fakt.gebuehren")}.`);
+    if (txt(ctx, "fakt.gebuehren")) {
+      zeilen.push(B().text("kondition_gebuehren", { fakt_gebuehren: txt(ctx, "fakt.gebuehren") }));
+    }
     return zeilen;
   }
 
   function konditionenRechnung(ctx, d) {
     return [
-      "Die einmaligen Kosten werden nach der Installation in Rechnung gestellt.",
-      `Die ${DERIVE.PAUSCHALE_WORT[d.variante]} werden ` +
-      `${FMT.klein(txt(ctx, "fakt.pauschale"))} im Voraus verrechnet.`,
-      "Die Seitenpreise für Schwarzweiss- und Farbdruck werden " +
-      `${FMT.klein(txt(ctx, "fakt.mehrseiten"))} rückwirkend in Rechnung gestellt.`,
+      B().text("rechnung_einmalig"),
+      B().text("rechnung_pauschale", {
+        pauschale_wort: B().text(PAUSCHALE_BAUSTEIN[d.variante]),
+        fakt_pauschale: FMT.klein(txt(ctx, "fakt.pauschale")),
+      }),
+      B().text("rechnung_seitenpreise", {
+        fakt_mehrseiten: FMT.klein(txt(ctx, "fakt.mehrseiten")),
+      }),
     ];
   }
 
   /** Fehlt ein Teil, entfällt das Segment samt Trennzeichen (Abschnitt 8.5). */
   function nachweis(standorte) {
-    const versionen = [...new Set(standorte.map((s) => DERIVE.text(s.ctx, "kalktool.version")).filter(Boolean))];
-    const chancen = [...new Set(standorte.map((s) => DERIVE.text(s.ctx, "verkaufschance")).filter(Boolean))];
+    const einmalig = (f) => [...new Set(standorte.map(f).filter(Boolean))];
+    const versionen = einmalig((s) => DERIVE.text(s.ctx, "kalktool.version"));
+    const chancen = einmalig((s) => DERIVE.text(s.ctx, "verkaufschance"));
     const art = DERIVE.text(standorte[0].ctx, "anlieferungsart");
+
     const teile = [];
-    if (versionen.length) teile.push(`Kalkulationsgrundlage: Kalktool ${versionen.join(", ")}`);
-    if (chancen.length) teile.push(`Verkaufschance ${chancen.join(", ")}`);
-    if (art) teile.push(`Anlieferungsart: ${art}`);
-    return teile.join(" · ");
+    if (versionen.length) {
+      teile.push(B().text("nachweis_kalktool", { kalktool_version: versionen.join(", ") }));
+    }
+    if (chancen.length) {
+      teile.push(B().text("nachweis_verkaufschance", { verkaufschance: chancen.join(", ") }));
+    }
+    if (art) teile.push(B().text("nachweis_anlieferung", { anlieferungsart: art }));
+    return teile.join(B().text("nachweis_trenner"));
   }
 
-  const gueltigkeit = (d) => `Dieses Angebot ist gültig bis ${FMT.dateDe(d.gueltigBis)}`;
-  const ortDatum = (ctx) => `Spreitenbach, ${FMT.dateDe(ctx.values.datum)}`;
+  const gueltigkeit = (d) => B().text("gueltigkeit", { gueltig_bis: FMT.dateDe(d.gueltigBis) });
+  const ortDatum = (ctx) => B().text("ort_datum", { datum: FMT.dateDe(ctx.values.datum) });
+  const klassifizierung = () => B().text("klassifizierung");
+  const dlTotalLabel = () => B().text("total_dienstleistung");
 
   return {
     headStandort, headDl, lineAdresse, serviceKopf, serviceZeilen, totalZeilen,
-    vertragstext, konditionenAbrechnung, konditionenRechnung, nachweis,
-    gueltigkeit, ortDatum,
-    KLASSIFIZIERUNG: "Vertraulich",
-    DL_TOTAL_LABEL: "Total einmalige Kosten",
-    GESAMT_EINMALIG: "Einmalige Kosten – alle Standorte",
-    GESAMT_MONATLICH: "Monatspauschale total – alle Standorte",
-    GESAMT_KAUF: "Total Kauf – alle Standorte",
+    gesamtZeilen, vertragstext, konditionenAbrechnung, konditionenRechnung,
+    nachweis, gueltigkeit, ortDatum, klassifizierung, dlTotalLabel,
+    kopfHardware, kopfDienstleistung, kopfService,
   };
 })();
 
@@ -2266,7 +3090,7 @@ const RENDER = (() => {
       }
       this.block("OFF.KONTAKT", vk.filter(Boolean));
 
-      this.text("OFF.KLASSIFIZIERUNG", TEXT.KLASSIFIZIERUNG);
+      this.text("OFF.KLASSIFIZIERUNG", TEXT.klassifizierung());
       this.text("OFF.NUMMER", this.crm.offertnummer(txt(ctx, "verkaufschance"), this.warn));
       this.text("OFF.VERSION", this.crm.offertversion(this.warn));
       this.text("OFF.DATUM", FMT.dateDe(ctx.values.datum));
@@ -2310,20 +3134,11 @@ const RENDER = (() => {
       // sie, solange keine einzige Position eine Nummer trägt.
       const mitArtNr = positionen.some((p) => p.artnr !== "" && p.artnr !== "–");
 
-      let saetze;
-      let kopf = DOCX.zellen(DOCX.zeilen(tbl)[0]);
-      if (mitArtNr) {
-        DOCX.setzeZelle(kopf[0], ["Artikel No."]);
-        DOCX.setzeZelle(kopf[1], ["Bezeichnung"]);
-        DOCX.setzeZelle(kopf[2], ["Stück"]);
-        saetze = positionen.map((p) => [p.artnr, p.bezeichnung, p.stueck]);
-      } else {
-        DOCX.spalteEntfernen(tbl, 0);
-        kopf = DOCX.zellen(DOCX.zeilen(tbl)[0]);
-        DOCX.setzeZelle(kopf[0], ["Bezeichnung"]);
-        DOCX.setzeZelle(kopf[1], ["Stück"]);
-        saetze = positionen.map((p) => [p.bezeichnung, p.stueck]);
-      }
+      if (!mitArtNr) DOCX.spalteEntfernen(tbl, 0);
+      const kopf = DOCX.zellen(DOCX.zeilen(tbl)[0]);
+      TEXT.kopfHardware(mitArtNr).forEach((titel, i) => DOCX.setzeZelle(kopf[i], [titel]));
+      const saetze = positionen.map((p) =>
+        (mitArtNr ? [p.artnr] : []).concat([p.bezeichnung, p.stueck]));
       DOCX.fuelleZeilen(tbl, 1, saetze);
       // Listentabelle ohne Summenzeile: lastRow aus.
       DOCX.setzeTblLook(tbl, STIL.tbllook_liste || "04A0");
@@ -2338,12 +3153,11 @@ const RENDER = (() => {
       this.text("HEAD.DL", TEXT.headDl(ctx), wurzel);
       const [, tbl] = this.tabelle("TBL.DIENSTLEISTUNG", wurzel);
       const kopf = DOCX.zellen(DOCX.zeilen(tbl)[0]);
-      DOCX.setzeZelle(kopf[0], ["Leistung"]);
-      DOCX.setzeZelle(kopf[1], ["Betrag"]);
+      TEXT.kopfDienstleistung().forEach((titel, i) => DOCX.setzeZelle(kopf[i], [titel]));
 
       const saetze = (ctx.listen.dienstleistung || []).map((p) => [p.bezeichnung, FMT.chf(p.betrag)]);
       for (const p of ctx.listen["solutions.dl"] || []) saetze.push([p.bezeichnung, FMT.chf(p.betrag)]);
-      saetze.push([TEXT.DL_TOTAL_LABEL, FMT.chf(d.dienstleistungTotal)]);
+      saetze.push([TEXT.dlTotalLabel(), FMT.chf(d.dienstleistungTotal)]);
       this.merkeAlle(saetze);
       DOCX.fuelleZeilen(tbl, 1, saetze);
       DOCX.setzeTblLook(tbl, STIL.tbllook_summe || "04E0");
@@ -2352,8 +3166,7 @@ const RENDER = (() => {
     service(ctx, d, wurzel) {
       const [, tbl] = this.tabelle("TBL.SERVICE", wurzel);
       const kopf = DOCX.zellen(DOCX.zeilen(tbl)[0]);
-      DOCX.setzeZelle(kopf[0], [TEXT.serviceKopf(d)]);
-      DOCX.setzeZelle(kopf[1], ["Total"]);
+      TEXT.kopfService(d).forEach((titel, i) => DOCX.setzeZelle(kopf[i], [titel]));
 
       const saetze = TEXT.serviceZeilen(ctx, d).map(([texte, betraege]) => [texte, betraege]);
       this.merkeAlle(saetze);
@@ -2375,12 +3188,7 @@ const RENDER = (() => {
     gesamttotal(g, variante, anzahl) {
       const sdt = this.anker("TBL.GESAMTTOTAL");
       if (anzahl <= 1) { DOCX.entfernen(sdt); return; }
-      const zeilen = [];
-      if (g.einmalig > 0) zeilen.push([TEXT.GESAMT_EINMALIG, FMT.chf(g.einmalig)]);
-      zeilen.push(variante === "KAUF"
-        ? [TEXT.GESAMT_KAUF, FMT.chf(g.kauf)]
-        : [TEXT.GESAMT_MONATLICH, FMT.chf(g.monatlich)]);
-      this.total(sdt, zeilen);
+      this.total(sdt, TEXT.gesamtZeilen(g, variante));
     }
 
     // --- Vertragstext, Konditionen, Schluss ----------------------------
@@ -5708,6 +6516,238 @@ const VORLAGE_BASE64 = [
     $("ablage").parentNode.insertBefore(p, $("ablage").nextSibling);
   }
   zeichneListe();
+})();
+
+
+/* ===== 61-editor.js ===== */
+
+/* Editor für die Textbausteine.
+
+   Jede Formulierung der Offerte lässt sich hier ändern, ohne eine Datei zu
+   bearbeiten. Geprüft wird bei jedem Tastendruck: ein unzulässiger Platzhalter
+   wird sofort gemeldet und nicht gespeichert. */
+
+(() => {
+  "use strict";
+
+  const $ = (id) => document.getElementById(id);
+  if (!$("texte-liste")) return;
+
+  const liste = $("texte-liste");
+  const katalog = BAUSTEINE.katalog;
+
+  const el = (tag, klasse, text) => {
+    const n = document.createElement(tag);
+    if (klasse) n.className = klasse;
+    if (text !== undefined) n.textContent = text;
+    return n;
+  };
+
+  // --- Reiter ----------------------------------------------------------
+
+  function zeige(welche) {
+    const offerte = welche === "offerte";
+    $("ansicht-offerte").classList.toggle("versteckt", !offerte);
+    $("ansicht-texte").classList.toggle("versteckt", offerte);
+    $("reiter-offerte").classList.toggle("aktiv", offerte);
+    $("reiter-texte").classList.toggle("aktiv", !offerte);
+    $("reiter-offerte").setAttribute("aria-selected", String(offerte));
+    $("reiter-texte").setAttribute("aria-selected", String(!offerte));
+  }
+  $("reiter-offerte").onclick = () => zeige("offerte");
+  $("reiter-texte").onclick = () => zeige("texte");
+
+  // --- Aufbau ----------------------------------------------------------
+
+  function zeichne() {
+    liste.innerHTML = "";
+    for (const [gruppe, titel] of Object.entries(katalog.gruppen)) {
+      const eintraege = Object.entries(katalog.bausteine)
+        .filter(([, b]) => b.gruppe === gruppe);
+      if (!eintraege.length) continue;
+
+      const box = el("details", "texte-gruppe");
+      // Offen, damit sich ein gesuchter Text auch mit der Browsersuche finden
+      // lässt und niemand erst Gruppen aufklappen muss.
+      box.open = true;
+      const kopf = el("summary");
+      kopf.append(el("span", null, titel),
+                  el("span", "anzahl", `${eintraege.length} Bausteine`));
+      box.append(kopf);
+      for (const [schluessel] of eintraege) box.append(baustein(schluessel));
+      liste.append(box);
+    }
+    zaehlerAktualisieren();
+  }
+
+  function baustein(schluessel) {
+    const spez = katalog.bausteine[schluessel];
+    const box = el("div", "baustein");
+    box.dataset.schluessel = schluessel;
+
+    const kopf = el("div", "baustein-kopf");
+    kopf.append(el("span", "baustein-titel", spez.titel));
+    const ruecksetzen = el("button", "zuruecksetzen", "auf Original zurücksetzen");
+    ruecksetzen.type = "button";
+    ruecksetzen.hidden = !BAUSTEINE.geaendert(schluessel);
+    kopf.append(ruecksetzen);
+    box.append(kopf);
+
+    if (spez.hinweis) box.append(el("p", "baustein-hinweis", spez.hinweis));
+
+    const feld = el("textarea");
+    feld.value = BAUSTEINE.rohtext(schluessel).join("\n\n");
+    feld.rows = Math.min(8, Math.max(1, Math.ceil(feld.value.length / 78)));
+    feld.setAttribute("aria-label", spez.titel);
+    box.append(feld);
+
+    const erlaubt = spez.platzhalter || [];
+    if (erlaubt.length) {
+      const chips = el("div", "chips");
+      chips.append(el("span", "beschriftung", "Einfügen:"));
+      for (const name of erlaubt) {
+        const chip = el("button", "chip", "{" + name + "}");
+        chip.type = "button";
+        chip.title = katalog.platzhalter[name] || "";
+        chip.onclick = () => einfuegen(feld, "{" + name + "}");
+        chips.append(chip);
+      }
+      box.append(chips);
+    }
+
+    const fuss = el("div", "baustein-fuss");
+    const vorschau = el("div", "vorschau");
+    fuss.append(vorschau);
+    box.append(fuss);
+
+    const aktualisieren = () => {
+      const absaetze = feld.value.split("\n\n");
+      const fehler = BAUSTEINE.pruefeText(schluessel, absaetze);
+      feld.classList.toggle("fehlerhaft", Boolean(fehler));
+      vorschau.classList.toggle("fehler", Boolean(fehler));
+      vorschau.innerHTML = "";
+
+      if (fehler) {
+        vorschau.append(el("span", null, fehler));
+        return;
+      }
+      vorschau.append(el("span", null, "So sieht es aus: "));
+      vorschau.append(el("strong", null, beispiel(absaetze)));
+
+      const istStandard = absaetze.join("\n\n") === standardText(schluessel);
+      BAUSTEINE.setzen(schluessel, istStandard ? null : absaetze);
+      box.classList.toggle("geaendert", !istStandard);
+      ruecksetzen.hidden = istStandard;
+      zaehlerAktualisieren();
+    };
+
+    ruecksetzen.onclick = () => {
+      feld.value = standardText(schluessel);
+      aktualisieren();
+      feld.focus();
+    };
+
+    feld.oninput = aktualisieren;
+    aktualisieren();
+    box.classList.toggle("geaendert", BAUSTEINE.geaendert(schluessel));
+    return box;
+  }
+
+  function standardText(schluessel) {
+    const spez = katalog.bausteine[schluessel];
+    return (spez.absaetze ? spez.absaetze : [spez.text]).join("\n\n");
+  }
+
+  /** Vorschau mit Beispielwerten – die stehen nie in einer echten Offerte. */
+  function beispiel(absaetze) {
+    const werte = katalog.beispiele || {};
+    const gefuellt = absaetze.map((a) =>
+      a.replace(/(?<!\{)\{([a-z_][a-z0-9_]*)\}(?!\})/g, (_, n) => werte[n] ?? "…")
+       .split("{{").join("{").split("}}").join("}")
+    ).join(" ⏎ ");
+    return gefuellt.length > 160 ? gefuellt.slice(0, 157) + "…" : gefuellt;
+  }
+
+  function einfuegen(feld, text) {
+    const start = feld.selectionStart ?? feld.value.length;
+    const ende = feld.selectionEnd ?? start;
+    feld.value = feld.value.slice(0, start) + text + feld.value.slice(ende);
+    feld.selectionStart = feld.selectionEnd = start + text.length;
+    feld.focus();
+    feld.dispatchEvent(new Event("input"));
+  }
+
+  function zaehlerAktualisieren() {
+    const n = BAUSTEINE.anzahlGeaendert();
+    const marke = $("texte-zaehler");
+    marke.classList.toggle("versteckt", n === 0);
+    marke.textContent = n === 1 ? "1 Baustein geändert" : `${n} Bausteine geändert`;
+  }
+
+  // --- Sichern, Laden, Zurücksetzen ------------------------------------
+
+  $("texte-sichern").onclick = () => {
+    const daten = BAUSTEINE.exportieren();
+    if (!Object.keys(daten).length) {
+      alert("Es ist noch kein Baustein geändert – es gibt nichts zu sichern.");
+      return;
+    }
+    const blob = new Blob([JSON.stringify(daten, null, 2)],
+                          { type: "application/json;charset=utf-8" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "Textbausteine.json";
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+  };
+
+  $("texte-laden").onclick = () => $("texte-datei").click();
+
+  $("texte-datei").onchange = async () => {
+    const datei = $("texte-datei").files[0];
+    $("texte-datei").value = "";
+    if (!datei) return;
+    try {
+      const anzahl = BAUSTEINE.importieren(JSON.parse(await datei.text()));
+      zeichne();
+      alert(anzahl === 1 ? "1 Baustein geladen." : `${anzahl} Bausteine geladen.`);
+    } catch (e) {
+      alert("Die Datei konnte nicht geladen werden.\n\n" + (e.detail || e.message));
+    }
+  };
+
+  $("texte-alle-zuruecksetzen").onclick = () => {
+    if (!BAUSTEINE.anzahlGeaendert()) return;
+    if (!confirm("Alle eigenen Texte verwerfen und die mitgelieferten wiederherstellen?")) return;
+    BAUSTEINE.zuruecksetzen();
+    zeichne();
+  };
+
+  // --- Suche -----------------------------------------------------------
+
+  const suche = $("texte-suche");
+  if (suche) {
+    suche.oninput = () => {
+      const begriff = suche.value.trim().toLowerCase();
+      for (const box of liste.querySelectorAll(".texte-gruppe")) {
+        let sichtbar = 0;
+        for (const b of box.querySelectorAll(".baustein")) {
+          const spez = katalog.bausteine[b.dataset.schluessel];
+          const heuhaufen = [
+            spez.titel, spez.hinweis || "", b.dataset.schluessel,
+            b.querySelector("textarea").value,
+          ].join(" ").toLowerCase();
+          const treffer = !begriff || heuhaufen.includes(begriff);
+          b.classList.toggle("versteckt", !treffer);
+          if (treffer) sichtbar++;
+        }
+        box.classList.toggle("versteckt", sichtbar === 0);
+        if (begriff) box.open = true;
+      }
+    };
+  }
+
+  zeichne();
 })();
 </script>
 </body>

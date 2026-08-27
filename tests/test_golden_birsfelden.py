@@ -96,7 +96,7 @@ def test_sla_ohne_betrag(birsfelden):
     zeilen = T.service_zeilen(ctx, d)
     sla_zeile = [t for t in zeilen[0][0] if t.startswith("Service Level Agreement")]
     assert sla_zeile == ["Service Level Agreement: Premium"]
-    assert zeilen[0][1] == "CHF 3.50"
+    assert zeilen[0][1] == ["CHF 3.50"]
 
 
 def test_dienstleistung_nur_verrechnete_spalte(birsfelden):

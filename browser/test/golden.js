@@ -42,6 +42,37 @@
     PARSE.plzOrt("Birsfelden", w1);
     wahr("W301 bei unteilbarem Ort", w1.codes().includes("W301"));
 
+    // --- Textbausteine (Abschnitt 8) ---
+    gleich("Baustein mit Werten", BAUSTEINE.text("head_standort", { index: 1, name: "Museum" }),
+      "Standort 1: Museum");
+    gleich("Baustein ohne Platzhalter", BAUSTEINE.text("klassifizierung"), "Vertraulich");
+    wahr("Bausteine vollständig", Object.keys(BAUSTEINE.katalog.bausteine).length > 40);
+
+    wahr("unbekannter Platzhalter wird gemeldet",
+      /gibt es nicht/.test(BAUSTEINE.pruefeText("head_standort", ["Standort {naem}"]) || ""));
+    wahr("nicht vorgesehener Platzhalter wird gemeldet",
+      /nicht vorgesehen/.test(BAUSTEINE.pruefeText("head_standort", ["Standort {geraet}"]) || ""));
+    wahr("einzelne Klammer wird gemeldet",
+      /Klammer/.test(BAUSTEINE.pruefeText("klassifizierung", ["Vertraulich {"]) || ""));
+    gleich("gültiger Text ohne Beanstandung",
+      BAUSTEINE.pruefeText("head_standort", ["Einsatzort {index} – {name}"]), null);
+
+    BAUSTEINE.setzen("head_standort", ["Einsatzort {index} – {name}"]);
+    gleich("eigener Text greift", BAUSTEINE.text("head_standort", { index: 2, name: "Werkhof" }),
+      "Einsatzort 2 – Werkhof");
+    wahr("als geändert vermerkt", BAUSTEINE.geaendert("head_standort"));
+    gleich("Export enthält den Text", BAUSTEINE.exportieren()["head_standort"],
+      "Einsatzort {index} – {name}");
+    BAUSTEINE.setzen("head_standort", null);
+    gleich("zurückgesetzt", BAUSTEINE.text("head_standort", { index: 1, name: "Museum" }),
+      "Standort 1: Museum");
+    wahr("nicht mehr als geändert vermerkt", !BAUSTEINE.geaendert("head_standort"));
+
+    let abgewiesen = false;
+    try { BAUSTEINE.importieren({ gibt_es_nicht: "x" }); } catch { abgewiesen = true; }
+    wahr("unbekannter Schlüssel beim Laden abgewiesen", abgewiesen);
+    BAUSTEINE.zuruecksetzen();
+
     if (!datei) return zeige();
 
     // --- Referenzfall (Abschnitt 14) ---
