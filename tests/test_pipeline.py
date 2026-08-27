@@ -303,3 +303,62 @@ def test_anbieterblock_haelt_die_beschriftungen_auf_hoehe(offerte):
         assert inhalt[zeile] == "Thomas Steiner", (zeile, inhalt[:8])
         return
     raise AssertionError("Anbieterblock nicht gefunden")
+
+
+# --- Sperrliste: Fehlalarm durch statischen Vorlagentext ------------------
+
+
+def test_stundensatz_der_vorlage_ist_kein_leck(tmp_path):
+    """Die Konditionentabelle nennt 180 CHF pro Stunde.
+
+    Steht 180 zufällig auch in einer gesperrten Zelle des Kalktools, ist das
+    kein Leck: die Zahl stand im Dokument, bevor überhaupt ein Kalktool
+    gelesen wurde. Vorher brach der Generator hier mit E601 ab.
+    """
+    datei = _variiere(KALKTOOL, tmp_path / "mit180.xlsx", E53=180)
+    ergebnis = generiere(
+        [datei], VORLAGE, tmp_path / "mit180.docx", toc_seitenzahlen=False
+    )
+    text = dokumenttext(ergebnis.offerte)
+    assert "180.- CHF pro Stunde" in text
+    assert "Gemeindeverwaltung Birsfelden" in text
+
+
+@pytest.mark.parametrize("wert", [120, 130, 200])
+def test_weitere_zahlen_der_vorlage_ebenso(tmp_path, wert):
+    """120, 130 und 200 stehen ebenfalls in den Konditionen."""
+    datei = _variiere(KALKTOOL, tmp_path / f"w{wert}.xlsx", E53=wert)
+    ergebnis = generiere(
+        [datei], VORLAGE, tmp_path / f"w{wert}.docx", toc_seitenzahlen=False
+    )
+    assert ergebnis.offerte.exists()
+
+
+def test_echte_sperrwerte_werden_weiterhin_erkannt():
+    """Die Ausnahme darf die Prüfung nicht aushebeln."""
+    from offerttool.errors import OfferteError
+    from offerttool.validate import statische_token, validate_output
+
+    statisch = statische_token(VORLAGE)
+    assert "180" in statisch, "Stundensatz nicht als statisch erkannt"
+
+    for wert in ("2’645", "1’587", "2’024.75"):
+        assert wert not in statisch
+        with pytest.raises(OfferteError) as exc:
+            validate_output(f"Im Dokument steht {wert}", {wert}, statisch)
+        assert exc.value.code == "E601"
+
+
+def test_vorlagenreste_gelten_nicht_als_statisch():
+    """Was in einem Anker steht, soll überschrieben werden.
+
+    Bleibt eine Zahl von dort stehen, ist das ein Vorlagenrest und muss
+    weiterhin auffallen – die Musterzeilen dürfen deshalb nicht in die
+    Ausnahmeliste geraten.
+    """
+    from offerttool.validate import statische_token
+
+    statisch = statische_token(VORLAGE)
+    # Beträge aus den Musterzeilen der Vorlage
+    for rest in ("112.65", "257"):
+        assert rest not in statisch, f"{rest} wäre als Rest nicht mehr erkennbar"

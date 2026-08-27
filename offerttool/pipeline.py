@@ -40,7 +40,13 @@ from .mapping import Mapping, load_mapping, select_mapping
 from .prepare import validate_template
 from .render import render
 from .report import schreibe_protokoll
-from .validate import blocked_strings, validate_across, validate_input, validate_output
+from .validate import (
+    blocked_strings,
+    statische_token,
+    validate_across,
+    validate_input,
+    validate_output,
+)
 from .workbook import Kalktool, read_version_cell
 
 log = logging.getLogger("offerttool")
@@ -137,7 +143,13 @@ def generiere(
     # 9 VALIDATE_OUTPUT – erst nach bestandener Prüfung wird geschrieben.
     log.info("9 VALIDATE_OUTPUT")
     text = _dokumenttext(doc)
-    validate_output(text, blocked_strings(standorte), emitted)
+    # Zahlen aus der Vorlage und aus den Datenblättern sind kein Beleg für ein
+    # Leck: sie hängen nicht vom Kalktool ab. Geprüft wird, was der Generator
+    # selbst eingebracht hat.
+    unverdaechtig = emitted | statische_token(vorlage)
+    for _bezeichnung, blatt in datenblaetter:
+        unverdaechtig |= _datenblatt_token(blatt)
+    validate_output(text, blocked_strings(standorte), unverdaechtig)
 
     ziel.parent.mkdir(parents=True, exist_ok=True)
     doc.save(str(ziel))
@@ -178,6 +190,17 @@ def _postprocess(doc, standorte, warn: WarningCollector, mit_seitenzahlen: bool)
 
     build_toc(toc_sdt, eintraege, ok)
     set_update_fields(doc, True)
+
+
+def _datenblatt_token(blatt) -> set[str]:
+    """Zahlen eines Datenblatts – Technikdaten, Artikelnummern, Jahreszahlen."""
+    from .validate import RE_ZAHL
+
+    quelle = blatt.laden()
+    text = "\n".join(
+        paragraph_text(p) for p in quelle.body.iter(W("w:p"))
+    )
+    return set(RE_ZAHL.findall(text))
 
 
 def _dokumenttext(doc) -> str:

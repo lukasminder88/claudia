@@ -3706,6 +3706,36 @@ const PIPELINE = (() => {
 
   // --- Pipeline ---------------------------------------------------------
 
+  /**
+   * Zahlen, die in der Vorlage ohnehin stehen und keiner Zelle entstammen.
+   *
+   * Die Konditionentabelle nennt die Stundensätze für Technikereinsätze
+   * (180, 120, 200, 130). Steht eine davon zufällig auch in einer gesperrten
+   * Zelle, wäre das kein Leck – sie stand schon im Dokument, bevor überhaupt
+   * ein Kalktool gelesen wurde.
+   *
+   * Der Inhalt der Blattanker zählt nicht dazu: was dort steht, soll der
+   * Renderer überschreiben. Bleibt eine Zahl von dort stehen, ist das ein
+   * Vorlagenrest und wird weiterhin erkannt.
+   */
+  function statischeToken(vorlagenXml) {
+    const doc = DOCX.parser.parseFromString(vorlagenXml, "application/xml");
+    for (const sdt of [...doc.getElementsByTagNameNS(W_NS, "sdt")]) {
+      if (sdt.getElementsByTagNameNS(W_NS, "sdt").length) continue; // Behälter
+      if (DOCX.sdtTag(sdt) === "SYS.TOC") continue;
+      const inhalt = DOCX.sdtInhalt(sdt);
+      if (inhalt) while (inhalt.firstChild) inhalt.removeChild(inhalt.firstChild);
+    }
+    const text = DOCX.alle(doc, "p").map((p) => DOCX.knotenText(p)).join("\n");
+    return new Set(text.match(RE_ZAHL) || []);
+  }
+
+  /** Zahlen eines Datenblatts – Technikdaten, Artikelnummern, Jahreszahlen. */
+  function datenblattToken(quelle) {
+    const text = DOCX.alle(quelle.document, "p").map((p) => DOCX.knotenText(p)).join("\n");
+    return text.match(RE_ZAHL) || [];
+  }
+
   function base64ZuBytes(b64) {
     const roh = atob(b64);
     const bytes = new Uint8Array(roh.length);
@@ -3742,7 +3772,8 @@ const PIPELINE = (() => {
 
     // Vorlage öffnen und Ankerkatalog prüfen.
     const vorlage = await ZIP.lesen(base64ZuBytes(VORLAGE_BASE64).buffer);
-    const doc = DOCX.parser.parseFromString(ZIP.text(vorlage, "word/document.xml"), "application/xml");
+    const vorlagenXml = ZIP.text(vorlage, "word/document.xml");
+    const doc = DOCX.parser.parseFromString(vorlagenXml, "application/xml");
     if (doc.getElementsByTagName("parsererror").length) {
       throw new OfferteError("E101", "Vorlage nicht lesbar");
     }
@@ -3769,9 +3800,16 @@ const PIPELINE = (() => {
     setzeUpdateFields(vorlage);
     warn.add("W321", "Word berechnet sie beim Öffnen");
 
-    // Ausgabeprüfung, bevor eine Datei entsteht.
+    // Ausgabeprüfung, bevor eine Datei entsteht. Zahlen aus der Vorlage und
+    // aus den Datenblättern sind kein Beleg für ein Leck: sie hängen nicht
+    // vom Kalktool ab.
+    const unverdaechtig = new Set(gesetzt);
+    for (const t of statischeToken(vorlagenXml)) unverdaechtig.add(t);
+    for (const eintrag of vorbereitet) {
+      for (const t of eintrag.token || []) unverdaechtig.add(t);
+    }
     const text = DOCX.alle(koerper, "p").map((p) => DOCX.knotenText(p)).join("\n");
-    pruefeAusgabe(text, gesperrteZeichenketten(standorte), gesetzt);
+    pruefeAusgabe(text, gesperrteZeichenketten(standorte), unverdaechtig);
 
     vorlage.set("word/document.xml", DOCX.serializer.serializeToString(doc));
     const blob = await ZIP.schreiben(vorlage, vorlage.reihenfolge, MIME_DOCX);
@@ -3803,7 +3841,7 @@ const PIPELINE = (() => {
       uebernahme.vorbereiten(quelle, eintrag.kennung);
       const bloecke = DATENBLAETTER.bloecke(quelle, mitSpezifikation)
         .map((b) => uebernahme.block(b, quelle, eintrag.kennung));
-      aus.push({ modell: eintrag.modell, bloecke });
+      aus.push({ modell: eintrag.modell, bloecke, token: datenblattToken(quelle) });
     }
     uebernahme.abschliessen();
     return aus;
@@ -3880,7 +3918,7 @@ const PIPELINE = (() => {
     return z.join("\n");
   }
 
-  return { pruefen, erzeugen, pruefeAusgabe, gesperrteZeichenketten };
+  return { pruefen, erzeugen, pruefeAusgabe, gesperrteZeichenketten, statischeToken };
 })();
 
 

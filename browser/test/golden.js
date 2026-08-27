@@ -73,6 +73,22 @@
     wahr("unbekannter Schlüssel beim Laden abgewiesen", abgewiesen);
     BAUSTEINE.zuruecksetzen();
 
+    // --- Sperrliste: statischer Vorlagentext ist kein Leck ---
+    {
+      // Die Konditionentabelle nennt 180 CHF pro Stunde. Steht 180 zufällig
+      // auch in einer gesperrten Zelle, ist das kein Leck.
+      const statisch = new Set(["180", "120", "130", "200"]);
+      let abgebrochen = false;
+      try { PIPELINE.pruefeAusgabe("Stundensatz 180.- CHF", new Set(["180"]), statisch); }
+      catch { abgebrochen = true; }
+      wahr("Stundensatz der Vorlage schlägt nicht an", !abgebrochen);
+
+      let erkannt = false;
+      try { PIPELINE.pruefeAusgabe("Irgendwo 2’645", new Set(["2’645"]), statisch); }
+      catch (e) { erkannt = e.code === "E601"; }
+      wahr("echter Sperrwert wird weiterhin erkannt", erkannt);
+    }
+
     // --- Datenblätter (Zuordnung ohne Raten) ---
     gleich("Modellname normalisiert",
       DATENBLAETTER.normalisieren("bizhub C3351i de"), DATENBLAETTER.normalisieren("bizhub C3351i"));

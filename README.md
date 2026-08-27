@@ -241,7 +241,7 @@ Fassungen teilen.
 
 Die Regeln liegen jetzt in Python **und** in JavaScript vor. Für einen PoC ist
 das vertretbar, produktiv ist es eine Quelle für Abweichungen. Abgesichert wird
-das über denselben Golden Record: `browser/test/golden.js` prüft 101 Punkte im
+das über denselben Golden Record: `browser/test/golden.js` prüft 103 Punkte im
 Browser, gestartet über `dist/pruefung.html` oder `npm run pruefen`.
 `tests/test_browser.py` prüft zusätzlich, dass Mapping, Vorlage und Einzeldatei
 aktuell sind und dass die Seite nichts nachlädt.
@@ -537,9 +537,18 @@ verweigert den Zugriff auf diese Zellen; Schritt 9 hält den Text des fertigen
 Dokuments zusätzlich gegen ihre formatierten Werte.
 
 Verglichen wird auf ganzen **Zahltoken**, nicht auf Teilzeichenketten, und nur gegen
-Werte, die der Renderer nicht selbst gesetzt hat. Beides ist nötig: `300` aus der
-gesperrten Zelle `KM!M74` fände sonst einen Treffer in dem völlig legitimen
-`CHF 300.00` des Dienstleistungstotals. Ein Treffer verwirft die Datei mit `E601`.
+Werte, die der Generator selbst eingebracht hat. Drei Quellen sind unverdächtig,
+weil sie nicht vom Kalktool abhängen:
+
+| Quelle | Warum kein Leck |
+|---|---|
+| Vom Renderer gesetzte Beträge | `300` steht in der gesperrten Zelle `KM!M74` *und* legitim als Dienstleistungstotal |
+| Statischer Text der Vorlage | die Konditionen nennen `180.- CHF pro Stunde`; die Zahl stand dort, bevor ein Kalktool gelesen wurde |
+| Inhalt der Gerätedatenblätter | Technikdaten und Artikelnummern, unabhängig vom Kalktool |
+
+Der Inhalt der **Blattanker** gehört ausdrücklich nicht dazu: was dort steht,
+soll der Renderer überschreiben. Bleibt eine Zahl von dort stehen, ist das ein
+Vorlagenrest und wird weiterhin erkannt. Ein Treffer verwirft die Datei mit `E601`.
 
 Einzige Ausnahme: `KM!C53` darf zur Plausibilisierung der Stückzahl gelesen
 (Abschnitt 5.5), aber nicht ausgegeben werden.
@@ -580,7 +589,7 @@ Datei – **nie im Dokument selbst** (Abschnitt 13.3).
 ## Tests
 
 ```bash
-python -m pytest -q      # 129 Tests
+python -m pytest -q      # 135 Tests
 ```
 
 `tests/test_golden_birsfelden.py` prüft den Referenzfall aus Abschnitt 14 Wert für
