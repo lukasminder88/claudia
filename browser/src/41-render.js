@@ -92,7 +92,7 @@ const RENDER = (() => {
       }
       this.block("OFF.KONTAKT", vk.filter(Boolean));
 
-      this.text("OFF.KLASSIFIZIERUNG", TEXT.KLASSIFIZIERUNG);
+      this.text("OFF.KLASSIFIZIERUNG", TEXT.klassifizierung());
       this.text("OFF.NUMMER", this.crm.offertnummer(txt(ctx, "verkaufschance"), this.warn));
       this.text("OFF.VERSION", this.crm.offertversion(this.warn));
       this.text("OFF.DATUM", FMT.dateDe(ctx.values.datum));
@@ -114,7 +114,13 @@ const RENDER = (() => {
 
     standort(secStandort, secService, tblTotal, ctx, d) {
       this.text("HEAD.STANDORT", TEXT.headStandort(ctx), secStandort);
-      this.text("LINE.STANDORT_ADRESSE", TEXT.lineAdresse(ctx), secStandort);
+      const adresse = TEXT.lineAdresse(ctx);
+      if (adresse) {
+        this.text("LINE.STANDORT_ADRESSE", adresse, secStandort);
+      } else {
+        this.warn.add("W315", ctx.quelle);
+        DOCX.entfernen(this.anker("LINE.STANDORT_ADRESSE", secStandort));
+      }
       this.hardware(ctx, secStandort);
       this.dienstleistung(ctx, d, secStandort);
 
@@ -126,16 +132,21 @@ const RENDER = (() => {
 
     hardware(ctx, wurzel) {
       const [, tbl] = this.tabelle("TBL.HARDWARE", wurzel);
-      const kopf = DOCX.zellen(DOCX.zeilen(tbl)[0]);
-      DOCX.setzeZelle(kopf[0], ["Artikel No."]);
-      DOCX.setzeZelle(kopf[1], ["Bezeichnung"]);
-      DOCX.setzeZelle(kopf[2], ["Stück"]);
 
-      const saetze = [];
-      for (const p of ctx.listen.hardware || []) saetze.push([p.artnr, p.bezeichnung, p.stueck]);
-      for (const liste of ["solutions.sw", "solutions.maint"]) {
-        for (const p of ctx.listen[liste] || []) saetze.push([p.artnr, p.bezeichnung, p.stueck]);
-      }
+      const positionen = [...(ctx.listen.hardware || []),
+                          ...(ctx.listen["solutions.sw"] || []),
+                          ...(ctx.listen["solutions.maint"] || [])];
+
+      // Das Kalktool Q4 2025 führt keine Artikelnummern (Abschnitt 16, Punkt 1).
+      // Eine Spalte voller Gedankenstriche hilft niemandem, deshalb entfällt
+      // sie, solange keine einzige Position eine Nummer trägt.
+      const mitArtNr = positionen.some((p) => p.artnr !== "" && p.artnr !== "–");
+
+      if (!mitArtNr) DOCX.spalteEntfernen(tbl, 0);
+      const kopf = DOCX.zellen(DOCX.zeilen(tbl)[0]);
+      TEXT.kopfHardware(mitArtNr).forEach((titel, i) => DOCX.setzeZelle(kopf[i], [titel]));
+      const saetze = positionen.map((p) =>
+        (mitArtNr ? [p.artnr] : []).concat([p.bezeichnung, p.stueck]));
       DOCX.fuelleZeilen(tbl, 1, saetze);
       // Listentabelle ohne Summenzeile: lastRow aus.
       DOCX.setzeTblLook(tbl, STIL.tbllook_liste || "04A0");
@@ -150,12 +161,11 @@ const RENDER = (() => {
       this.text("HEAD.DL", TEXT.headDl(ctx), wurzel);
       const [, tbl] = this.tabelle("TBL.DIENSTLEISTUNG", wurzel);
       const kopf = DOCX.zellen(DOCX.zeilen(tbl)[0]);
-      DOCX.setzeZelle(kopf[0], ["Leistung"]);
-      DOCX.setzeZelle(kopf[1], ["Betrag"]);
+      TEXT.kopfDienstleistung().forEach((titel, i) => DOCX.setzeZelle(kopf[i], [titel]));
 
       const saetze = (ctx.listen.dienstleistung || []).map((p) => [p.bezeichnung, FMT.chf(p.betrag)]);
       for (const p of ctx.listen["solutions.dl"] || []) saetze.push([p.bezeichnung, FMT.chf(p.betrag)]);
-      saetze.push([TEXT.DL_TOTAL_LABEL, FMT.chf(d.dienstleistungTotal)]);
+      saetze.push([TEXT.dlTotalLabel(), FMT.chf(d.dienstleistungTotal)]);
       this.merkeAlle(saetze);
       DOCX.fuelleZeilen(tbl, 1, saetze);
       DOCX.setzeTblLook(tbl, STIL.tbllook_summe || "04E0");
@@ -164,13 +174,14 @@ const RENDER = (() => {
     service(ctx, d, wurzel) {
       const [, tbl] = this.tabelle("TBL.SERVICE", wurzel);
       const kopf = DOCX.zellen(DOCX.zeilen(tbl)[0]);
-      DOCX.setzeZelle(kopf[0], [TEXT.serviceKopf(d)]);
-      DOCX.setzeZelle(kopf[1], ["Total"]);
+      TEXT.kopfService(d).forEach((titel, i) => DOCX.setzeZelle(kopf[i], [titel]));
 
       const saetze = TEXT.serviceZeilen(ctx, d).map(([texte, betraege]) => [texte, betraege]);
       this.merkeAlle(saetze);
       DOCX.fuelleZeilen(tbl, 1, saetze);
-      DOCX.setzeTblLook(tbl, STIL.tbllook_summe || "04E0");
+      // Kapitel 1.2 zeigt die Servicebestandteile ohne Summenzeile
+      // (Abschnitt 5.4); mit lastRow käme die letzte Zeile fett.
+      DOCX.setzeTblLook(tbl, STIL.tbllook_liste || "04A0");
     }
 
     total(sdt, zeilen) {
@@ -185,12 +196,33 @@ const RENDER = (() => {
     gesamttotal(g, variante, anzahl) {
       const sdt = this.anker("TBL.GESAMTTOTAL");
       if (anzahl <= 1) { DOCX.entfernen(sdt); return; }
-      const zeilen = [];
-      if (g.einmalig > 0) zeilen.push([TEXT.GESAMT_EINMALIG, FMT.chf(g.einmalig)]);
-      zeilen.push(variante === "KAUF"
-        ? [TEXT.GESAMT_KAUF, FMT.chf(g.kauf)]
-        : [TEXT.GESAMT_MONATLICH, FMT.chf(g.monatlich)]);
-      this.total(sdt, zeilen);
+      this.total(sdt, TEXT.gesamtZeilen(g, variante));
+    }
+
+    // --- Gerätedatenblätter --------------------------------------------
+
+    /**
+     * Je Gerät ein Abschnitt aus dem zugehörigen Datenblatt.
+     * Ohne Datenblätter entfällt das Kapitel ersatzlos.
+     */
+    hardwareKapitel(vorbereitet) {
+      const sdt = this.anker("SEC.HARDWARE");
+      if (!vorbereitet || !vorbereitet.length) {
+        DOCX.entfernen(sdt);
+        return;
+      }
+      const inhalt = DOCX.sdtInhalt(sdt);
+      const muster = DOCX.kinder(inhalt, "p")[0];
+      if (!muster) throw new OfferteError("E101", "SEC.HARDWARE ohne Absatz");
+
+      const bloecke = [
+        DOCX.neuerAbsatz(muster, TEXT.hardwareKapitel(), "Heading1"),
+        DOCX.neuerAbsatz(muster, TEXT.hardwareGruppe(), "Heading2"),
+      ];
+      for (const eintrag of vorbereitet) bloecke.push(...eintrag.bloecke);
+
+      while (inhalt.firstChild) inhalt.removeChild(inhalt.firstChild);
+      for (const b of bloecke) inhalt.appendChild(b);
     }
 
     // --- Vertragstext, Konditionen, Schluss ----------------------------
@@ -226,7 +258,7 @@ const RENDER = (() => {
     }
   }
 
-  function render(doc, standorte, gesamt, crm, warn) {
+  function render(doc, standorte, gesamt, crm, warn, datenblaetter) {
     const r = new Renderer(doc, crm, warn);
     const erste = standorte[0];
 
@@ -239,6 +271,7 @@ const RENDER = (() => {
 
     // Bei unterschiedlichen Laufzeiten nennt der Vertragstext die längste (W310).
     const leit = standorte.reduce((a, b) => (num(b.ctx, "laufzeit") > num(a.ctx, "laufzeit") ? b : a));
+    r.hardwareKapitel(datenblaetter);
     r.vertragstext(leit.ctx, erste.d);
     r.konditionen(erste.ctx, erste.d);
     r.schluss(standorte);

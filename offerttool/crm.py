@@ -57,6 +57,11 @@ class CRM:
         value = self.get("offertnummer")
         if value:
             return value
+        if not trim(verkaufschance):
+            # Ohne Verkaufschance bliebe die Zelle auf dem Deckblatt leer und
+            # sähe wie ein Versehen aus; der Strich sagt "nicht vergeben".
+            warn.add("W316", "Ersatz: –")
+            return "–"
         warn.add("W305", f"Ersatz: {verkaufschance}")
         return verkaufschance
 

@@ -1,243 +1,283 @@
-"""Textbausteine (Spezifikation V3, Abschnitt 8).
+"""Textbausteine zusammensetzen (Spezifikation V3, Abschnitt 8).
 
-Bausteine sind Templates mit ``{feld}``-Platzhaltern über den Abschnitten 4
-und 5.  Keine Bedingungen im Text – Varianten sind eigene Bausteine.
+Die Formulierungen selbst stehen nicht hier, sondern in
+``resources/textbausteine.yaml``.  Dieses Modul entscheidet nur, **welcher**
+Baustein wann gebraucht wird und mit welchen Werten er gefüllt wird – die
+Regeln also, nicht der Wortlaut.
+
+So lässt sich der Wortlaut ohne Programmierkenntnisse ändern, und beide
+Fassungen des Offerttools teilen sich eine Quelle.
 """
 
 from __future__ import annotations
 
-from .derive import PAUSCHALE_WORT, Derived
+from decimal import Decimal
+
+from .bausteine import Bausteine, lade
+from .derive import Derived
 from .extract import StandortContext
-from .formatters import chf, date_de, int_ch, klein, rate
+import re
+
+from .formatters import chf, date_de, int_ch, klein, rate, trim
+
+_standard: Bausteine | None = None
+
+
+def standard() -> Bausteine:
+    """Die mitgelieferten Bausteine, einmal geladen."""
+    global _standard
+    if _standard is None:
+        _standard = lade()
+    return _standard
+
 
 # --- Abschnitt 8.1 ---------------------------------------------------------
 
-HEAD_STANDORT = "Standort {index}: {name}"
-HEAD_STANDORT_OHNE_NAME = "Standort {index}"
-HEAD_DL = "Im Angebot enthaltene Schulungen und Dienstleistungen – Standort {index}: {name}"
-HEAD_DL_OHNE_NAME = "Im Angebot enthaltene Schulungen und Dienstleistungen – Standort {index}"
-LINE_ADRESSE = "Installationsadresse: {strasse}, {plz} {ort}"
 
-# --- Abschnitt 8.3 ---------------------------------------------------------
+def head_standort(ctx: StandortContext, b: Bausteine | None = None) -> str:
+    b = b or standard()
+    name = ctx.text("standort.name")
+    if not name:
+        return b.text("head_standort_ohne_name", index=ctx.index)
+    return b.text("head_standort", index=ctx.index, name=name)
 
-VERTRAGSTEXT_KAUF_HEAD = "Laufzeit und Kündigungsfrist für Serviceverträge beim Kauf"
-VERTRAGSTEXT_KAUF = [
-    "Der Start und die Laufzeit des Servicevertrags werden gemäss einer separaten "
-    "Vereinbarung festgelegt. Nach Ablauf der vereinbarten Laufzeit verlängert sich "
-    "der Servicevertrag automatisch um jeweils ein Jahr. Eine Kündigung des "
-    "Servicevertrags ist möglich, indem er mit einer Kündigungsfrist von drei Monaten "
-    "zum Ende der Laufzeit gekündigt wird.",
-]
 
-VERTRAGSTEXT_MIETE_HEAD = "Laufzeit und Kündigungsfrist {vertragsart_wort} und Servicevertrag"
-VERTRAGSTEXT_MIETE = [
-    "Der {vertragsart_wort} tritt {beginn_phrase} in Kraft und läuft für eine bestimmte "
-    "Laufzeit von {laufzeit} Monaten. Die Laufzeit des Servicevertrags ist an diese "
-    "Laufzeit gekoppelt und endet gleichzeitig. Nach Ablauf verlängern sich beide "
-    "Verträge automatisch um jeweils ein weiteres Jahr. Eine Beendigung ist möglich, "
-    "indem sie jeweils zum Ende der Laufzeit unter Einhaltung einer Kündigungsfrist "
-    "von drei Monaten gekündigt werden.",
-]
+def head_dl(ctx: StandortContext, b: Bausteine | None = None) -> str:
+    b = b or standard()
+    name = ctx.text("standort.name")
+    if not name:
+        return b.text("head_dienstleistung_ohne_name", index=ctx.index)
+    return b.text("head_dienstleistung", index=ctx.index, name=name)
 
-BEGINN_PHRASE_DATUM = "am {vertragsbeginn}"
-BEGINN_PHRASE_OFFEN = "zum vereinbarten Zeitpunkt"
+
+def line_adresse(ctx: StandortContext, b: Bausteine | None = None) -> str:
+    """Installationsadresse; leer, wenn das Kalktool keine führt.
+
+    Manche Kalktools lassen D7 und G7 leer, weil die Installationsadresse der
+    Kundenadresse entspricht. Dann entfällt die Zeile ganz – ein blosses
+    «Installationsadresse:» ohne Inhalt hilft niemandem.
+    """
+    b = b or standard()
+    ort = ctx.get("standort.plz_ort") or {}
+    strasse = ctx.text("standort.strasse")
+    ortszeile = trim(f"{ort.get('plz', '')} {ort.get('ort', '')}")
+    if not strasse and not ortszeile:
+        return ""
+
+    text = b.text("line_adresse", strasse=strasse, plz=ort.get("plz", ""), ort=ort.get("ort", ""))
+    # Fehlt ein Teil, bleibt kein einsames Komma stehen.
+    text = re.sub(r"\s*,\s*(?=,|$)", "", text)
+    return re.sub(r"\s{2,}", " ", text).strip().rstrip(",")
+
 
 # --- Abschnitt 8.2 ---------------------------------------------------------
 
-SERVICE_GERAET = "Servicevertrag pro Monat und pro Gerät für {geraet}"
-SERVICE_SLA = "Service Level Agreement: {sla_kurz}"
-SERVICE_INKLUSIV = (
-    "Mit {volumen_color} Seiten in Farbe und {volumen_sw} Seiten schwarzweiss inkludiert"
-)
-SERVICE_COLOR = "Zusätzliche Seiten ab der {ab_seite_color}. Seite in Farbe"
-SERVICE_SW = "Zusätzliche Seiten ab der {ab_seite_sw}. Seite schwarzweiss"
-SERVICE_SCAN = "Zusätzliche Scans ab dem {ab_seite_scan}. Scan"
-SERVICE_FLEET = "Zählerstanderfassung und Fleet Management: {fleet_level}"
-SERVICE_ZAEHLER = "Zählerstandsmeldung: {zaehlerversand}"
-SERVICE_KOPF = "Wartungs- und Klick-Kosten für {geraet}"
 
-# --- Abschnitt 5.4 ---------------------------------------------------------
-
-TOTAL_KAUF_LABEL = "Total Kauf"
-TOTAL_MIETE_LABEL = "{summenlabel} bei einer Laufzeit von {laufzeit} Monaten"
-TOTAL_MIETE_LABEL2 = "Monatspauschale total inkl. Service"
-GESAMT_EINMALIG = "Einmalige Kosten – alle Standorte"
-GESAMT_MONATLICH = "Monatspauschale total – alle Standorte"
-GESAMT_KAUF = "Total Kauf – alle Standorte"
-DL_TOTAL_LABEL = "Total einmalige Kosten"
-
-# --- Abschnitt 8.4 ---------------------------------------------------------
-
-KOND_PAUSCHALE = "Servicepauschalen: {fakt_pauschale}, im Voraus."
-KOND_MEHRSEITEN = "Mehrseitenpreise: {fakt_mehrseiten}, rückwirkend."
-KOND_GEBUEHREN = "Gebühren: {fakt_gebuehren}."
-KOND_RECHNUNG_1 = "Die einmaligen Kosten werden nach der Installation in Rechnung gestellt."
-KOND_RECHNUNG_2 = "Die {pauschale_wort} werden {fakt_pauschale_klein} im Voraus verrechnet."
-KOND_RECHNUNG_3 = (
-    "Die Seitenpreise für Schwarzweiss- und Farbdruck werden {fakt_mehrseiten_klein} "
-    "rückwirkend in Rechnung gestellt."
-)
-
-# --- Abschnitt 8.5 ---------------------------------------------------------
-
-NACHWEIS_TEILE = (
-    ("Kalkulationsgrundlage: Kalktool {kalktool_version}", "kalktool_version"),
-    ("Verkaufschance {verkaufschance}", "verkaufschance"),
-    ("Anlieferungsart: {anlieferungsart}", "anlieferungsart"),
-)
-
-GUELTIGKEIT = "Dieses Angebot ist gültig bis {gueltig_bis}"
-ORT_DATUM = "Spreitenbach, {datum}"
-KLASSIFIZIERUNG = "Vertraulich"
+def service_kopf(d: Derived, b: Bausteine | None = None) -> str:
+    return (b or standard()).text("tabelle_service_kopf", geraet=d.geraet)
 
 
-# --- Zusammensetzen --------------------------------------------------------
+def service_zeilen(
+    ctx: StandortContext, d: Derived, b: Bausteine | None = None
+) -> list[tuple[list[str], list[str]]]:
+    """Zeilen der Servicetabelle in fester Reihenfolge.
 
-
-def head_standort(ctx: StandortContext) -> str:
-    name = ctx.text("standort.name")
-    if not name:
-        return HEAD_STANDORT_OHNE_NAME.format(index=ctx.index)
-    return HEAD_STANDORT.format(index=ctx.index, name=name)
-
-
-def head_dl(ctx: StandortContext) -> str:
-    name = ctx.text("standort.name")
-    if not name:
-        return HEAD_DL_OHNE_NAME.format(index=ctx.index)
-    return HEAD_DL.format(index=ctx.index, name=name)
-
-
-def line_adresse(ctx: StandortContext) -> str:
-    ort = ctx.get("standort.plz_ort") or {}
-    return LINE_ADRESSE.format(
-        strasse=ctx.text("standort.strasse"),
-        plz=ort.get("plz", ""),
-        ort=ort.get("ort", ""),
-    ).replace(" ,", ",").replace("  ", " ").strip().rstrip(",")
-
-
-def service_zeilen(ctx: StandortContext, d: Derived) -> list[tuple[list[str], str]]:
-    """Zeilen der Servicetabelle in fester Reihenfolge (Abschnitt 8.2).
-
-    Rückgabe je Zeile: Absätze der Beschreibung und der Betrag.
-    Zeilen 1–1b, 2–3 und 5–5a liegen jeweils in einer Zelle.
+    Zeilen 1–1b, 2–3 und 5–5a liegen jeweils in einer Tabellenzelle.
     """
-    zeilen: list[tuple[list[str], str]] = []
+    b = b or standard()
+    zeilen: list[tuple[list[str], list[str]]] = []
 
-    block1 = [SERVICE_GERAET.format(geraet=d.geraet)]
-    betrag1 = chf(ctx.num("service.geraet"))
+    block1 = [b.text("service_geraet", geraet=d.geraet)]
     if d.show["sla"]:
         # Ist sla.preis 0, wird kein Betrag ausgegeben – der SLA steckt in
-        # service.geraet und würde sonst doppelt wirken (Abschnitt 8.2).
-        block1.append(SERVICE_SLA.format(sla_kurz=d.sla_kurz))
+        # service.geraet und würde sonst doppelt wirken.
+        block1.append(b.text("service_sla", sla=d.sla_kurz))
     block1.append(
-        SERVICE_INKLUSIV.format(
+        b.text(
+            "service_inklusiv",
             volumen_color=int_ch(ctx.num("volumen.color")),
             volumen_sw=int_ch(ctx.num("volumen.sw")),
         )
     )
-    zeilen.append((block1, betrag1))
+    zeilen.append((block1, [chf(ctx.num("service.geraet"))]))
 
     klick_texte, klick_betraege = [], []
     if d.show["color"]:
-        klick_texte.append(SERVICE_COLOR.format(ab_seite_color=d.ab_seite["color"]))
+        klick_texte.append(b.text("service_color", ab_seite_color=d.ab_seite["color"]))
         klick_betraege.append(rate(ctx.num("preis.color")))
     if d.show["sw"]:
-        klick_texte.append(SERVICE_SW.format(ab_seite_sw=d.ab_seite["sw"]))
+        klick_texte.append(b.text("service_sw", ab_seite_sw=d.ab_seite["sw"]))
         klick_betraege.append(rate(ctx.num("preis.sw")))
     if klick_texte:
         zeilen.append((klick_texte, klick_betraege))
 
     if d.show["scan"]:
         zeilen.append(
-            ([SERVICE_SCAN.format(ab_seite_scan=d.ab_seite["scan"])], rate(ctx.num("preis.scan")))
+            ([b.text("service_scan", ab_scan=d.ab_seite["scan"])], [rate(ctx.num("preis.scan"))])
         )
 
     fleet_texte, fleet_betraege = [], []
     if d.show["fleet"]:
-        fleet_texte.append(SERVICE_FLEET.format(fleet_level=ctx.text("fleet.level")))
+        fleet_texte.append(b.text("service_fleet", fleet=ctx.text("fleet.level")))
         fleet_betraege.append(chf(ctx.num("fleet.preis")) if ctx.num("fleet.preis") > 0 else "")
     if d.show["zaehlerversand"]:
-        fleet_texte.append(SERVICE_ZAEHLER.format(zaehlerversand=ctx.text("zaehlerversand")))
+        fleet_texte.append(b.text("service_zaehlerversand", zaehlerversand=ctx.text("zaehlerversand")))
         fleet_betraege.append("")
     if fleet_texte:
-        zeilen.append((fleet_texte, fleet_betraege))
+        zeilen.append((fleet_texte, fleet_betraege if any(fleet_betraege) else [""]))
 
     return zeilen
 
 
-def total_zeilen(ctx: StandortContext, d: Derived) -> list[tuple[str, str]]:
-    """Summenzeilen eines Standorts (Abschnitt 5.4)."""
+# --- Abschnitt 5.4 ---------------------------------------------------------
+
+
+def total_zeilen(
+    ctx: StandortContext, d: Derived, b: Bausteine | None = None
+) -> list[tuple[str, str]]:
+    b = b or standard()
     if d.variante == "KAUF":
-        return [(TOTAL_KAUF_LABEL, chf(ctx.num("vertragswert")))]
-    label = TOTAL_MIETE_LABEL.format(
-        summenlabel=ctx.text("summenlabel"), laufzeit=int_ch(ctx.num("laufzeit"))
+        return [(b.text("total_kauf"), chf(ctx.num("vertragswert")))]
+    label = b.text(
+        "total_pauschale",
+        summenlabel=ctx.text("summenlabel"),
+        laufzeit=int_ch(ctx.num("laufzeit")),
     )
     return [
         (label, chf(ctx.num("pauschale_ohne_service"))),
-        (TOTAL_MIETE_LABEL2, chf(ctx.num("monatspauschale_total"))),
+        (b.text("total_monatspauschale"), chf(ctx.num("monatspauschale_total"))),
     ]
 
 
-def vertragstext(ctx: StandortContext, d: Derived) -> tuple[str, list[str]]:
-    """Überschrift und Absätze des Vertragstexts (Abschnitt 8.3)."""
-    if d.variante == "KAUF":
-        return VERTRAGSTEXT_KAUF_HEAD, list(VERTRAGSTEXT_KAUF)
-
-    beginn = ctx.get("vertragsbeginn")
-    phrase = (
-        BEGINN_PHRASE_DATUM.format(vertragsbeginn=date_de(beginn))
-        if beginn
-        else BEGINN_PHRASE_OFFEN
-    )
-    head = VERTRAGSTEXT_MIETE_HEAD.format(vertragsart_wort=d.vertragsart_wort)
-    absaetze = [
-        t.format(
-            vertragsart_wort=d.vertragsart_wort,
-            beginn_phrase=phrase,
-            laufzeit=int_ch(ctx.num("laufzeit")),
-        )
-        for t in VERTRAGSTEXT_MIETE
-    ]
-    return head, absaetze
-
-
-def konditionen_abrechnung(ctx: StandortContext) -> list[str]:
-    zeilen = [
-        KOND_PAUSCHALE.format(fakt_pauschale=ctx.text("fakt.pauschale")),
-        KOND_MEHRSEITEN.format(fakt_mehrseiten=ctx.text("fakt.mehrseiten")),
-    ]
-    if ctx.text("fakt.gebuehren"):
-        zeilen.append(KOND_GEBUEHREN.format(fakt_gebuehren=ctx.text("fakt.gebuehren")))
+def gesamt_zeilen(
+    einmalig: Decimal, monatlich: Decimal, kauf: Decimal, variante: str,
+    b: Bausteine | None = None,
+) -> list[tuple[str, str]]:
+    b = b or standard()
+    zeilen = []
+    if einmalig > 0:
+        zeilen.append((b.text("gesamt_einmalig"), chf(einmalig)))
+    if variante == "KAUF":
+        zeilen.append((b.text("gesamt_kauf"), chf(kauf)))
+    else:
+        zeilen.append((b.text("gesamt_monatlich"), chf(monatlich)))
     return zeilen
 
 
-def konditionen_rechnung(ctx: StandortContext, d: Derived) -> list[str]:
+# --- Abschnitt 8.3 ---------------------------------------------------------
+
+
+def vertragstext(
+    ctx: StandortContext, d: Derived, b: Bausteine | None = None
+) -> tuple[str, list[str]]:
+    b = b or standard()
+    if d.variante == "KAUF":
+        return b.text("vertrag_kauf_titel"), b.absaetze("vertrag_kauf")
+
+    beginn = ctx.get("vertragsbeginn")
+    phrase = (
+        b.text("vertrag_beginn_datum", vertragsbeginn=date_de(beginn))
+        if beginn
+        else b.text("vertrag_beginn_offen")
+    )
+    kopf = b.text("vertrag_miete_titel", vertragsart=d.vertragsart_wort)
+    absaetze = b.absaetze(
+        "vertrag_miete",
+        vertragsart=d.vertragsart_wort,
+        beginn=phrase,
+        laufzeit=int_ch(ctx.num("laufzeit")),
+    )
+    return kopf, absaetze
+
+
+# --- Abschnitt 8.4 ---------------------------------------------------------
+
+PAUSCHALE_BAUSTEIN = {
+    "MIETE": "pauschale_wort_miete",
+    "LEASING": "pauschale_wort_leasing",
+    "KAUF": "pauschale_wort_kauf",
+}
+
+
+def konditionen_abrechnung(ctx: StandortContext, b: Bausteine | None = None) -> list[str]:
+    b = b or standard()
+    zeilen = [
+        b.text("kondition_pauschale", fakt_pauschale=ctx.text("fakt.pauschale")),
+        b.text("kondition_mehrseiten", fakt_mehrseiten=ctx.text("fakt.mehrseiten")),
+    ]
+    if ctx.text("fakt.gebuehren"):
+        zeilen.append(b.text("kondition_gebuehren", fakt_gebuehren=ctx.text("fakt.gebuehren")))
+    return zeilen
+
+
+def konditionen_rechnung(
+    ctx: StandortContext, d: Derived, b: Bausteine | None = None
+) -> list[str]:
+    b = b or standard()
     return [
-        KOND_RECHNUNG_1,
-        KOND_RECHNUNG_2.format(
-            pauschale_wort=PAUSCHALE_WORT[d.variante],
-            fakt_pauschale_klein=klein(ctx.text("fakt.pauschale")),
+        b.text("rechnung_einmalig"),
+        b.text(
+            "rechnung_pauschale",
+            pauschale_wort=b.text(PAUSCHALE_BAUSTEIN[d.variante]),
+            fakt_pauschale=klein(ctx.text("fakt.pauschale")),
         ),
-        KOND_RECHNUNG_3.format(fakt_mehrseiten_klein=klein(ctx.text("fakt.mehrseiten"))),
+        b.text("rechnung_seitenpreise", fakt_mehrseiten=klein(ctx.text("fakt.mehrseiten"))),
     ]
 
 
-def nachweis(standorte: list[StandortContext]) -> str:
-    """Nachweiszeile; fehlt ein Teil, entfällt das Segment samt Trennzeichen."""
+# --- Abschnitt 8.5 ---------------------------------------------------------
+
+
+def nachweis(standorte: list[StandortContext], b: Bausteine | None = None) -> str:
+    """Fehlt ein Teil, entfällt das jeweilige Segment samt Trennzeichen."""
+    b = b or standard()
     erste = standorte[0]
-    versionen = []
-    for ctx in standorte:
-        v = ctx.text("kalktool.version")
-        if v and v not in versionen:
-            versionen.append(v)
-    werte = {
-        "kalktool_version": ", ".join(versionen),
-        "verkaufschance": ", ".join(
-            dict.fromkeys(c.text("verkaufschance") for c in standorte if c.text("verkaufschance"))
-        ),
-        "anlieferungsart": erste.text("anlieferungsart"),
-    }
-    teile = [tpl.format(**werte) for tpl, key in NACHWEIS_TEILE if werte.get(key)]
-    return " · ".join(teile)
+    versionen = list(dict.fromkeys(c.text("kalktool.version") for c in standorte if c.text("kalktool.version")))
+    chancen = list(dict.fromkeys(c.text("verkaufschance") for c in standorte if c.text("verkaufschance")))
+    art = erste.text("anlieferungsart")
+
+    teile = []
+    if versionen:
+        teile.append(b.text("nachweis_kalktool", kalktool_version=", ".join(versionen)))
+    if chancen:
+        teile.append(b.text("nachweis_verkaufschance", verkaufschance=", ".join(chancen)))
+    if art:
+        teile.append(b.text("nachweis_anlieferung", anlieferungsart=art))
+    return b.text("nachweis_trenner").join(teile)
+
+
+# --- Deckblatt und Schluss -------------------------------------------------
+
+
+def klassifizierung(b: Bausteine | None = None) -> str:
+    return (b or standard()).text("klassifizierung")
+
+
+def gueltigkeit(d: Derived, b: Bausteine | None = None) -> str:
+    return (b or standard()).text("gueltigkeit", gueltig_bis=date_de(d.gueltig_bis))
+
+
+def ort_datum(ctx: StandortContext, b: Bausteine | None = None) -> str:
+    return (b or standard()).text("ort_datum", datum=date_de(ctx.get("datum")))
+
+
+def kopf_hardware(mit_artnr: bool, b: Bausteine | None = None) -> list[str]:
+    b = b or standard()
+    spalten = [b.text("tabelle_hardware_bezeichnung"), b.text("tabelle_hardware_stueck")]
+    if mit_artnr:
+        return [b.text("tabelle_hardware_artnr")] + spalten
+    return spalten
+
+
+def kopf_dienstleistung(b: Bausteine | None = None) -> list[str]:
+    b = b or standard()
+    return [b.text("tabelle_dienstleistung_leistung"), b.text("tabelle_dienstleistung_betrag")]
+
+
+def kopf_service(d: Derived, b: Bausteine | None = None) -> list[str]:
+    b = b or standard()
+    return [service_kopf(d, b), b.text("tabelle_service_total")]
+
+
+def dl_total_label(b: Bausteine | None = None) -> str:
+    return (b or standard()).text("total_dienstleistung")

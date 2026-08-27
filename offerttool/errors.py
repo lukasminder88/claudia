@@ -14,7 +14,9 @@ ERROR_TEXTS = {
     "E101": "Anker aus Abschnitt 3.2 fehlt in der Vorlage",
     "E102": "Unbekannter Anker in der Vorlage",
     "E201": "Kalktool nicht lesbar oder Blattanzahl < 2",
+    "E202": "Kalktool-Version unbekannt und kein passendes Layout gefunden",
     "E211": "Zelle aus dem Feldkatalog ausserhalb des Blattbereichs",
+    "E212": "Pflichtfeld im Kalktool ist leer",
     "E401": "finanzierungsart leer oder nicht in 1-5",
     "E402": "L95 != L92 + L93 + L94 (Toleranz 0.01)",
     "E403": "Gemischte Finanzierungsarten über mehrere Standorte",
@@ -24,6 +26,8 @@ ERROR_TEXTS = {
     "E413": "MIETE/LEASING und L92 = 0",
     "E414": "KAUF und C62 = 0",
     "E601": "Wert aus der Sperrliste im gerenderten Dokument",
+    "E801": "Textbaustein fehlerhaft",
+    "E802": "Textbaustein fehlt oder ist unbekannt",
     "E602": "Unaufgelöster Platzhalter im gerenderten Dokument",
 }
 
@@ -41,8 +45,16 @@ WARNING_TEXTS = {
     "W310": "Unterschiedliche Laufzeiten über mehrere Standorte",
     "W311": "Unterschiedliche Kalktool-Versionen",
     "W312": "#DIV/0! in H32 oder H39 (rein intern, ohne Wirkung auf die Offerte)",
+    "W313": "Kalktool-Version unbekannt; Layout stimmt mit einem bekannten Mapping überein",
+    "W314": "Beschriftung im Kalktool weicht vom erwarteten Layout ab",
+    "W315": "Installationsadresse fehlt, Zeile entfällt",
+    "W316": "Weder Offertnummer noch Verkaufschance vorhanden, Strich eingesetzt",
+    "W317": "Standortname verweist auf den Kunden, Kundenname eingesetzt",
     "W320": "Blattname weicht vom erwarteten Namen ab",
     "W321": "Inhaltsverzeichnis ohne Seitenzahlen erzeugt (kein PDF-Renderer verfügbar)",
+    "W330": "Mehrere Datenblätter passen auf dieselbe Gerätebezeichnung",
+    "W331": "Kein Datenblatt zu diesem Gerät gefunden",
+    "W332": "Bild aus einem Datenblatt konnte nicht übernommen werden",
 }
 
 

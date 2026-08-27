@@ -8,6 +8,11 @@ const PIPELINE = (() => {
   const RE_PLATZHALTER = /%%[^%\s]+%%|\{[a-z][\w.|]*\}/;
   const RE_ZAHL = /-?\d[\d’]*(?:\.\d+)?/g;
 
+  // Ein .docx ist ein ZIP, muss aber als Word-Dokument ausgezeichnet werden,
+  // sonst speichert der Browser es als .zip.
+  const MIME_DOCX =
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+
   /** Abbruchregeln je Standort (Abschnitt 13.1). */
   function pruefeEingabe(ctx, d) {
     for (const [name, spez] of Object.entries(MAPPING.fields)) {
@@ -15,7 +20,7 @@ const PIPELINE = (() => {
       if (spez.only && !spez.only.includes(d.variante)) continue;
       const wert = ctx.values[name];
       if (wert === null || wert === undefined || (typeof wert === "string" && !wert.trim())) {
-        throw new OfferteError("E211", `${ctx.quelle}: Pflichtfeld ${name} (${spez.cell}) ist leer`);
+        throw new OfferteError("E212", `${ctx.quelle}: Pflichtfeld ${name} (${spez.cell}) ist leer`);
       }
     }
 
@@ -88,6 +93,36 @@ const PIPELINE = (() => {
 
   // --- Pipeline ---------------------------------------------------------
 
+  /**
+   * Zahlen, die in der Vorlage ohnehin stehen und keiner Zelle entstammen.
+   *
+   * Die Konditionentabelle nennt die Stundensätze für Technikereinsätze
+   * (180, 120, 200, 130). Steht eine davon zufällig auch in einer gesperrten
+   * Zelle, wäre das kein Leck – sie stand schon im Dokument, bevor überhaupt
+   * ein Kalktool gelesen wurde.
+   *
+   * Der Inhalt der Blattanker zählt nicht dazu: was dort steht, soll der
+   * Renderer überschreiben. Bleibt eine Zahl von dort stehen, ist das ein
+   * Vorlagenrest und wird weiterhin erkannt.
+   */
+  function statischeToken(vorlagenXml) {
+    const doc = DOCX.parser.parseFromString(vorlagenXml, "application/xml");
+    for (const sdt of [...doc.getElementsByTagNameNS(W_NS, "sdt")]) {
+      if (sdt.getElementsByTagNameNS(W_NS, "sdt").length) continue; // Behälter
+      if (DOCX.sdtTag(sdt) === "SYS.TOC") continue;
+      const inhalt = DOCX.sdtInhalt(sdt);
+      if (inhalt) while (inhalt.firstChild) inhalt.removeChild(inhalt.firstChild);
+    }
+    const text = DOCX.alle(doc, "p").map((p) => DOCX.knotenText(p)).join("\n");
+    return new Set(text.match(RE_ZAHL) || []);
+  }
+
+  /** Zahlen eines Datenblatts – Technikdaten, Artikelnummern, Jahreszahlen. */
+  function datenblattToken(quelle) {
+    const text = DOCX.alle(quelle.document, "p").map((p) => DOCX.knotenText(p)).join("\n");
+    return text.match(RE_ZAHL) || [];
+  }
+
   function base64ZuBytes(b64) {
     const roh = atob(b64);
     const bytes = new Uint8Array(roh.length);
@@ -114,19 +149,33 @@ const PIPELINE = (() => {
   }
 
   /** Vollständige Generierung; liefert Blob, Dateiname und Prüfprotokoll. */
-  async function erzeugen(dateien, crmFelder) {
+  async function erzeugen(dateien, crmFelder, optionen) {
+    const wahl = Object.assign(
+      { datenblaetter: true, spezifikation: true }, optionen || {}
+    );
     const { standorte, warn } = await pruefen(dateien);
     const gesamt = DERIVE.gesamttotal(standorte);
     const crm = CRM.neu(crmFelder);
 
     // Vorlage öffnen und Ankerkatalog prüfen.
     const vorlage = await ZIP.lesen(base64ZuBytes(VORLAGE_BASE64).buffer);
-    const doc = DOCX.parser.parseFromString(ZIP.text(vorlage, "word/document.xml"), "application/xml");
+    const vorlagenXml = ZIP.text(vorlage, "word/document.xml");
+    const doc = DOCX.parser.parseFromString(vorlagenXml, "application/xml");
     if (doc.getElementsByTagName("parsererror").length) {
       throw new OfferteError("E101", "Vorlage nicht lesbar");
     }
 
-    const gesetzt = RENDER.render(doc, standorte, gesamt, crm, warn);
+    // Datenblätter beschaffen und übernehmen, bevor gerendert wird: die
+    // Formatvorlagen des Datenblatts müssen im Ziel stehen, bevor ein Absatz
+    // sie benutzt.
+    let vorbereitet = [];
+    if (wahl.datenblaetter) {
+      vorbereitet = await datenblaetterUebernehmen(
+        vorlage, doc, standorte, warn, wahl.spezifikation
+      );
+    }
+
+    const gesetzt = RENDER.render(doc, standorte, gesamt, crm, warn, vorbereitet);
 
     // Nachbearbeitung: TIME-Felder einfrieren (Abschnitt 12.2).
     const koerper = DOCX.alle(doc, "body")[0];
@@ -138,12 +187,19 @@ const PIPELINE = (() => {
     setzeUpdateFields(vorlage);
     warn.add("W321", "Word berechnet sie beim Öffnen");
 
-    // Ausgabeprüfung, bevor eine Datei entsteht.
+    // Ausgabeprüfung, bevor eine Datei entsteht. Zahlen aus der Vorlage und
+    // aus den Datenblättern sind kein Beleg für ein Leck: sie hängen nicht
+    // vom Kalktool ab.
+    const unverdaechtig = new Set(gesetzt);
+    for (const t of statischeToken(vorlagenXml)) unverdaechtig.add(t);
+    for (const eintrag of vorbereitet) {
+      for (const t of eintrag.token || []) unverdaechtig.add(t);
+    }
     const text = DOCX.alle(koerper, "p").map((p) => DOCX.knotenText(p)).join("\n");
-    pruefeAusgabe(text, gesperrteZeichenketten(standorte), gesetzt);
+    pruefeAusgabe(text, gesperrteZeichenketten(standorte), unverdaechtig);
 
     vorlage.set("word/document.xml", DOCX.serializer.serializeToString(doc));
-    const blob = await ZIP.schreiben(vorlage, vorlage.reihenfolge);
+    const blob = await ZIP.schreiben(vorlage, vorlage.reihenfolge, MIME_DOCX);
 
     return {
       blob,
@@ -152,6 +208,30 @@ const PIPELINE = (() => {
       warn,
       protokoll: protokoll(standorte, warn),
     };
+  }
+
+  /** Die gebrauchten Datenblätter laden und ihre Blöcke übernehmen. */
+  async function datenblaetterUebernehmen(vorlage, doc, standorte, warn, mitSpezifikation) {
+    const treffer = await DATENBLAETTER.fuerStandorte(standorte, warn);
+    if (!treffer.length) return [];
+
+    const uebernahme = new UEBERNAHME.Uebernahme(vorlage, doc, DATENBLAETTER.STIL_ABBILDUNG);
+    const aus = [];
+    for (const eintrag of treffer) {
+      let quelle;
+      try {
+        quelle = await UEBERNAHME.quelleLesen(await DATENBLAETTER.puffer(eintrag));
+      } catch (e) {
+        warn.add("W331", `${eintrag.modell}: nicht lesbar`);
+        continue;
+      }
+      uebernahme.vorbereiten(quelle, eintrag.kennung);
+      const bloecke = DATENBLAETTER.bloecke(quelle, mitSpezifikation)
+        .map((b) => uebernahme.block(b, quelle, eintrag.kennung));
+      aus.push({ modell: eintrag.modell, bloecke, token: datenblattToken(quelle) });
+    }
+    uebernahme.abschliessen();
+    return aus;
   }
 
   function setzeUpdateFields(dateien) {
@@ -225,5 +305,5 @@ const PIPELINE = (() => {
     return z.join("\n");
   }
 
-  return { pruefen, erzeugen, pruefeAusgabe, gesperrteZeichenketten };
+  return { pruefen, erzeugen, pruefeAusgabe, gesperrteZeichenketten, statischeToken };
 })();

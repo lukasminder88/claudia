@@ -1,3 +1,4395 @@
+<!doctype html>
+<html lang="de-CH">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Offerttool – Offerte aus Kalktool</title>
+<style>/* Offerttool – Oberfläche für den Desktop-Browser.
+   Keine Fremdbibliothek, kein Build-Schritt: eine Datei, die der Server
+   ausliefert. Farben orientieren sich am Graphax-Blau der Vorlage. */
+
+:root {
+  --blau:        #00539f;
+  --blau-dunkel: #003f78;
+  --blau-hell:   #e8f0f9;
+  --text:        #1c2530;
+  --text-leise:  #5a6672;
+  --linie:       #d7dee6;
+  --flaeche:     #ffffff;
+  --grund:       #f4f6f9;
+  --warnung:     #8a6100;
+  --warnung-bg:  #fdf5e2;
+  --fehler:      #a11b1b;
+  --fehler-bg:   #fbeeee;
+  --gut:         #1c6b3c;
+  --gut-bg:      #eaf5ee;
+  --radius:      8px;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font: 15px/1.5 "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
+  color: var(--text);
+  background: var(--grund);
+}
+
+h1 { font-size: 22px; margin: 0; letter-spacing: -0.2px; }
+h2 {
+  font-size: 13px; text-transform: uppercase; letter-spacing: 0.8px;
+  color: var(--text-leise); margin: 28px 0 12px;
+}
+h2:first-of-type { margin-top: 0; }
+h3 { font-size: 15px; margin: 0 0 8px; }
+
+/* ---------- Kopf ---------- */
+.kopf { background: var(--blau); color: #fff; padding: 16px 0; }
+.kopf-inhalt {
+  max-width: 1240px; margin: 0 auto; padding: 0 28px;
+  display: flex; align-items: center; justify-content: space-between; gap: 20px;
+}
+.untertitel { margin: 2px 0 0; font-size: 13px; opacity: 0.85; }
+.status { font-size: 13px; opacity: 0.9; text-align: right; }
+
+/* ---------- Raster ---------- */
+.raster {
+  max-width: 1240px; margin: 24px auto; padding: 0 28px;
+  display: grid; grid-template-columns: minmax(420px, 5fr) 6fr; gap: 24px;
+  align-items: start;
+}
+@media (max-width: 900px) { .raster { grid-template-columns: 1fr; } }
+
+.spalte {
+  background: var(--flaeche); border: 1px solid var(--linie);
+  border-radius: var(--radius); padding: 24px;
+}
+
+/* ---------- Ablage ---------- */
+.ablage {
+  border: 2px dashed var(--linie); border-radius: var(--radius);
+  padding: 28px 20px; text-align: center; cursor: pointer;
+  background: #fbfcfd; transition: border-color .15s, background .15s;
+}
+.ablage:hover, .ablage:focus-visible { border-color: var(--blau); background: var(--blau-hell); }
+.ablage.aktiv { border-color: var(--blau); background: var(--blau-hell); }
+.ablage-symbol {
+  width: 30px; height: 30px; fill: none; stroke: var(--blau);
+  stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round;
+}
+.ablage-text { margin: 8px 0 2px; font-weight: 600; }
+.ablage-hinweis { margin: 0; font-size: 13px; color: var(--text-leise); }
+
+/* ---------- Dateiliste ---------- */
+.liste { list-style: none; margin: 14px 0 0; padding: 0; }
+.liste li {
+  display: flex; align-items: center; gap: 10px;
+  border: 1px solid var(--linie); border-radius: 6px;
+  padding: 9px 11px; margin-bottom: 7px; background: var(--flaeche);
+}
+.nummer {
+  flex: none; width: 24px; height: 24px; border-radius: 50%;
+  background: var(--blau); color: #fff; font-size: 12px; font-weight: 700;
+  display: grid; place-items: center;
+}
+.dateiname {
+  flex: 1; min-width: 0; overflow: hidden;
+  text-overflow: ellipsis; white-space: nowrap; font-size: 14px;
+}
+.dateigroesse { flex: none; font-size: 12px; color: var(--text-leise); }
+.mini {
+  flex: none; border: 1px solid var(--linie); background: var(--flaeche);
+  border-radius: 5px; width: 26px; height: 26px; cursor: pointer;
+  color: var(--text-leise); font-size: 14px; line-height: 1;
+}
+.mini:hover:not(:disabled) { border-color: var(--blau); color: var(--blau); }
+.mini:disabled { opacity: .35; cursor: default; }
+
+/* ---------- Felder ---------- */
+.felder { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.felder label, .breit { display: flex; flex-direction: column; gap: 4px;
+  font-size: 13px; color: var(--text-leise); }
+.felder .breit { grid-column: 1 / -1; }
+input[type=text], input[type=email], input:not([type]) {
+  border: 1px solid var(--linie); border-radius: 6px; padding: 8px 10px;
+  font: inherit; font-size: 14px; color: var(--text); background: var(--flaeche);
+}
+input:focus-visible { outline: 2px solid var(--blau); outline-offset: -1px; border-color: var(--blau); }
+
+.schalter { display: flex; gap: 9px; align-items: flex-start; margin-top: 18px; font-size: 14px; }
+.schalter input { margin-top: 3px; }
+.schalter em { display: block; font-style: normal; font-size: 12px; color: var(--text-leise); }
+
+.freiwillig {
+  font-size: 11px; text-transform: none; letter-spacing: 0;
+  background: var(--grund); border: 1px solid var(--linie);
+  border-radius: 10px; padding: 1px 8px; margin-left: 6px; color: var(--text-leise);
+}
+
+/* ---------- Knöpfe ---------- */
+.knopfleiste { display: flex; gap: 10px; margin-top: 22px; }
+.knopf {
+  flex: 1; border: 1px solid var(--blau); background: var(--blau); color: #fff;
+  border-radius: 6px; padding: 11px 16px; font: inherit; font-weight: 600;
+  cursor: pointer; transition: background .15s;
+}
+.knopf:hover:not(:disabled) { background: var(--blau-dunkel); }
+.knopf:disabled { opacity: .45; cursor: default; }
+.knopf.zweitrangig { background: var(--flaeche); color: var(--blau); }
+.knopf.zweitrangig:hover:not(:disabled) { background: var(--blau-hell); }
+
+/* ---------- Ergebnis ---------- */
+.leer { color: var(--text-leise); font-size: 14px; }
+.hinweis { font-size: 13px; color: var(--text-leise); margin: 8px 0 0; }
+/* Hilfsklasse: schlägt jede Anzeigeart, die sonst gälte. */
+.versteckt { display: none !important; }
+
+.marke {
+  display: inline-block; font-size: 12px; font-weight: 700; letter-spacing: .5px;
+  border-radius: 4px; padding: 2px 9px; background: var(--blau-hell); color: var(--blau-dunkel);
+}
+
+.kachel {
+  border: 1px solid var(--linie); border-radius: var(--radius);
+  padding: 14px 16px; margin-bottom: 14px;
+}
+.kachel.gut   { border-color: #b8ddc6; background: var(--gut-bg); }
+.kachel.warn  { border-color: #ecd9a4; background: var(--warnung-bg); }
+.kachel.fehler{ border-color: #e6b7b7; background: var(--fehler-bg); }
+.kachel.fehler h3 { color: var(--fehler); }
+
+table.werte { width: 100%; border-collapse: collapse; font-size: 14px; }
+table.werte th, table.werte td {
+  text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--linie);
+  vertical-align: top;
+}
+table.werte th { width: 42%; font-weight: 500; color: var(--text-leise); }
+table.werte tr:last-child th, table.werte tr:last-child td { border-bottom: none; }
+td.betrag, th.betrag { text-align: right; font-variant-numeric: tabular-nums; }
+
+code {
+  font-family: "Cascadia Mono", Consolas, "SF Mono", monospace;
+  font-size: 12.5px; background: rgba(0,0,0,.05); padding: 1px 5px; border-radius: 4px;
+}
+
+.schalterliste { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.schalterliste span {
+  font-size: 12px; border: 1px solid var(--linie); border-radius: 4px;
+  padding: 2px 8px; color: var(--text-leise); background: var(--flaeche);
+}
+.schalterliste span.an { border-color: var(--blau); color: var(--blau-dunkel); background: var(--blau-hell); }
+
+.download { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 4px; }
+.download a {
+  border: 1px solid var(--blau); border-radius: 6px; padding: 10px 16px;
+  text-decoration: none; font-weight: 600; font-size: 14px;
+  color: #fff; background: var(--blau);
+}
+.download a.zweitrangig { background: var(--flaeche); color: var(--blau); }
+.download a:hover { background: var(--blau-dunkel); color: #fff; }
+
+details.standort { border: 1px solid var(--linie); border-radius: 6px; margin-bottom: 8px; }
+details.standort summary {
+  cursor: pointer; padding: 10px 13px; font-weight: 600; font-size: 14px;
+  display: flex; justify-content: space-between; gap: 12px;
+}
+details.standort summary::-webkit-details-marker { display: none; }
+details.standort[open] summary { border-bottom: 1px solid var(--linie); }
+details.standort .inhalt { padding: 12px 13px; }
+
+.lader {
+  display: inline-block; width: 14px; height: 14px; vertical-align: -2px;
+  border: 2px solid rgba(255,255,255,.4); border-top-color: #fff;
+  border-radius: 50%; animation: dreh .7s linear infinite; margin-right: 7px;
+}
+.knopf.zweitrangig .lader { border-color: rgba(0,83,159,.3); border-top-color: var(--blau); }
+@keyframes dreh { to { transform: rotate(360deg); } }
+
+/* ---------- Fuss ---------- */
+.fuss {
+  max-width: 1240px; margin: 0 auto 32px; padding: 0 28px;
+  display: flex; justify-content: space-between; gap: 16px;
+  font-size: 12.5px; color: var(--text-leise);
+}
+
+/* --- Nur in der Browser-Fassung --------------------------------------- */
+.offline-hinweis {
+  font-size: 12.5px; color: var(--text-leise);
+  border: 1px solid var(--linie); border-left: 3px solid var(--blau);
+  border-radius: 4px; padding: 9px 12px; margin: 0 0 18px; background: #fbfcfd;
+}
+.nicht-unterstuetzt {
+  max-width: 640px; margin: 80px auto; padding: 28px;
+  border: 1px solid #e6b7b7; background: var(--fehler-bg); border-radius: var(--radius);
+}
+
+
+/* --- Reiter ------------------------------------------------------------ */
+.reiter { display: flex; gap: 4px; }
+.reiter-knopf {
+  border: none; background: rgba(255, 255, 255, .12); color: #fff;
+  font: inherit; font-size: 14px; font-weight: 600;
+  padding: 8px 18px; border-radius: 6px; cursor: pointer;
+}
+.reiter-knopf:hover { background: rgba(255, 255, 255, .22); }
+.reiter-knopf.aktiv { background: #fff; color: var(--blau); }
+
+/* --- Editor der Textbausteine ------------------------------------------ */
+.texte { max-width: 1240px; margin: 24px auto; padding: 0 28px; }
+.texte-kopf {
+  display: flex; justify-content: space-between; align-items: flex-start;
+  gap: 24px; flex-wrap: wrap; margin-bottom: 20px;
+}
+.texte-kopf h2 { margin: 0 0 4px; }
+.texte-kopf .hinweis { max-width: 62ch; margin: 0; }
+.texte-werkzeuge { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.texte-werkzeuge .knopf { flex: none; padding: 8px 14px; font-size: 14px; }
+
+.texte-gruppe {
+  background: var(--flaeche); border: 1px solid var(--linie);
+  border-radius: var(--radius); margin-bottom: 16px;
+}
+.texte-gruppe > summary {
+  cursor: pointer; padding: 14px 20px; font-weight: 700; font-size: 15px;
+  display: flex; justify-content: space-between; align-items: center; gap: 12px;
+}
+.texte-gruppe > summary::-webkit-details-marker { display: none; }
+.texte-gruppe[open] > summary { border-bottom: 1px solid var(--linie); }
+.texte-gruppe .anzahl { font-size: 12px; font-weight: 500; color: var(--text-leise); }
+
+.baustein { padding: 16px 20px; border-bottom: 1px solid var(--linie); }
+.baustein:last-child { border-bottom: none; }
+.baustein.geaendert { border-left: 3px solid var(--blau); background: #fbfcfe; }
+.baustein-kopf {
+  display: flex; justify-content: space-between; align-items: baseline;
+  gap: 12px; margin-bottom: 3px;
+}
+.baustein-titel { font-weight: 600; font-size: 14.5px; }
+.baustein-hinweis { font-size: 13px; color: var(--text-leise); margin: 0 0 9px; }
+.baustein textarea {
+  width: 100%; border: 1px solid var(--linie); border-radius: 6px;
+  padding: 9px 11px; font: inherit; font-size: 14px; color: var(--text);
+  resize: vertical; min-height: 40px; background: var(--flaeche);
+}
+.baustein textarea:focus-visible {
+  outline: 2px solid var(--blau); outline-offset: -1px; border-color: var(--blau);
+}
+.baustein textarea.fehlerhaft { border-color: var(--fehler); background: var(--fehler-bg); }
+
+.chips { display: flex; flex-wrap: wrap; gap: 5px; margin: 8px 0 0; align-items: center; }
+.chips .beschriftung { font-size: 12px; color: var(--text-leise); margin-right: 2px; }
+.chip {
+  font-family: "Cascadia Mono", Consolas, monospace; font-size: 12px;
+  border: 1px solid var(--linie); background: var(--grund); color: var(--blau-dunkel);
+  border-radius: 4px; padding: 2px 7px; cursor: pointer;
+}
+.chip:hover { border-color: var(--blau); background: var(--blau-hell); }
+
+.baustein-fuss {
+  display: flex; justify-content: space-between; align-items: flex-start;
+  gap: 12px; margin-top: 8px;
+}
+.vorschau {
+  font-size: 13px; color: var(--text-leise); flex: 1; min-width: 0;
+  border-left: 2px solid var(--linie); padding-left: 10px;
+}
+.vorschau strong { color: var(--text); font-weight: 500; }
+.vorschau.fehler { color: var(--fehler); border-left-color: var(--fehler); }
+.zuruecksetzen {
+  flex: none; border: none; background: none; color: var(--blau);
+  font: inherit; font-size: 13px; cursor: pointer; padding: 0; text-decoration: underline;
+}
+.zuruecksetzen[hidden] { display: none; }
+
+.verweis {
+  border: none; background: none; color: var(--blau); font: inherit;
+  font-size: 13px; cursor: pointer; padding: 0; text-decoration: underline;
+}
+
+#texte-suche {
+  border: 1px solid var(--linie); border-radius: 6px; padding: 8px 11px;
+  font: inherit; font-size: 14px; min-width: 220px; background: var(--flaeche);
+}
+#texte-suche:focus-visible { outline: 2px solid var(--blau); outline-offset: -1px; }
+</style>
+</head>
+<body>
+
+<header class="kopf">
+  <div class="kopf-inhalt">
+    <div>
+      <h1>Offerttool</h1>
+      <p class="untertitel">Offerte aus dem Kalktool – regelbasiert, ohne KI</p>
+    </div>
+    <nav class="reiter" role="tablist">
+      <button id="reiter-offerte" class="reiter-knopf aktiv" role="tab"
+              aria-selected="true" aria-controls="ansicht-offerte">Offerte</button>
+      <button id="reiter-texte" class="reiter-knopf" role="tab"
+              aria-selected="false" aria-controls="ansicht-texte">Textbausteine</button>
+    </nav>
+    <div class="status" id="status" aria-live="polite"></div>
+  </div>
+</header>
+
+<main class="raster" id="ansicht-offerte" role="tabpanel">
+
+  <section class="spalte" aria-labelledby="h-eingabe">
+    <h2 id="h-eingabe">1 · Kalktools</h2>
+
+    <p class="offline-hinweis">
+      Diese Seite rechnet vollständig im Browser. Es werden keine Daten übertragen
+      und keine Datei verlässt diesen Rechner.
+    </p>
+
+    <div id="ablage" class="ablage" tabindex="0" role="button" aria-describedby="ablage-hinweis">
+      <svg viewBox="0 0 24 24" aria-hidden="true" class="ablage-symbol">
+        <path d="M12 16V4m0 0L8 8m4-4 4 4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/>
+      </svg>
+      <p class="ablage-text">Kalktool hierher ziehen oder klicken</p>
+      <p id="ablage-hinweis" class="ablage-hinweis">.xlsx – ein Kalktool je Standort</p>
+      <input type="file" id="dateiwahl" accept=".xlsx,.xlsm" multiple hidden>
+    </div>
+
+    <ol id="liste" class="liste" aria-label="Gewählte Kalktools in Reihenfolge der Standorte"></ol>
+    <p id="reihenfolge-hinweis" class="hinweis versteckt">
+      Die Reihenfolge ist die Reihenfolge der Standorte im Dokument.
+    </p>
+
+    <h2>2 · Angaben aus dem CRM <span class="freiwillig">freiwillig</span></h2>
+    <p class="hinweis">
+      Leer gelassene Felder erzeugen keine leere Zeile im Dokument. Fehlt die
+      Offertnummer, tritt die Verkaufschance an ihre Stelle.
+    </p>
+
+    <div class="felder">
+      <label>Offertnummer <input id="offertnummer" placeholder="OF-2026-04768"></label>
+      <label>Version <input id="offertversion" placeholder="1.0"></label>
+      <label>Anrede <input id="anrede" placeholder="Herr"></label>
+      <label>Vorname <input id="vorname" placeholder="Tom"></label>
+      <label>Nachname <input id="nachname" placeholder="Wiedmer"></label>
+      <label class="breit">Funktion Verkauf <input id="vk_funktion" placeholder="Account Manager"></label>
+      <label class="breit">E-Mail Verkauf <input id="vk_email" type="email" placeholder="vorname.name@graphax.ch"></label>
+      <label class="breit">Direktwahl Verkauf <input id="vk_telefon" placeholder="+41 58 551 11 22"></label>
+    </div>
+
+    <h2>3 · Gerätedatenblätter <span class="freiwillig">freiwillig</span></h2>
+    <p class="hinweis" id="db-hinweis">Wird geprüft …</p>
+
+    <label class="schalter">
+      <input type="checkbox" id="datenblaetter" checked>
+      <span>Datenblatt als Kapitel anhängen
+        <em>je Gerät rund drei Seiten</em></span>
+    </label>
+
+    <label class="schalter" id="schalter-spezifikation">
+      <input type="checkbox" id="spezifikation" checked>
+      <span>mit Gerätespezifikation
+        <em>die Optionsliste am Schluss des Datenblatts</em></span>
+    </label>
+
+    <p class="hinweis versteckt" id="db-eigene">
+      <button type="button" class="verweis" id="db-waehlen">Datenblätter von Hand wählen</button>
+      <span id="db-eigene-anzahl"></span>
+      <input type="file" id="db-datei" accept=".dotx,.docx,.dotm,.docm" multiple hidden>
+    </p>
+
+    <div class="knopfleiste">
+      <button id="pruefen" class="knopf zweitrangig" disabled>Werte prüfen</button>
+      <button id="erzeugen" class="knopf" disabled>Offerte erzeugen</button>
+    </div>
+  </section>
+
+  <section class="spalte" aria-labelledby="h-ergebnis" aria-live="polite">
+    <h2 id="h-ergebnis">Ergebnis</h2>
+    <div id="ergebnis">
+      <p class="leer">Noch nichts erzeugt. Links ein Kalktool wählen.</p>
+    </div>
+  </section>
+
+</main>
+
+<!-- ---------------- Textbausteine ---------------- -->
+<section class="texte versteckt" id="ansicht-texte" role="tabpanel" aria-labelledby="reiter-texte">
+  <div class="texte-kopf">
+    <div>
+      <h2>Textbausteine</h2>
+      <p class="hinweis">
+        Hier steht jede Formulierung der Offerte. Änderungen wirken sofort und
+        bleiben in diesem Browser gespeichert. Was in geschweiften Klammern
+        steht, wird beim Erzeugen durch einen Wert aus dem Kalktool ersetzt.
+      </p>
+    </div>
+    <div class="texte-werkzeuge">
+      <input type="search" id="texte-suche" placeholder="Baustein suchen …"
+             aria-label="Textbausteine durchsuchen">
+      <span id="texte-zaehler" class="marke versteckt"></span>
+      <button id="texte-sichern" class="knopf zweitrangig" type="button">Sichern</button>
+      <button id="texte-laden" class="knopf zweitrangig" type="button">Laden</button>
+      <button id="texte-alle-zuruecksetzen" class="knopf zweitrangig" type="button">Alle zurücksetzen</button>
+      <input type="file" id="texte-datei" accept=".json" hidden>
+    </div>
+  </div>
+  <div id="texte-liste"></div>
+</section>
+
+<footer class="fuss">
+  <span>Alle Beträge netto, exklusive MWST und vRB.</span>
+  <span id="fuss-status"></span>
+</footer>
+
+<script>/* ===== 10-zip.js ===== */
+
+/* ZIP lesen und schreiben – ohne Fremdbibliothek.
+
+   Ein .xlsx und ein .docx sind ZIP-Archive. Der Browser bringt mit
+   DecompressionStream und CompressionStream alles mit, was dafür nötig ist;
+   die Rahmenstruktur des Archivs schreiben wir selbst. */
+
+const ZIP = (() => {
+  "use strict";
+
+  // --- CRC32 -------------------------------------------------------------
+  const TABELLE = (() => {
+    const t = new Uint32Array(256);
+    for (let i = 0; i < 256; i++) {
+      let c = i;
+      for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
+      t[i] = c >>> 0;
+    }
+    return t;
+  })();
+
+  function crc32(bytes) {
+    let c = 0xffffffff;
+    for (let i = 0; i < bytes.length; i++) {
+      c = TABELLE[(c ^ bytes[i]) & 0xff] ^ (c >>> 8);
+    }
+    return (c ^ 0xffffffff) >>> 0;
+  }
+
+  // --- Hilfen ------------------------------------------------------------
+  const enc = new TextEncoder();
+  const dec = new TextDecoder("utf-8");
+
+  async function inflate(bytes) {
+    const s = new Blob([bytes]).stream().pipeThrough(new DecompressionStream("deflate-raw"));
+    return new Uint8Array(await new Response(s).arrayBuffer());
+  }
+
+  async function deflate(bytes) {
+    const s = new Blob([bytes]).stream().pipeThrough(new CompressionStream("deflate-raw"));
+    return new Uint8Array(await new Response(s).arrayBuffer());
+  }
+
+  // --- Lesen -------------------------------------------------------------
+
+  /** Liest ein ZIP und liefert eine Map: Name -> Uint8Array. */
+  async function lesen(puffer) {
+    const bytes = new Uint8Array(puffer);
+    const sicht = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+
+    // Ende des zentralen Verzeichnisses rückwärts suchen.
+    let eocd = -1;
+    for (let i = bytes.length - 22; i >= 0 && i > bytes.length - 22 - 65536; i--) {
+      if (sicht.getUint32(i, true) === 0x06054b50) { eocd = i; break; }
+    }
+    if (eocd < 0) throw new Error("Kein ZIP-Archiv: Verzeichnisende nicht gefunden.");
+
+    const anzahl = sicht.getUint16(eocd + 10, true);
+    let zeiger = sicht.getUint32(eocd + 16, true);
+
+    const eintraege = new Map();
+    const reihenfolge = [];
+    for (let n = 0; n < anzahl; n++) {
+      if (sicht.getUint32(zeiger, true) !== 0x02014b50) break;
+      const methode = sicht.getUint16(zeiger + 10, true);
+      const gepackt = sicht.getUint32(zeiger + 20, true);
+      const nameLaenge = sicht.getUint16(zeiger + 28, true);
+      const extraLaenge = sicht.getUint16(zeiger + 30, true);
+      const kommentar = sicht.getUint16(zeiger + 32, true);
+      const lokal = sicht.getUint32(zeiger + 42, true);
+      const name = dec.decode(bytes.subarray(zeiger + 46, zeiger + 46 + nameLaenge));
+
+      // Lokaler Kopf: die Längenfelder dort sind massgeblich.
+      const lokalNameLaenge = sicht.getUint16(lokal + 26, true);
+      const lokalExtraLaenge = sicht.getUint16(lokal + 28, true);
+      const start = lokal + 30 + lokalNameLaenge + lokalExtraLaenge;
+      const roh = bytes.subarray(start, start + gepackt);
+
+      eintraege.set(name, { methode, roh });
+      reihenfolge.push(name);
+      zeiger += 46 + nameLaenge + extraLaenge + kommentar;
+    }
+
+    const dateien = new Map();
+    for (const name of reihenfolge) {
+      const e = eintraege.get(name);
+      dateien.set(name, e.methode === 0 ? e.roh.slice() : await inflate(e.roh));
+    }
+    dateien.reihenfolge = reihenfolge;
+    return dateien;
+  }
+
+  /** Eine Datei aus dem Archiv als Text. */
+  function text(dateien, name) {
+    const b = dateien.get(name);
+    if (!b) throw new Error(`Im Archiv fehlt: ${name}`);
+    return dec.decode(b);
+  }
+
+  // --- Schreiben ---------------------------------------------------------
+
+  /**
+   * Schreibt eine Map (Name -> Uint8Array | string) als ZIP-Blob.
+   *
+   * ``typ`` bestimmt den MIME-Typ des Ergebnisses. Ein .docx ist zwar ein
+   * ZIP, muss aber als Word-Dokument ausgezeichnet werden: sonst hängt der
+   * Browser beim Herunterladen ".zip" an den Dateinamen an.
+   */
+  async function schreiben(dateien, reihenfolge, typ) {
+    const namen = reihenfolge || [...dateien.keys()];
+    const teile = [];
+    const verzeichnis = [];
+    let versatz = 0;
+
+    for (const name of namen) {
+      let inhalt = dateien.get(name);
+      if (inhalt === undefined) continue;
+      if (typeof inhalt === "string") inhalt = enc.encode(inhalt);
+
+      const roh = crc32(inhalt);
+      const gepackt = await deflate(inhalt);
+      // Nur komprimiert ablegen, wenn es wirklich kleiner wird.
+      const komprimiert = gepackt.length < inhalt.length;
+      const daten = komprimiert ? gepackt : inhalt;
+      const methode = komprimiert ? 8 : 0;
+      const nameBytes = enc.encode(name);
+
+      const kopf = new Uint8Array(30 + nameBytes.length);
+      const kv = new DataView(kopf.buffer);
+      kv.setUint32(0, 0x04034b50, true);
+      kv.setUint16(4, 20, true);          // Version
+      kv.setUint16(6, 0x0800, true);      // UTF-8-Namen
+      kv.setUint16(8, methode, true);
+      kv.setUint16(10, 0, true);          // Zeit
+      kv.setUint16(12, 0x21, true);       // Datum: 2000-01-01
+      kv.setUint32(14, roh, true);
+      kv.setUint32(18, daten.length, true);
+      kv.setUint32(22, inhalt.length, true);
+      kv.setUint16(26, nameBytes.length, true);
+      kv.setUint16(28, 0, true);
+      kopf.set(nameBytes, 30);
+
+      teile.push(kopf, daten);
+      verzeichnis.push({ name: nameBytes, methode, roh, gepackt: daten.length,
+                         roheGroesse: inhalt.length, versatz });
+      versatz += kopf.length + daten.length;
+    }
+
+    const zentralStart = versatz;
+    for (const e of verzeichnis) {
+      const z = new Uint8Array(46 + e.name.length);
+      const zv = new DataView(z.buffer);
+      zv.setUint32(0, 0x02014b50, true);
+      zv.setUint16(4, 20, true);
+      zv.setUint16(6, 20, true);
+      zv.setUint16(8, 0x0800, true);
+      zv.setUint16(10, e.methode, true);
+      zv.setUint16(12, 0, true);
+      zv.setUint16(14, 0x21, true);
+      zv.setUint32(16, e.roh, true);
+      zv.setUint32(20, e.gepackt, true);
+      zv.setUint32(24, e.roheGroesse, true);
+      zv.setUint16(28, e.name.length, true);
+      zv.setUint32(42, e.versatz, true);
+      z.set(e.name, 46);
+      teile.push(z);
+      versatz += z.length;
+    }
+
+    const ende = new Uint8Array(22);
+    const ev = new DataView(ende.buffer);
+    ev.setUint32(0, 0x06054b50, true);
+    ev.setUint16(8, verzeichnis.length, true);
+    ev.setUint16(10, verzeichnis.length, true);
+    ev.setUint32(12, versatz - zentralStart, true);
+    ev.setUint32(16, zentralStart, true);
+    teile.push(ende);
+
+    return new Blob(teile, { type: typ || "application/zip" });
+  }
+
+  return { lesen, schreiben, text, crc32 };
+})();
+
+
+/* ===== 11-xlsx.js ===== */
+
+/* Kalktool lesen.
+
+   Gebraucht werden nur Zellwerte zweier Blätter, deshalb ein eigener,
+   knapper Leser statt einer grossen Fremdbibliothek. Gelesen werden die
+   zwischengespeicherten Ergebnisse der Formeln (<v>), nie die Formel selbst –
+   das entspricht data_only=True auf der Python-Seite. */
+
+const XLSX = (() => {
+  "use strict";
+
+  const parser = new DOMParser();
+
+  function xml(dateien, name) {
+    return parser.parseFromString(ZIP.text(dateien, name), "application/xml");
+  }
+
+  /** "BC12" -> {spalte: 55, zeile: 12} */
+  function adresse(a1) {
+    const m = /^([A-Z]+)(\d+)$/.exec(a1);
+    if (!m) return null;
+    let spalte = 0;
+    for (const z of m[1]) spalte = spalte * 26 + (z.charCodeAt(0) - 64);
+    return { spalte, zeile: parseInt(m[2], 10) };
+  }
+
+  function spaltenName(n) {
+    let s = "";
+    while (n > 0) {
+      const r = (n - 1) % 26;
+      s = String.fromCharCode(65 + r) + s;
+      n = Math.floor((n - 1) / 26);
+    }
+    return s;
+  }
+
+  // Excel zählt Tage ab 1899-12-30 (mit dem bekannten 1900-Schaltjahrfehler).
+  const EPOCHE = Date.UTC(1899, 11, 30);
+
+  function alsDatum(zahl) {
+    return new Date(EPOCHE + Math.round(zahl) * 86400000);
+  }
+
+  /** Formatcodes, die ein Datum bedeuten. */
+  function istDatumsformat(code) {
+    if (!code) return false;
+    const ohneText = code.replace(/\[[^\]]*\]/g, "").replace(/"[^"]*"/g, "");
+    return /[dmyhs]/i.test(ohneText) && /[dmy]/i.test(ohneText);
+  }
+
+  const EINGEBAUTE_DATUMSFORMATE = new Set([
+    14, 15, 16, 17, 18, 19, 20, 21, 22, 27, 30, 36, 45, 46, 47, 50, 57,
+  ]);
+
+  /**
+   * Öffnet ein Kalktool.
+   * Blätter werden nach Position angesprochen; der Name dient nur der Prüfung.
+   */
+  async function oeffnen(puffer) {
+    const dateien = await ZIP.lesen(puffer);
+
+    // Gemeinsame Zeichenketten
+    let texte = [];
+    if (dateien.has("xl/sharedStrings.xml")) {
+      const d = xml(dateien, "xl/sharedStrings.xml");
+      texte = [...d.getElementsByTagName("si")].map((si) =>
+        [...si.getElementsByTagName("t")].map((t) => t.textContent).join("")
+      );
+    }
+
+    // Zahlenformate, um Datumszellen zu erkennen
+    const datumsStil = new Set();
+    if (dateien.has("xl/styles.xml")) {
+      const d = xml(dateien, "xl/styles.xml");
+      const eigene = new Map();
+      for (const f of d.getElementsByTagName("numFmt")) {
+        eigene.set(parseInt(f.getAttribute("numFmtId"), 10), f.getAttribute("formatCode"));
+      }
+      const xf = d.getElementsByTagName("cellXfs")[0];
+      if (xf) {
+        [...xf.getElementsByTagName("xf")].forEach((e, i) => {
+          const id = parseInt(e.getAttribute("numFmtId") || "0", 10);
+          if (EINGEBAUTE_DATUMSFORMATE.has(id) || istDatumsformat(eigene.get(id))) {
+            datumsStil.add(i);
+          }
+        });
+      }
+    }
+
+    // Blattreihenfolge aus der Arbeitsmappe und ihren Beziehungen
+    const mappe = xml(dateien, "xl/workbook.xml");
+    const bezug = xml(dateien, "xl/_rels/workbook.xml.rels");
+    const ziele = new Map();
+    for (const r of bezug.getElementsByTagName("Relationship")) {
+      ziele.set(r.getAttribute("Id"), r.getAttribute("Target"));
+    }
+
+    const blaetter = [];
+    for (const s of mappe.getElementsByTagName("sheet")) {
+      const id = s.getAttributeNS("http://schemas.openxmlformats.org/officeDocument/2006/relationships", "id")
+              || s.getAttribute("r:id");
+      let pfad = ziele.get(id) || "";
+      pfad = pfad.replace(/^\/?xl\//, "").replace(/^\//, "");
+      blaetter.push({ name: s.getAttribute("name"), pfad: "xl/" + pfad });
+    }
+
+    const gelesen = blaetter.map((b) => {
+      const leer = { zellen: new Map(), formeln: new Map() };
+      const inhalt = b.pfad && dateien.has(b.pfad)
+        ? zellenLesen(xml(dateien, b.pfad), texte, datumsStil)
+        : leer;
+      return { name: b.name, ...inhalt };
+    });
+
+    return {
+      blaetter: gelesen,
+      /** Zellwert nach Blattposition und A1-Adresse. */
+      zelle(index, a1) {
+        const b = gelesen[index];
+        return b ? (b.zellen.get(a1) ?? null) : null;
+      },
+      blattName(index) {
+        const b = gelesen[index];
+        return b ? b.name : null;
+      },
+      /**
+       * Ob die Zelle eine Formel mit dem genannten Namen trägt.
+       * M9 enthält im Referenz-Kalktool =TODAY(); der gelesene Wert ist dann
+       * das Öffnungsdatum, nicht das Offertdatum (Abschnitt 6.4).
+       */
+      hatFormel(index, a1, name) {
+        const b = gelesen[index];
+        if (!b) return false;
+        const f = b.formeln.get(a1);
+        return !!f && f.toUpperCase().includes(name.toUpperCase());
+      },
+    };
+  }
+
+  function zellenLesen(doc, texte, datumsStil) {
+    const zellen = new Map();
+    const formeln = new Map();
+    for (const c of doc.getElementsByTagName("c")) {
+      const a1 = c.getAttribute("r");
+      if (!a1) continue;
+      const typ = c.getAttribute("t");
+      const stil = parseInt(c.getAttribute("s") || "-1", 10);
+
+      if (typ === "inlineStr") {
+        const is = c.getElementsByTagName("is")[0];
+        zellen.set(a1, is ? [...is.getElementsByTagName("t")].map((t) => t.textContent).join("") : "");
+        continue;
+      }
+
+      const f = [...c.children].find((k) => k.tagName === "f");
+      if (f) formeln.set(a1, f.textContent || "");
+
+      // Nur das zwischengespeicherte Ergebnis, nie die Formel.
+      const v = [...c.children].find((k) => k.tagName === "v");
+      if (!v) continue;
+      const roh = v.textContent;
+
+      if (typ === "s") {
+        zellen.set(a1, texte[parseInt(roh, 10)] ?? "");
+      } else if (typ === "str" || typ === "e") {
+        zellen.set(a1, roh);
+      } else if (typ === "b") {
+        zellen.set(a1, roh === "1");
+      } else {
+        const zahl = parseFloat(roh);
+        if (Number.isNaN(zahl)) zellen.set(a1, roh);
+        else if (datumsStil.has(stil) && zahl > 0) zellen.set(a1, alsDatum(zahl));
+        else zellen.set(a1, zahl);
+      }
+    }
+    return { zellen, formeln };
+  }
+
+  return { oeffnen, adresse, spaltenName };
+})();
+
+
+/* ===== 20-formatters.js ===== */
+
+/* Formatter (Spezifikation V3, Abschnitt 7).
+
+   Verbindlich inklusive Trennzeichen. Tausendertrenner ist das typografische
+   Apostroph U+2019. Gerundet wird kaufmännisch (half-up) und erst bei der
+   Ausgabe – Zwischensummen rechnen mit dem vollen Wert. */
+
+const FMT = (() => {
+  "use strict";
+
+  const APOSTROPH = "’";
+
+  /** Zahl aus Zelle, Text oder bereits formatiertem Betrag. */
+  function zahl(wert) {
+    if (wert === null || wert === undefined || wert === "") return 0;
+    if (typeof wert === "number") return Number.isFinite(wert) ? wert : 0;
+    if (typeof wert === "boolean") return wert ? 1 : 0;
+    if (wert instanceof Date) return 0;
+    const t = String(wert).replace(/CHF/g, "").replace(/[’' \s]/g, "").trim();
+    const n = parseFloat(t);
+    return Number.isFinite(n) ? n : 0;
+  }
+
+  /**
+   * Kaufmännisches Runden auf eine feste Stellenzahl.
+   *
+   * toFixed rundet auf der binären Näherung und liefert für 1.005 fälschlich
+   * "1.00". Gerundet wird deshalb auf der kürzesten Dezimaldarstellung –
+   * genau das, was Decimal(repr(x)).quantize(ROUND_HALF_UP) auf der
+   * Python-Seite tut.
+   */
+  function festkomma(wert, stellen, gruppieren) {
+    let n = zahl(wert);
+    let s = String(n);
+    if (s.includes("e") || s.includes("E")) s = n.toFixed(20);
+
+    const negativ = s.startsWith("-");
+    if (negativ) s = s.slice(1);
+
+    let [ganz, bruch = ""] = s.split(".");
+
+    if (bruch.length > stellen) {
+      const naechste = bruch.charCodeAt(stellen) - 48;
+      const ziffern = (ganz + bruch.slice(0, stellen)).split("");
+      if (naechste >= 5) {
+        let i = ziffern.length - 1;
+        for (; i >= 0; i--) {
+          if (ziffern[i] === "9") ziffern[i] = "0";
+          else { ziffern[i] = String(Number(ziffern[i]) + 1); break; }
+        }
+        if (i < 0) ziffern.unshift("1");
+      }
+      const alle = ziffern.join("");
+      ganz = stellen ? alle.slice(0, alle.length - stellen) || "0" : alle;
+      bruch = stellen ? alle.slice(alle.length - stellen) : "";
+    } else {
+      bruch = bruch.padEnd(stellen, "0");
+    }
+
+    ganz = ganz.replace(/^0+(?=\d)/, "");
+    if (gruppieren) ganz = ganz.replace(/\B(?=(\d{3})+(?!\d))/g, APOSTROPH);
+
+    const ergebnis = stellen ? `${ganz}.${bruch}` : ganz;
+    return negativ && /[1-9]/.test(ergebnis) ? "-" + ergebnis : ergebnis;
+  }
+
+  // --- Textformatter -----------------------------------------------------
+
+  /** Leerraum aussen entfernen, innere Mehrfachleerzeichen auf eines reduzieren. */
+  function trim(wert) {
+    if (wert === null || wert === undefined) return "";
+    if (wert instanceof Date) return dateDe(wert);
+    if (typeof wert === "number" && Number.isInteger(wert)) wert = String(wert);
+    return String(wert).replace(/\s+/g, " ").trim();
+  }
+
+  /** Erster Buchstabe klein (Formatter |klein aus Abschnitt 8.4). */
+  function klein(wert) {
+    const t = trim(wert);
+    return t ? t[0].toLowerCase() + t.slice(1) : t;
+  }
+
+  // --- Zahlenformatter ---------------------------------------------------
+
+  const chf = (w) => "CHF " + festkomma(w, 2, true);
+  const rate = (w) => "CHF " + festkomma(w, 4, false);
+  const intCh = (w) => festkomma(w, 0, true);
+  const monate = (w) => intCh(w) + " Monate";
+
+  /** TT.MM.JJJJ */
+  function dateDe(wert) {
+    if (!wert) return "";
+    if (wert instanceof Date) {
+      const t = String(wert.getUTCDate()).padStart(2, "0");
+      const m = String(wert.getUTCMonth() + 1).padStart(2, "0");
+      return `${t}.${m}.${wert.getUTCFullYear()}`;
+    }
+    const s = String(wert).trim();
+    const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(s);
+    return m ? `${m[3]}.${m[2]}.${m[1]}` : s;
+  }
+
+  // --- label_clean (Abschnitt 7.7) --------------------------------------
+
+  /** "I n t e g r a t i o n - Netzwerk" -> "Integration Netzwerk" */
+  function labelClean(wert) {
+    let t = String(wert ?? "");
+    t = t.replace(/\b(?:[\wÀ-ÿ]\s){2,}[\wÀ-ÿ]\b/g, (m) => m.replace(/\s/g, ""));
+    t = t.replace(/ - /g, " ");
+    t = t.replace(/\s+/g, " ").trim();
+    return t ? t[0].toUpperCase() + t.slice(1) : t;
+  }
+
+  return { zahl, festkomma, trim, klein, chf, rate, intCh, monate, dateDe, labelClean, APOSTROPH };
+})();
+
+
+/* ===== 21-parsers.js ===== */
+
+/* Parser für Freitextfelder (Abschnitt 6).
+
+   Trifft kein Muster, greift der Fallback und es entsteht eine Warnung –
+   nie eine stille Zuweisung. */
+
+const PARSE = (() => {
+  "use strict";
+
+  const RE_PLZ_ORT = /^\s*(\d{4})\s+(.+?)\s*$/;
+  const RE_EMAIL = /[\w.+-]+@[\w-]+\.[\w.]+/;
+  const RE_TELEFON = /(?:\+41|0)[\s\d]{8,}/;
+  const RE_DATUM = /(\d{1,2})[.\-/](\d{1,2})[.\-/](\d{2,4})/;
+
+  /** "4127 Birsfelden" -> {plz, ort}; sonst W301. */
+  function plzOrt(roh, warn, feld) {
+    const text = (roh ?? "").toString().trim();
+    if (!text) {
+      // Ein leeres Feld ist nicht unparsbar, sondern schlicht nicht gefüllt;
+      // dafür meldet der Renderer bereits die entfallende Zeile.
+      return { plz: "", ort: "" };
+    }
+    const m = RE_PLZ_ORT.exec(text);
+    if (!m) {
+      warn.add("W301", feld ? `${feld}="${text}"` : `"${text}"`);
+      return { plz: "", ort: text.replace(/\s+/g, " ") };
+    }
+    return { plz: m[1], ort: m[2].replace(/\s+/g, " ") };
+  }
+
+  /** Name, Mail und Telefon aus einem Freitextfeld trennen (Abschnitt 6.2). */
+  function kontakt(roh, warn) {
+    let text = (roh ?? "").toString();
+    const ergebnis = { vorname: "", nachname: "", email: "", telefon: "" };
+
+    const mMail = RE_EMAIL.exec(text);
+    if (mMail) {
+      ergebnis.email = mMail[0];
+      text = text.slice(0, mMail.index) + "  " + text.slice(mMail.index + mMail[0].length);
+    }
+    const mTel = RE_TELEFON.exec(text);
+    if (mTel) {
+      ergebnis.telefon = mTel[0].replace(/\s+/g, " ").trim();
+      text = text.slice(0, mTel.index) + "  " + text.slice(mTel.index + mTel[0].length);
+    }
+    if (!mMail || !mTel) {
+      warn.add("W302", `email=${mMail ? "ja" : "nein"}, telefon=${mTel ? "ja" : "nein"}`);
+    }
+
+    // Manche Kalktools trennen mit Komma statt mit Leerzeichen; nach dem
+    // Herauslösen von Mail und Telefon bliebe sonst "Istvan Scheibler, ,".
+    const rest = text.replace(/[,;/|]+/g, " ").replace(/\s+/g, " ").trim();
+    if (rest) {
+      const teile = rest.split(" ");
+      ergebnis.vorname = teile[0];
+      ergebnis.nachname = teile.slice(1).join(" ");
+      if (teile.length > 2) warn.add("W303", rest);
+    }
+    return ergebnis;
+  }
+
+  /** "Vertragsbeginn 01.08.2026" -> Date; sonst null und W304. */
+  function vertragsbeginn(roh, warn) {
+    if (roh instanceof Date) return roh;
+    const text = (roh ?? "").toString();
+    const m = RE_DATUM.exec(text);
+    if (!m) {
+      warn.add("W304", `"${text.trim()}"`);
+      return null;
+    }
+    let jahr = parseInt(m[3], 10);
+    if (jahr < 100) jahr += 2000;
+    const tag = parseInt(m[1], 10);
+    const monat = parseInt(m[2], 10);
+    if (monat < 1 || monat > 12 || tag < 1 || tag > 31) {
+      warn.add("W304", `"${text.trim()}"`);
+      return null;
+    }
+    return new Date(Date.UTC(jahr, monat - 1, tag));
+  }
+
+  /** "Premium - CHF 50.00" -> "Premium" (Abschnitt 8.2). */
+  function slaKurz(roh) {
+    const text = String(roh ?? "").replace(/\s+/g, " ").trim();
+    return text.split(" - CHF")[0].replace(/^[\s-]+|[\s-]+$/g, "");
+  }
+
+  return { plzOrt, kontakt, vertragsbeginn, slaKurz };
+})();
+
+
+/* ===== 26-bausteine-standard.js ===== */
+
+/* Erzeugt von tools/browser_daten.py – nicht von Hand bearbeiten. */
+/* Mitgelieferte Textbausteine (Abschnitt 8).
+   Änderungen gehören in offerttool/resources/textbausteine.yaml. */
+const BAUSTEINE_STANDARD = {
+  "version": "1.0",
+  "platzhalter": {
+    "index": "Nummer des Standorts: 1, 2, 3 …",
+    "name": "Name des Standorts, zum Beispiel Museum",
+    "strasse": "Strasse des Standorts",
+    "plz": "Postleitzahl des Standorts",
+    "ort": "Ort des Standorts",
+    "geraet": "Bezeichnung des Geräts, zum Beispiel bizhub C3351i",
+    "sla": "Stufe des Service Level Agreements, zum Beispiel Premium",
+    "volumen_sw": "Inkludierte Seiten schwarzweiss",
+    "volumen_color": "Inkludierte Seiten in Farbe",
+    "ab_seite_sw": "Erste zusätzlich verrechnete Seite schwarzweiss",
+    "ab_seite_color": "Erste zusätzlich verrechnete Seite in Farbe",
+    "ab_scan": "Erster zusätzlich verrechneter Scan",
+    "fleet": "Stufe des Fleet Managements",
+    "zaehlerversand": "Art der Zählerstandsmeldung",
+    "laufzeit": "Laufzeit in Monaten, als Zahl",
+    "summenlabel": "Bezeichnung der Pauschale aus dem Kalktool",
+    "vertragsart": "Mietvertrag oder Leasingvertrag",
+    "beginn": "Zeitpunkt des Vertragsbeginns, als Satzteil",
+    "vertragsbeginn": "Datum des Vertragsbeginns, TT.MM.JJJJ",
+    "gueltig_bis": "Letzter Tag der Gültigkeit, TT.MM.JJJJ",
+    "datum": "Offertdatum, TT.MM.JJJJ",
+    "pauschale_wort": "Miet-, Leasing- oder Servicepauschalen",
+    "fakt_pauschale": "Abrechnungsrhythmus der Pauschalen, zum Beispiel Quartalsweise",
+    "fakt_mehrseiten": "Abrechnungsrhythmus der Seitenpreise",
+    "fakt_gebuehren": "Regelung zu den Gebühren",
+    "kalktool_version": "Version des Kalktools",
+    "verkaufschance": "Nummer der Verkaufschance",
+    "anlieferungsart": "Art der Anlieferung"
+  },
+  "beispiele": {
+    "index": "1",
+    "name": "Museum",
+    "strasse": "Schulstrasse 29 1.OG",
+    "plz": "4127",
+    "ort": "Birsfelden",
+    "geraet": "bizhub C3351i",
+    "sla": "Premium",
+    "volumen_sw": "0",
+    "volumen_color": "0",
+    "ab_seite_sw": "1",
+    "ab_seite_color": "1",
+    "ab_scan": "1",
+    "fleet": "6020 Fleet Service Level Progress",
+    "zaehlerversand": "CS Remote Care Internet (https) Integration",
+    "laufzeit": "60",
+    "summenlabel": "Mietpauschale pro Monat (ohne Service)",
+    "vertragsart": "Mietvertrag",
+    "beginn": "am 01.08.2026",
+    "vertragsbeginn": "01.08.2026",
+    "gueltig_bis": "26.09.2026",
+    "datum": "28.07.2026",
+    "pauschale_wort": "Miet- und Servicepauschalen",
+    "fakt_pauschale": "Quartalsweise",
+    "fakt_mehrseiten": "Halbjährlich",
+    "fakt_gebuehren": "Offen gem. Offerte",
+    "kalktool_version": "Version: Q4 2025",
+    "verkaufschance": "V-2026-04768",
+    "anlieferungsart": "Normal"
+  },
+  "gruppen": {
+    "deckblatt": "Deckblatt",
+    "standort": "Überschriften je Standort",
+    "tabellen": "Tabellenköpfe",
+    "service": "Servicetabelle (Kapitel 1.2)",
+    "total": "Summen (Kapitel 1.3)",
+    "vertrag": "Vertragstext (Kapitel 1.4)",
+    "konditionen": "Konditionen (Kapitel 2)",
+    "hardware": "Gerätedatenblätter",
+    "schluss": "Schluss und Nachweis"
+  },
+  "bausteine": {
+    "klassifizierung": {
+      "titel": "Klassifizierung",
+      "hinweis": "Steht auf dem Deckblatt neben «Klassifizierung».",
+      "gruppe": "deckblatt",
+      "platzhalter": [],
+      "text": "Vertraulich"
+    },
+    "gueltigkeit": {
+      "titel": "Gültigkeit des Angebots",
+      "hinweis": "Deckblatt, unterste Zeile. Das Datum ist das Offertdatum plus 60 Tage.",
+      "gruppe": "deckblatt",
+      "platzhalter": [
+        "gueltig_bis"
+      ],
+      "text": "Dieses Angebot ist gültig bis {gueltig_bis}"
+    },
+    "ort_datum": {
+      "titel": "Ort und Datum",
+      "hinweis": "Im Kapitel «Verbindlichkeit», über «Graphax AG».",
+      "gruppe": "schluss",
+      "platzhalter": [
+        "datum"
+      ],
+      "text": "Spreitenbach, {datum}"
+    },
+    "head_standort": {
+      "titel": "Standortüberschrift",
+      "hinweis": "Überschrift über der Geräteliste und über der Servicetabelle.",
+      "gruppe": "standort",
+      "platzhalter": [
+        "index",
+        "name"
+      ],
+      "text": "Standort {index}: {name}"
+    },
+    "head_standort_ohne_name": {
+      "titel": "Standortüberschrift ohne Namen",
+      "hinweis": "Wird verwendet, wenn im Kalktool kein Standortname steht (Warnung W309).",
+      "gruppe": "standort",
+      "platzhalter": [
+        "index"
+      ],
+      "text": "Standort {index}"
+    },
+    "line_adresse": {
+      "titel": "Installationsadresse",
+      "hinweis": "Kleine Zeile direkt unter der Standortüberschrift. Steht bewusst nicht im Inhaltsverzeichnis.",
+      "gruppe": "standort",
+      "platzhalter": [
+        "strasse",
+        "plz",
+        "ort"
+      ],
+      "text": "Installationsadresse: {strasse}, {plz} {ort}"
+    },
+    "head_dienstleistung": {
+      "titel": "Überschrift Schulungen und Dienstleistungen",
+      "hinweis": "Nur wenn einmalige Kosten anfallen. Erscheint auch im Inhaltsverzeichnis – kurz halten.",
+      "gruppe": "standort",
+      "platzhalter": [
+        "index",
+        "name"
+      ],
+      "text": "Im Angebot enthaltene Schulungen und Dienstleistungen – Standort {index}: {name}"
+    },
+    "head_dienstleistung_ohne_name": {
+      "titel": "Überschrift Dienstleistungen ohne Standortnamen",
+      "hinweis": "Wird verwendet, wenn im Kalktool kein Standortname steht.",
+      "gruppe": "standort",
+      "platzhalter": [
+        "index"
+      ],
+      "text": "Im Angebot enthaltene Schulungen und Dienstleistungen – Standort {index}"
+    },
+    "hardware_kapitel": {
+      "titel": "Kapitelüberschrift Hardware",
+      "hinweis": "Überschrift des Kapitels mit den Gerätedatenblättern. Erscheint einmal, unabhängig von der Anzahl Geräte.",
+      "gruppe": "hardware",
+      "platzhalter": [],
+      "text": "Hardware"
+    },
+    "hardware_gruppe": {
+      "titel": "Zwischenüberschrift Geräteart",
+      "hinweis": "Steht unter der Kapitelüberschrift, ebenfalls nur einmal.",
+      "gruppe": "hardware",
+      "platzhalter": [],
+      "text": "Multifunktionsgeräte"
+    },
+    "tabelle_hardware_artnr": {
+      "titel": "Geräteliste: Spalte Artikelnummer",
+      "hinweis": "Die Spalte erscheint nur, wenn das Kalktool Artikelnummern führt.",
+      "gruppe": "tabellen",
+      "platzhalter": [],
+      "text": "Artikel No."
+    },
+    "tabelle_hardware_bezeichnung": {
+      "titel": "Geräteliste: Spalte Bezeichnung",
+      "hinweis": "",
+      "gruppe": "tabellen",
+      "platzhalter": [],
+      "text": "Bezeichnung"
+    },
+    "tabelle_hardware_stueck": {
+      "titel": "Geräteliste: Spalte Stück",
+      "hinweis": "",
+      "gruppe": "tabellen",
+      "platzhalter": [],
+      "text": "Stück"
+    },
+    "tabelle_dienstleistung_leistung": {
+      "titel": "Dienstleistungen: Spalte Leistung",
+      "hinweis": "",
+      "gruppe": "tabellen",
+      "platzhalter": [],
+      "text": "Leistung"
+    },
+    "tabelle_dienstleistung_betrag": {
+      "titel": "Dienstleistungen: Spalte Betrag",
+      "hinweis": "",
+      "gruppe": "tabellen",
+      "platzhalter": [],
+      "text": "Betrag"
+    },
+    "tabelle_service_kopf": {
+      "titel": "Servicetabelle: linke Kopfzelle",
+      "hinweis": "",
+      "gruppe": "tabellen",
+      "platzhalter": [
+        "geraet"
+      ],
+      "text": "Wartungs- und Klick-Kosten für {geraet}"
+    },
+    "tabelle_service_total": {
+      "titel": "Servicetabelle: rechte Kopfzelle",
+      "hinweis": "",
+      "gruppe": "tabellen",
+      "platzhalter": [],
+      "text": "Total"
+    },
+    "service_geraet": {
+      "titel": "Servicevertrag",
+      "hinweis": "Erste Zeile der Servicetabelle, immer vorhanden.",
+      "gruppe": "service",
+      "platzhalter": [
+        "geraet"
+      ],
+      "text": "Servicevertrag pro Monat und pro Gerät für {geraet}"
+    },
+    "service_sla": {
+      "titel": "Service Level Agreement",
+      "hinweis": "Nur wenn im Kalktool eine SLA-Stufe steht. Ohne Betrag, weil der SLA in der Servicepauschale steckt.",
+      "gruppe": "service",
+      "platzhalter": [
+        "sla"
+      ],
+      "text": "Service Level Agreement: {sla}"
+    },
+    "service_inklusiv": {
+      "titel": "Inkludierte Seiten",
+      "hinweis": "Immer vorhanden, ohne Betrag.",
+      "gruppe": "service",
+      "platzhalter": [
+        "volumen_color",
+        "volumen_sw"
+      ],
+      "text": "Mit {volumen_color} Seiten in Farbe und {volumen_sw} Seiten schwarzweiss inkludiert"
+    },
+    "service_color": {
+      "titel": "Mehrseiten Farbe",
+      "hinweis": "Nur wenn ein Farbvolumen oder ein Farbklickpreis hinterlegt ist.",
+      "gruppe": "service",
+      "platzhalter": [
+        "ab_seite_color"
+      ],
+      "text": "Zusätzliche Seiten ab der {ab_seite_color}. Seite in Farbe"
+    },
+    "service_sw": {
+      "titel": "Mehrseiten schwarzweiss",
+      "hinweis": "",
+      "gruppe": "service",
+      "platzhalter": [
+        "ab_seite_sw"
+      ],
+      "text": "Zusätzliche Seiten ab der {ab_seite_sw}. Seite schwarzweiss"
+    },
+    "service_scan": {
+      "titel": "Mehrscans",
+      "hinweis": "Nur wenn ein Scanvolumen oder ein Scanpreis hinterlegt ist.",
+      "gruppe": "service",
+      "platzhalter": [
+        "ab_scan"
+      ],
+      "text": "Zusätzliche Scans ab dem {ab_scan}. Scan"
+    },
+    "service_fleet": {
+      "titel": "Zählerstanderfassung",
+      "hinweis": "",
+      "gruppe": "service",
+      "platzhalter": [
+        "fleet"
+      ],
+      "text": "Zählerstanderfassung und Fleet Management: {fleet}"
+    },
+    "service_zaehlerversand": {
+      "titel": "Zählerstandsmeldung",
+      "hinweis": "",
+      "gruppe": "service",
+      "platzhalter": [
+        "zaehlerversand"
+      ],
+      "text": "Zählerstandsmeldung: {zaehlerversand}"
+    },
+    "total_kauf": {
+      "titel": "Summe bei Kauf",
+      "hinweis": "",
+      "gruppe": "total",
+      "platzhalter": [],
+      "text": "Total Kauf"
+    },
+    "total_pauschale": {
+      "titel": "Pauschale ohne Service",
+      "hinweis": "Erste Summenzeile bei Miete und Leasing.",
+      "gruppe": "total",
+      "platzhalter": [
+        "summenlabel",
+        "laufzeit"
+      ],
+      "text": "{summenlabel} bei einer Laufzeit von {laufzeit} Monaten"
+    },
+    "total_monatspauschale": {
+      "titel": "Monatspauschale total",
+      "hinweis": "Zweite Summenzeile bei Miete und Leasing.",
+      "gruppe": "total",
+      "platzhalter": [],
+      "text": "Monatspauschale total inkl. Service"
+    },
+    "total_dienstleistung": {
+      "titel": "Summe der einmaligen Kosten",
+      "hinweis": "Letzte Zeile der Dienstleistungstabelle.",
+      "gruppe": "total",
+      "platzhalter": [],
+      "text": "Total einmalige Kosten"
+    },
+    "gesamt_einmalig": {
+      "titel": "Gesamttotal einmalige Kosten",
+      "hinweis": "Nur bei mehr als einem Standort.",
+      "gruppe": "total",
+      "platzhalter": [],
+      "text": "Einmalige Kosten – alle Standorte"
+    },
+    "gesamt_monatlich": {
+      "titel": "Gesamttotal monatlich",
+      "hinweis": "Nur bei mehr als einem Standort, bei Miete und Leasing.",
+      "gruppe": "total",
+      "platzhalter": [],
+      "text": "Monatspauschale total – alle Standorte"
+    },
+    "gesamt_kauf": {
+      "titel": "Gesamttotal Kauf",
+      "hinweis": "Nur bei mehr als einem Standort, bei Kauf.",
+      "gruppe": "total",
+      "platzhalter": [],
+      "text": "Total Kauf – alle Standorte"
+    },
+    "vertrag_kauf_titel": {
+      "titel": "Überschrift Vertragstext bei Kauf",
+      "hinweis": "",
+      "gruppe": "vertrag",
+      "platzhalter": [],
+      "text": "Laufzeit und Kündigungsfrist für Serviceverträge beim Kauf"
+    },
+    "vertrag_kauf": {
+      "titel": "Vertragstext bei Kauf",
+      "hinweis": "Jeder Eintrag wird ein eigener Absatz.",
+      "gruppe": "vertrag",
+      "platzhalter": [],
+      "absaetze": [
+        "Der Start und die Laufzeit des Servicevertrags werden gemäss einer separaten Vereinbarung festgelegt. Nach Ablauf der vereinbarten Laufzeit verlängert sich der Servicevertrag automatisch um jeweils ein Jahr. Eine Kündigung des Servicevertrags ist möglich, indem er mit einer Kündigungsfrist von drei Monaten zum Ende der Laufzeit gekündigt wird."
+      ]
+    },
+    "vertrag_miete_titel": {
+      "titel": "Überschrift Vertragstext bei Miete und Leasing",
+      "hinweis": "",
+      "gruppe": "vertrag",
+      "platzhalter": [
+        "vertragsart"
+      ],
+      "text": "Laufzeit und Kündigungsfrist {vertragsart} und Servicevertrag"
+    },
+    "vertrag_miete": {
+      "titel": "Vertragstext bei Miete und Leasing",
+      "hinweis": "Jeder Eintrag wird ein eigener Absatz.",
+      "gruppe": "vertrag",
+      "platzhalter": [
+        "vertragsart",
+        "beginn",
+        "laufzeit"
+      ],
+      "absaetze": [
+        "Der {vertragsart} tritt {beginn} in Kraft und läuft für eine bestimmte Laufzeit von {laufzeit} Monaten. Die Laufzeit des Servicevertrags ist an diese Laufzeit gekoppelt und endet gleichzeitig. Nach Ablauf verlängern sich beide Verträge automatisch um jeweils ein weiteres Jahr. Eine Beendigung ist möglich, indem sie jeweils zum Ende der Laufzeit unter Einhaltung einer Kündigungsfrist von drei Monaten gekündigt werden."
+      ]
+    },
+    "vertrag_beginn_datum": {
+      "titel": "Vertragsbeginn mit Datum",
+      "hinweis": "Wird für {beginn} eingesetzt, wenn im Kalktool ein Datum steht.",
+      "gruppe": "vertrag",
+      "platzhalter": [
+        "vertragsbeginn"
+      ],
+      "text": "am {vertragsbeginn}"
+    },
+    "vertrag_beginn_offen": {
+      "titel": "Vertragsbeginn offen",
+      "hinweis": "Wird für {beginn} eingesetzt, wenn kein Datum lesbar ist (Warnung W304).",
+      "gruppe": "vertrag",
+      "platzhalter": [],
+      "text": "zum vereinbarten Zeitpunkt"
+    },
+    "kondition_pauschale": {
+      "titel": "Abrechnungsintervall: Pauschalen",
+      "hinweis": "",
+      "gruppe": "konditionen",
+      "platzhalter": [
+        "fakt_pauschale"
+      ],
+      "text": "Servicepauschalen: {fakt_pauschale}, im Voraus."
+    },
+    "kondition_mehrseiten": {
+      "titel": "Abrechnungsintervall: Seitenpreise",
+      "hinweis": "",
+      "gruppe": "konditionen",
+      "platzhalter": [
+        "fakt_mehrseiten"
+      ],
+      "text": "Mehrseitenpreise: {fakt_mehrseiten}, rückwirkend."
+    },
+    "kondition_gebuehren": {
+      "titel": "Abrechnungsintervall: Gebühren",
+      "hinweis": "Nur wenn im Kalktool eine Regelung zu den Gebühren steht.",
+      "gruppe": "konditionen",
+      "platzhalter": [
+        "fakt_gebuehren"
+      ],
+      "text": "Gebühren: {fakt_gebuehren}."
+    },
+    "rechnung_einmalig": {
+      "titel": "Rechnungsstellung: einmalige Kosten",
+      "hinweis": "",
+      "gruppe": "konditionen",
+      "platzhalter": [],
+      "text": "Die einmaligen Kosten werden nach der Installation in Rechnung gestellt."
+    },
+    "rechnung_pauschale": {
+      "titel": "Rechnungsstellung: Pauschalen",
+      "hinweis": "",
+      "gruppe": "konditionen",
+      "platzhalter": [
+        "pauschale_wort",
+        "fakt_pauschale"
+      ],
+      "text": "Die {pauschale_wort} werden {fakt_pauschale} im Voraus verrechnet."
+    },
+    "rechnung_seitenpreise": {
+      "titel": "Rechnungsstellung: Seitenpreise",
+      "hinweis": "",
+      "gruppe": "konditionen",
+      "platzhalter": [
+        "fakt_mehrseiten"
+      ],
+      "text": "Die Seitenpreise für Schwarzweiss- und Farbdruck werden {fakt_mehrseiten} rückwirkend in Rechnung gestellt."
+    },
+    "pauschale_wort_miete": {
+      "titel": "Bezeichnung der Pauschalen bei Miete",
+      "hinweis": "Wird für {pauschale_wort} eingesetzt.",
+      "gruppe": "konditionen",
+      "platzhalter": [],
+      "text": "Miet- und Servicepauschalen"
+    },
+    "pauschale_wort_leasing": {
+      "titel": "Bezeichnung der Pauschalen bei Leasing",
+      "hinweis": "",
+      "gruppe": "konditionen",
+      "platzhalter": [],
+      "text": "Leasing- und Servicepauschalen"
+    },
+    "pauschale_wort_kauf": {
+      "titel": "Bezeichnung der Pauschalen bei Kauf",
+      "hinweis": "",
+      "gruppe": "konditionen",
+      "platzhalter": [],
+      "text": "Servicepauschalen"
+    },
+    "nachweis_kalktool": {
+      "titel": "Nachweis: Kalkulationsgrundlage",
+      "hinweis": "Kleine Zeile ganz am Schluss. Fehlt ein Teil, entfällt er samt Trennzeichen.",
+      "gruppe": "schluss",
+      "platzhalter": [
+        "kalktool_version"
+      ],
+      "text": "Kalkulationsgrundlage: Kalktool {kalktool_version}"
+    },
+    "nachweis_verkaufschance": {
+      "titel": "Nachweis: Verkaufschance",
+      "hinweis": "",
+      "gruppe": "schluss",
+      "platzhalter": [
+        "verkaufschance"
+      ],
+      "text": "Verkaufschance {verkaufschance}"
+    },
+    "nachweis_anlieferung": {
+      "titel": "Nachweis: Anlieferungsart",
+      "hinweis": "",
+      "gruppe": "schluss",
+      "platzhalter": [
+        "anlieferungsart"
+      ],
+      "text": "Anlieferungsart: {anlieferungsart}"
+    },
+    "nachweis_trenner": {
+      "titel": "Nachweis: Trennzeichen",
+      "hinweis": "Steht zwischen den Teilen der Nachweiszeile.",
+      "gruppe": "schluss",
+      "platzhalter": [],
+      "text": " · "
+    }
+  }
+};
+
+
+/* ===== 27-bausteine.js ===== */
+
+/* Textbausteine zur Laufzeit (Abschnitt 8).
+
+   Grundlage sind die mitgelieferten Bausteine; eigene Fassungen werden im
+   Browser gespeichert und liegen darüber. Jeder Baustein wird gegen seine
+   erlaubten Platzhalter geprüft – ein Tippfehler bricht mit einer klaren
+   Meldung ab, statt ein kaputtes Dokument zu schreiben. */
+
+const BAUSTEINE = (() => {
+  "use strict";
+
+  const SPEICHER = "offerttool.bausteine.v1";
+  // {feld} – doppelte Klammern {{ }} sind ein Zeichen, kein Platzhalter.
+  const RE = /(?<!\{)\{([a-z_][a-z0-9_]*)\}(?!\})/g;
+
+  /** Eigene Texte aus dem Browserspeicher; fehlerhafte werden verworfen. */
+  function eigeneLesen() {
+    try {
+      const roh = localStorage.getItem(SPEICHER);
+      const daten = roh ? JSON.parse(roh) : {};
+      return daten && typeof daten === "object" ? daten : {};
+    } catch {
+      return {};
+    }
+  }
+
+  function eigeneSchreiben(eigene) {
+    try {
+      if (Object.keys(eigene).length) {
+        localStorage.setItem(SPEICHER, JSON.stringify(eigene));
+      } else {
+        localStorage.removeItem(SPEICHER);
+      }
+      return true;
+    } catch {
+      // Privates Fenster oder gesperrter Speicher: die Änderungen gelten
+      // dann nur für diese Sitzung.
+      return false;
+    }
+  }
+
+  let eigene = eigeneLesen();
+
+  const standard = (schluessel) => BAUSTEINE_STANDARD.bausteine[schluessel];
+
+  /** Absätze eines Bausteins: eigene Fassung, sonst die mitgelieferte. */
+  function absaetzeVon(schluessel) {
+    const s = standard(schluessel);
+    if (!s) throw new OfferteError("E802", `Unbekannter Textbaustein: ${schluessel}`);
+    const wert = eigene[schluessel];
+    if (wert !== undefined) return Array.isArray(wert) ? wert : [String(wert)];
+    return s.absaetze ? s.absaetze : [s.text];
+  }
+
+  const istMehrzeilig = (schluessel) => Boolean(standard(schluessel).absaetze);
+
+  const erlaubte = (schluessel) => standard(schluessel).platzhalter || [];
+
+  /** Fehlermeldung, wenn ein Baustein einen unzulässigen Platzhalter nutzt. */
+  function pruefeText(schluessel, absaetze) {
+    const s = standard(schluessel);
+    const erlaubt = new Set(erlaubte(schluessel));
+    const liste = erlaubt.size
+      ? [...erlaubt].map((p) => "{" + p + "}").join(", ")
+      : "keine";
+
+    for (const absatz of absaetze) {
+      RE.lastIndex = 0;
+      let treffer;
+      while ((treffer = RE.exec(absatz)) !== null) {
+        const name = treffer[1];
+        if (erlaubt.has(name)) continue;
+        const bekannt = name in BAUSTEINE_STANDARD.platzhalter;
+        return bekannt
+          ? `{${name}} ist in diesem Baustein nicht vorgesehen. Erlaubt: ${liste}`
+          : `{${name}} gibt es nicht. Erlaubt: ${liste}`;
+      }
+      const ohne = absatz.replace(RE, "").split("{{").join("").split("}}").join("");
+      if (ohne.includes("{") || ohne.includes("}")) {
+        return "Eine geschweifte Klammer steht allein. Als Zeichen bitte {{ oder }} schreiben.";
+      }
+    }
+    return null;
+  }
+
+  function fuellen(schluessel, vorlage, werte) {
+    RE.lastIndex = 0;
+    return vorlage
+      .replace(RE, (_, name) => String(werte[name] ?? ""))
+      .split("{{").join("{")
+      .split("}}").join("}");
+  }
+
+  return {
+    /** Einzeiligen Baustein füllen. */
+    text(schluessel, werte) {
+      return fuellen(schluessel, absaetzeVon(schluessel)[0], werte || {});
+    },
+
+    /** Mehrzeiligen Baustein füllen. */
+    absaetze(schluessel, werte) {
+      return absaetzeVon(schluessel).map((a) => fuellen(schluessel, a, werte || {}));
+    },
+
+    // -- Für den Editor -------------------------------------------------
+
+    katalog: BAUSTEINE_STANDARD,
+    istMehrzeilig,
+    erlaubte,
+    pruefeText,
+    rohtext: absaetzeVon,
+
+    /** Wurde dieser Baustein geändert? */
+    geaendert: (schluessel) => eigene[schluessel] !== undefined,
+
+    /** Gibt es überhaupt eigene Texte? */
+    anzahlGeaendert: () => Object.keys(eigene).length,
+
+    /** Eigenen Text setzen; null stellt den mitgelieferten wieder her. */
+    setzen(schluessel, absaetze) {
+      if (!standard(schluessel)) {
+        throw new OfferteError("E802", `Unbekannter Textbaustein: ${schluessel}`);
+      }
+      if (absaetze === null) {
+        delete eigene[schluessel];
+      } else {
+        const liste = Array.isArray(absaetze) ? absaetze : [String(absaetze)];
+        const fehler = pruefeText(schluessel, liste);
+        if (fehler) throw new OfferteError("E801", fehler);
+        eigene[schluessel] = istMehrzeilig(schluessel) ? liste : liste[0];
+      }
+      return eigeneSchreiben(eigene);
+    },
+
+    /** Alle eigenen Texte verwerfen. */
+    zuruecksetzen() {
+      eigene = {};
+      return eigeneSchreiben(eigene);
+    },
+
+    /** Eigene Texte zum Sichern. */
+    exportieren: () => JSON.parse(JSON.stringify(eigene)),
+
+    /** Gesicherte Texte laden; prüft jeden Eintrag. */
+    importieren(daten) {
+      if (!daten || typeof daten !== "object") {
+        throw new OfferteError("E801", "Die Datei enthält keine Textbausteine.");
+      }
+      const neu = {};
+      for (const [schluessel, wert] of Object.entries(daten)) {
+        if (!standard(schluessel)) {
+          throw new OfferteError("E802", `Unbekannter Textbaustein: ${schluessel}`);
+        }
+        const liste = Array.isArray(wert) ? wert.map(String) : [String(wert)];
+        const fehler = pruefeText(schluessel, liste);
+        if (fehler) {
+          throw new OfferteError("E801", `${standard(schluessel).titel}: ${fehler}`);
+        }
+        neu[schluessel] = istMehrzeilig(schluessel) ? liste : liste[0];
+      }
+      eigene = neu;
+      eigeneSchreiben(eigene);
+      return Object.keys(neu).length;
+    },
+  };
+})();
+
+
+/* ===== 28-uebernahme.js ===== */
+
+/* Inhalte eines Datenblatts in die Offerte übernehmen.
+
+   Ein Absatz lässt sich nicht einfach kopieren: er verweist über Bezeichner
+   auf Formatvorlagen, Nummerierungen und Bilder, die im Zieldokument entweder
+   fehlen oder etwas anderes bedeuten. Diese Klasse führt Buch über alle drei
+   und schlüsselt jeden Verweis um – dieselben Regeln wie in der Python-Fassung
+   (offerttool/docxutil/uebernehmen.py).
+
+   Die Datenblätter und die Offertvorlage teilen sich keine einzige
+   Formatvorlage: die einen nennen ihre Überschriften berschrift1, die andere
+   Heading1. Ohne Zuordnung fände das Inhaltsverzeichnis das Kapitel nicht. */
+
+const REL_NS = "http://schemas.openxmlformats.org/package/2006/relationships";
+const CT_NS = "http://schemas.openxmlformats.org/package/2006/content-types";
+const REL_BILD = "http://schemas.openxmlformats.org/officeDocument/2006/relationships/image";
+const R_NS = "http://schemas.openxmlformats.org/officeDocument/2006/relationships";
+
+const UEBERNAHME = (() => {
+  "use strict";
+
+  const parser = new DOMParser();
+  const serializer = new XMLSerializer();
+
+  const BILDARTEN = {
+    png: "image/png", jpeg: "image/jpeg", jpg: "image/jpeg", gif: "image/gif",
+    emf: "image/x-emf", wmf: "image/x-wmf", svg: "image/svg+xml",
+    tiff: "image/tiff", tif: "image/tiff", bmp: "image/bmp",
+  };
+
+  /** Ein gelesenes Datenblatt mit allen Nebenteilen. */
+  async function quelleLesen(puffer) {
+    const dateien = await ZIP.lesen(puffer);
+    const xml = (name) =>
+      dateien.has(name) ? parser.parseFromString(ZIP.text(dateien, name), "application/xml") : null;
+
+    const beziehungen = new Map();
+    const rels = xml("word/_rels/document.xml.rels");
+    if (rels) {
+      for (const r of rels.getElementsByTagName("Relationship")) {
+        beziehungen.set(r.getAttribute("Id"), {
+          typ: r.getAttribute("Type"),
+          ziel: r.getAttribute("Target"),
+        });
+      }
+    }
+    return {
+      dateien,
+      document: xml("word/document.xml"),
+      styles: xml("word/styles.xml"),
+      numbering: xml("word/numbering.xml"),
+      beziehungen,
+    };
+  }
+
+  class Uebernahme {
+    /**
+     * @param ziel    Map des Zielarchivs (Name -> Inhalt)
+     * @param zielDoc geparstes word/document.xml des Ziels
+     * @param abbildung Zuordnung von Formatvorlagen-Bezeichnern
+     */
+    constructor(ziel, zielDoc, abbildung) {
+      this.ziel = ziel;
+      this.zielDoc = zielDoc;
+      this.abbildung = abbildung || {};
+      this.stile = this._zielStile();
+      this.rels = parser.parseFromString(
+        ZIP.text(ziel, "word/_rels/document.xml.rels"), "application/xml");
+      this.contentTypes = parser.parseFromString(
+        ZIP.text(ziel, "[Content_Types].xml"), "application/xml");
+      this.numbering = ziel.has("word/numbering.xml")
+        ? parser.parseFromString(ZIP.text(ziel, "word/numbering.xml"), "application/xml")
+        : null;
+      this._numids = new Map();
+      this._bilder = new Map();
+      this._zaehler = 0;
+      this._naechsteNumId = this._hoechsteNumId() + 1;
+      this._naechsteAbstrakt = this._hoechsteAbstrakt() + 1;
+    }
+
+    // -- Formatvorlagen -------------------------------------------------
+
+    _zielStilWurzel() {
+      if (!this._stilDoc) {
+        this._stilDoc = parser.parseFromString(
+          ZIP.text(this.ziel, "word/styles.xml"), "application/xml");
+      }
+      return this._stilDoc.documentElement;
+    }
+
+    _zielStile() {
+      const aus = new Set();
+      for (const s of this._zielStilWurzel().getElementsByTagNameNS(W_NS, "style")) {
+        aus.add(s.getAttributeNS(W_NS, "styleId"));
+      }
+      return aus;
+    }
+
+    /** Fehlende Formatvorlagen ergänzen; vorhandene bleiben unangetastet. */
+    stileErgaenzen(quelle) {
+      if (!quelle.styles) return;
+      const wurzel = this._zielStilWurzel();
+      for (const stil of quelle.styles.documentElement.getElementsByTagNameNS(W_NS, "style")) {
+        const kennung = stil.getAttributeNS(W_NS, "styleId");
+        if (!kennung || this.abbildung[kennung] || this.stile.has(kennung)) continue;
+        wurzel.appendChild(this.zielDoc.importNode(stil, true));
+        this.stile.add(kennung);
+      }
+    }
+
+    _stilUmschreiben(element) {
+      for (const tag of ["pStyle", "rStyle", "tblStyle"]) {
+        for (const e of element.getElementsByTagNameNS(W_NS, tag)) {
+          const alt = e.getAttributeNS(W_NS, "val");
+          if (this.abbildung[alt]) e.setAttributeNS(W_NS, "w:val", this.abbildung[alt]);
+        }
+      }
+    }
+
+    // -- Nummerierung ---------------------------------------------------
+
+    _hoechsteNumId() {
+      if (!this.numbering) return 1000;
+      let hoch = 1000;
+      for (const n of this.numbering.documentElement.getElementsByTagNameNS(W_NS, "num")) {
+        hoch = Math.max(hoch, parseInt(n.getAttributeNS(W_NS, "numId") || "0", 10) || 0);
+      }
+      return hoch;
+    }
+
+    _hoechsteAbstrakt() {
+      if (!this.numbering) return 1000;
+      let hoch = 1000;
+      for (const a of this.numbering.documentElement.getElementsByTagNameNS(W_NS, "abstractNum")) {
+        hoch = Math.max(hoch, parseInt(a.getAttributeNS(W_NS, "abstractNumId") || "0", 10) || 0);
+      }
+      return hoch;
+    }
+
+    /** Listendefinitionen unter neuen Bezeichnern übernehmen. */
+    nummerierungErgaenzen(quelle, kennung) {
+      if (!quelle.numbering || !this.numbering) return;
+      const wurzel = this.numbering.documentElement;
+      const abstrakt = new Map();
+
+      const erstesNum = wurzel.getElementsByTagNameNS(W_NS, "num")[0] || null;
+      for (const a of [...quelle.numbering.documentElement.getElementsByTagNameNS(W_NS, "abstractNum")]) {
+        const alt = a.getAttributeNS(W_NS, "abstractNumId");
+        const neu = String(this._naechsteAbstrakt++);
+        const kopie = this.numbering.importNode(a, true);
+        kopie.setAttributeNS(W_NS, "w:abstractNumId", neu);
+        // nsid darf nicht mit einer vorhandenen Liste kollidieren.
+        for (const n of [...kopie.getElementsByTagNameNS(W_NS, "nsid")]) {
+          kopie.removeChild(n);
+        }
+        this._stilUmschreiben(kopie);
+        wurzel.insertBefore(kopie, erstesNum);
+        abstrakt.set(alt, neu);
+      }
+
+      for (const n of [...quelle.numbering.documentElement.getElementsByTagNameNS(W_NS, "num")]) {
+        const verweis = n.getElementsByTagNameNS(W_NS, "abstractNumId")[0];
+        if (!verweis) continue;
+        const zielAbstrakt = abstrakt.get(verweis.getAttributeNS(W_NS, "val"));
+        if (!zielAbstrakt) continue;
+        const neu = String(this._naechsteNumId++);
+        const kopie = this.numbering.importNode(n, true);
+        kopie.setAttributeNS(W_NS, "w:numId", neu);
+        kopie.getElementsByTagNameNS(W_NS, "abstractNumId")[0]
+             .setAttributeNS(W_NS, "w:val", zielAbstrakt);
+        wurzel.appendChild(kopie);
+        this._numids.set(`${kennung}|${n.getAttributeNS(W_NS, "numId")}`, neu);
+      }
+    }
+
+    _numidUmschreiben(element, kennung) {
+      for (const e of element.getElementsByTagNameNS(W_NS, "numId")) {
+        const neu = this._numids.get(`${kennung}|${e.getAttributeNS(W_NS, "val")}`);
+        if (neu) e.setAttributeNS(W_NS, "w:val", neu);
+      }
+    }
+
+    // -- Bilder ---------------------------------------------------------
+
+    _bildUebernehmen(quelle, kennung, rid) {
+      const schluessel = `${kennung}|${rid}`;
+      if (this._bilder.has(schluessel)) return this._bilder.get(schluessel);
+
+      const eintrag = quelle.beziehungen.get(rid);
+      if (!eintrag || eintrag.typ !== REL_BILD) return null;
+      const quellpfad = ("word/" + eintrag.ziel).replace(/\/\.\//g, "/").replace(/^word\/\.\.\//, "");
+      const daten = quelle.dateien.get(quellpfad);
+      if (!daten) return null;
+
+      const endung = (quellpfad.split(".").pop() || "").toLowerCase();
+      const art = BILDARTEN[endung];
+      if (!art) return null;
+
+      const name = `word/media/datenblatt${++this._zaehler}.${endung}`;
+      this.ziel.set(name, daten);
+      this.ziel.reihenfolge.push(name);
+      this._endungEintragen(endung, art);
+
+      const neueRid = `rIdDb${this._zaehler}`;
+      const rel = this.rels.createElementNS(REL_NS, "Relationship");
+      rel.setAttribute("Id", neueRid);
+      rel.setAttribute("Type", REL_BILD);
+      rel.setAttribute("Target", `media/datenblatt${this._zaehler}.${endung}`);
+      this.rels.documentElement.appendChild(rel);
+
+      this._bilder.set(schluessel, neueRid);
+      return neueRid;
+    }
+
+    /** Jede Dateiendung braucht einen Eintrag in [Content_Types].xml. */
+    _endungEintragen(endung, art) {
+      const wurzel = this.contentTypes.documentElement;
+      for (const d of wurzel.getElementsByTagName("Default")) {
+        if ((d.getAttribute("Extension") || "").toLowerCase() === endung) return;
+      }
+      const neu = this.contentTypes.createElementNS(CT_NS, "Default");
+      neu.setAttribute("Extension", endung);
+      neu.setAttribute("ContentType", art);
+      wurzel.insertBefore(neu, wurzel.firstChild);
+    }
+
+    _bilderUmschreiben(element, quelle, kennung) {
+      for (const e of element.getElementsByTagName("*")) {
+        for (const attribut of ["embed", "link"]) {
+          const alt = e.getAttributeNS(R_NS, attribut);
+          if (!alt) continue;
+          const neu = this._bildUebernehmen(quelle, kennung, alt);
+          if (neu) e.setAttributeNS(R_NS, "r:" + attribut, neu);
+          else e.removeAttributeNS(R_NS, attribut);
+        }
+      }
+    }
+
+    // -- Blockelemente ---------------------------------------------------
+
+    /** Vorbereiten: Formatvorlagen und Nummerierungen bereitstellen. */
+    vorbereiten(quelle, kennung) {
+      this.stileErgaenzen(quelle);
+      this.nummerierungErgaenzen(quelle, kennung);
+    }
+
+    /** Ein Blockelement übernehmen und alle Verweise umschlüsseln. */
+    block(element, quelle, kennung) {
+      const kopie = this.zielDoc.importNode(element, true);
+      this._stilUmschreiben(kopie);
+      this._numidUmschreiben(kopie, kennung);
+      this._bilderUmschreiben(kopie, quelle, kennung);
+      _fremdeVerweiseEntfernen(kopie);
+      return kopie;
+    }
+
+    /** Geänderte Nebenteile zurück ins Archiv schreiben. */
+    abschliessen() {
+      if (this._stilDoc) {
+        this.ziel.set("word/styles.xml", serializer.serializeToString(this._stilDoc));
+      }
+      if (this.numbering) {
+        this.ziel.set("word/numbering.xml", serializer.serializeToString(this.numbering));
+      }
+      this.ziel.set("word/_rels/document.xml.rels", serializer.serializeToString(this.rels));
+      this.ziel.set("[Content_Types].xml", serializer.serializeToString(this.contentTypes));
+    }
+  }
+
+  /** Verweise entfernen, die im Ziel ins Leere zeigen würden. */
+  function _fremdeVerweiseEntfernen(element) {
+    for (const e of [...element.getElementsByTagNameNS(W_NS, "hyperlink")]) {
+      e.removeAttributeNS(R_NS, "id");
+    }
+    for (const tag of ["object", "pict"]) {
+      for (const e of [...element.getElementsByTagNameNS(W_NS, tag)]) {
+        let hatBild = false;
+        for (const k of e.getElementsByTagName("*")) {
+          if (k.getAttributeNS(R_NS, "embed")) { hatBild = true; break; }
+        }
+        if (!hatBild && e.parentNode) e.parentNode.removeChild(e);
+      }
+    }
+  }
+
+  return { quelleLesen, Uebernahme };
+})();
+
+
+/* ===== 30-mapping.js ===== */
+
+/* Erzeugt von tools/browser_daten.py – nicht von Hand bearbeiten. */
+/* Mapping der Kalktool-Version Q4 2025 (Abschnitt 15).
+   Im Code steht keine Zelladresse; sie stehen alle hier. */
+const MAPPING = {
+  "version": "Q4 2025",
+  "version_cell": "KM!C1",
+  "sheets": {
+    "KM": {
+      "index": 0,
+      "expect_name": "KM - Système couleur "
+    },
+    "SOL": {
+      "index": 1,
+      "expect_name": "Détail Solutions"
+    }
+  },
+  "layout_marken": {
+    "KM!A1": "Kalkulationstool",
+    "KM!A3": "Verkäufer :",
+    "KM!A5": "Kunde :",
+    "KM!A7": "Standort :",
+    "KM!A25": "Hardware",
+    "KM!A26": "Modell - Beschreibung / Artikel",
+    "KM!C26": "Listenpreis",
+    "KM!J15": "Laufzeit",
+    "KM!L15": "Fakt. Pauschale",
+    "KM!L16": "Fakt. Mehrseiten",
+    "KM!A59": "Netto Verkaufspreis",
+    "KM!A62": "Vertragswert",
+    "KM!A71": "Verrechnet",
+    "KM!B71": "Finanziert",
+    "SOL!A20": "Anzahl",
+    "SOL!C20": "Bezeichnung"
+  },
+  "fields": {
+    "kunde.firma": {
+      "cell": "KM!B5",
+      "type": "TXT",
+      "fmt": "trim",
+      "req": "M"
+    },
+    "kunde.strasse": {
+      "cell": "KM!D5",
+      "type": "TXT",
+      "fmt": "trim",
+      "req": "M"
+    },
+    "kunde.plz_ort_roh": {
+      "cell": "KM!G5",
+      "type": "TXT",
+      "fmt": "parse_plz_ort",
+      "req": "M"
+    },
+    "kunde.nr": {
+      "cell": "KM!J3",
+      "type": "TXT",
+      "fmt": "trim",
+      "req": "O"
+    },
+    "kunde.kontakt_roh": {
+      "cell": "KM!J5",
+      "type": "TXT",
+      "fmt": "parse_kontakt",
+      "req": "W"
+    },
+    "standort.name": {
+      "cell": "KM!B7",
+      "type": "TXT",
+      "fmt": "trim",
+      "req": "M"
+    },
+    "standort.strasse": {
+      "cell": "KM!D7",
+      "type": "TXT",
+      "fmt": "trim",
+      "req": "W"
+    },
+    "standort.plz_ort_roh": {
+      "cell": "KM!G7",
+      "type": "TXT",
+      "fmt": "parse_plz_ort",
+      "req": "W"
+    },
+    "vk.name": {
+      "cell": "KM!B3",
+      "type": "TXT",
+      "fmt": "trim",
+      "req": "W"
+    },
+    "vk.nr": {
+      "cell": "KM!E3",
+      "type": "TXT",
+      "fmt": "trim",
+      "req": "O"
+    },
+    "verkaufschance": {
+      "cell": "KM!M8",
+      "type": "TXT",
+      "fmt": "trim",
+      "req": "W"
+    },
+    "datum": {
+      "cell": "KM!M9",
+      "type": "DATE",
+      "fmt": "date_de",
+      "req": "M"
+    },
+    "kalktool.version": {
+      "cell": "KM!C1",
+      "type": "TXT",
+      "fmt": "trim",
+      "req": "M"
+    },
+    "finanzierungsart": {
+      "cell": "KM!I16",
+      "type": "ENUM",
+      "values": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "req": "M"
+    },
+    "laufzeit": {
+      "cell": "KM!J16",
+      "type": "INT",
+      "fmt": "monate",
+      "req": "M"
+    },
+    "fakt.pauschale": {
+      "cell": "KM!M15",
+      "type": "TXT",
+      "fmt": "trim",
+      "req": "M"
+    },
+    "fakt.mehrseiten": {
+      "cell": "KM!M16",
+      "type": "TXT",
+      "fmt": "trim",
+      "req": "M"
+    },
+    "fakt.gebuehren": {
+      "cell": "KM!L98",
+      "type": "TXT",
+      "fmt": "trim",
+      "req": "O"
+    },
+    "vertragsbeginn_roh": {
+      "cell": "KM!A100",
+      "type": "TXT",
+      "fmt": "parse_vertragsbeginn",
+      "req": "W"
+    },
+    "anlieferungsart": {
+      "cell": "KM!C96",
+      "type": "TXT",
+      "fmt": "trim",
+      "req": "O"
+    },
+    "business.type": {
+      "cell": "KM!A15",
+      "type": "TXT",
+      "fmt": "trim",
+      "req": "O"
+    },
+    "business.subtype": {
+      "cell": "KM!A16",
+      "type": "TXT",
+      "fmt": "trim",
+      "req": "O"
+    },
+    "sla.type": {
+      "cell": "KM!J58",
+      "type": "TXT",
+      "fmt": "trim",
+      "req": "O"
+    },
+    "sla.preis": {
+      "cell": "KM!M58",
+      "type": "CUR",
+      "fmt": "chf",
+      "req": "O"
+    },
+    "grundpauschale": {
+      "cell": "KM!M59",
+      "type": "CUR",
+      "fmt": "chf",
+      "req": "O"
+    },
+    "volumen.sw": {
+      "cell": "KM!H56",
+      "type": "INT",
+      "fmt": "int_ch",
+      "req": "M"
+    },
+    "preis.sw": {
+      "cell": "KM!H59",
+      "type": "RATE",
+      "fmt": "rate",
+      "req": "M"
+    },
+    "volumen.color": {
+      "cell": "KM!H61",
+      "type": "INT",
+      "fmt": "int_ch",
+      "req": "M"
+    },
+    "preis.color": {
+      "cell": "KM!H64",
+      "type": "RATE",
+      "fmt": "rate",
+      "req": "M"
+    },
+    "volumen.scan": {
+      "cell": "KM!H66",
+      "type": "INT",
+      "fmt": "int_ch",
+      "req": "O"
+    },
+    "preis.scan": {
+      "cell": "KM!H69",
+      "type": "RATE",
+      "fmt": "rate",
+      "req": "O"
+    },
+    "fleet.level": {
+      "cell": "KM!J64",
+      "type": "TXT",
+      "fmt": "trim",
+      "req": "O"
+    },
+    "fleet.preis": {
+      "cell": "KM!M64",
+      "type": "CUR",
+      "fmt": "chf",
+      "req": "O"
+    },
+    "zaehlerversand": {
+      "cell": "KM!C10",
+      "type": "TXT",
+      "fmt": "trim",
+      "req": "O"
+    },
+    "service.solution": {
+      "cell": "KM!L93",
+      "type": "CUR",
+      "fmt": "chf",
+      "req": "O"
+    },
+    "service.geraet": {
+      "cell": "KM!L94",
+      "type": "CUR",
+      "fmt": "chf",
+      "req": "M"
+    },
+    "pauschale_ohne_service": {
+      "cell": "KM!L92",
+      "type": "CUR",
+      "fmt": "chf",
+      "req": "M",
+      "only": [
+        "MIETE",
+        "LEASING"
+      ]
+    },
+    "monatspauschale_total": {
+      "cell": "KM!L95",
+      "type": "CUR",
+      "fmt": "chf",
+      "req": "M",
+      "only": [
+        "MIETE",
+        "LEASING"
+      ]
+    },
+    "summenlabel": {
+      "cell": "KM!H92",
+      "type": "TXT",
+      "fmt": "trim",
+      "req": "M",
+      "only": [
+        "MIETE",
+        "LEASING"
+      ]
+    },
+    "netto_verkaufspreis": {
+      "cell": "KM!C59",
+      "type": "CUR",
+      "fmt": "chf",
+      "req": "M",
+      "only": [
+        "KAUF"
+      ]
+    },
+    "restwert_altvertrag": {
+      "cell": "KM!C60",
+      "type": "CUR",
+      "fmt": "chf",
+      "req": "O"
+    },
+    "dl_eingerechnet": {
+      "cell": "KM!C61",
+      "type": "CUR",
+      "fmt": "chf",
+      "req": "O"
+    },
+    "vertragswert": {
+      "cell": "KM!C62",
+      "type": "CUR",
+      "fmt": "chf",
+      "req": "M",
+      "only": [
+        "KAUF"
+      ]
+    }
+  },
+  "probes": {
+    "stueck_summe": "KM!C53",
+    "solutions.sw_tot": "SOL!E39",
+    "solutions.mnt_tot": "SOL!E57",
+    "solutions.dl_tot": "SOL!H71",
+    "divzero.hw": "KM!H32",
+    "divzero.sw": "KM!H39"
+  },
+  "lists": {
+    "hardware": {
+      "range": "KM!A27:E52",
+      "cols": {
+        "bezeichnung": "A",
+        "listenpreis": "C"
+      },
+      "skip_if": [
+        "bezeichnung leer",
+        "bezeichnung == 'Support :'"
+      ],
+      "stueck_fix": 1,
+      "stueck_check": "KM!C53 == sum(KM!C27:C52)"
+    },
+    "dienstleistung": {
+      "range": "KM!A72:D93",
+      "layout": "paired",
+      "cols": {
+        "verrechnet": "A",
+        "finanziert": "B",
+        "total": "C",
+        "amortisation": "D"
+      },
+      "use_col": "verrechnet",
+      "skip_if": [
+        "verrechnet <= 0"
+      ],
+      "label_fmt": "label_clean",
+      "label_override": {
+        "Wegpauschale - I n t e g r a t i o n - Netzwerk - Fax - Scan - LDAP": "Wegpauschale – Integration Netzwerk / Fax / Scan / LDAP",
+        "I n t e g r a t i o n - Netzwerk": "Integration Netzwerk",
+        "I n t e g r a t i o n - Fax": "Integration Fax",
+        "LDAP - C O N F I G U R A T I O N": "LDAP-Konfiguration",
+        "T r a n s p o r t": "Transport"
+      }
+    },
+    "solutions.sw": {
+      "range": "SOL!A21:H38",
+      "cols": {
+        "anzahl": "A",
+        "artnr": "B",
+        "bezeichnung": "C",
+        "netto": "H"
+      },
+      "skip_if": [
+        "bezeichnung leer",
+        "netto <= 0"
+      ]
+    },
+    "solutions.maint": {
+      "range": "SOL!A43:H56",
+      "cols": {
+        "anzahl": "A",
+        "artnr": "B",
+        "bezeichnung": "C",
+        "netto": "H"
+      },
+      "skip_if": [
+        "bezeichnung leer",
+        "netto <= 0"
+      ]
+    },
+    "solutions.dl": {
+      "range": "SOL!A61:H71",
+      "cols": {
+        "stunden": "A",
+        "artnr": "B",
+        "bezeichnung": "C",
+        "preis_std": "G",
+        "total": "H"
+      },
+      "skip_if": [
+        "bezeichnung leer",
+        "total <= 0"
+      ]
+    }
+  },
+  "blocked": [
+    "KM!D27:E52",
+    "KM!C53",
+    "KM!E53",
+    "KM!B54:E58",
+    "KM!C57",
+    "KM!B63:B67",
+    "KM!E21",
+    "KM!H83:M90",
+    "KM!J72:M78",
+    "KM!G32",
+    "KM!G39",
+    "SOL!F1:F91",
+    "SOL!G1:G91"
+  ],
+  "blocked_readable": [
+    "KM!C53"
+  ],
+  "styles": {
+    "heading_standort": "Heading3",
+    "adresszeile": "05Klein",
+    "nachweis": "05Klein",
+    "tabelle_liste": "graphax11",
+    "tabelle_summe": "graphax100",
+    "tabelle_service": "graphax1000",
+    "tabelle_konditionen": "graphax20",
+    "tbllook_liste": "04A0",
+    "tbllook_summe": "04E0"
+  }
+};
+
+
+/* ===== 31-extract.js ===== */
+
+/* Warnungen, Fehler und Extraktion (Abschnitte 4, 6, 13). */
+
+const ERROR_TEXTS = {
+  E101: "Anker aus Abschnitt 3.2 fehlt in der Vorlage",
+  E201: "Kalktool nicht lesbar oder Blattanzahl < 2",
+  E202: "Kalktool-Version unbekannt und Layout passt zu keinem Mapping",
+  E211: "Zelle aus dem Feldkatalog ausserhalb des Blattbereichs",
+  E212: "Pflichtfeld im Kalktool ist leer",
+  E401: "finanzierungsart leer oder nicht in 1-5",
+  E402: "L95 != L92 + L93 + L94 (Toleranz 0.01)",
+  E403: "Gemischte Finanzierungsarten über mehrere Standorte",
+  E404: "Unterschiedliche Kunden über mehrere Standorte",
+  E411: "laufzeit leer oder <= 0 bei MIETE/LEASING",
+  E412: "Kein Hardwareartikel mit Bezeichnung",
+  E413: "MIETE/LEASING und L92 = 0",
+  E414: "KAUF und C62 = 0",
+  E601: "Wert aus der Sperrliste im gerenderten Dokument",
+  E602: "Unaufgelöster Platzhalter im gerenderten Dokument",
+};
+
+const WARNING_TEXTS = {
+  W301: "PLZ/Ort nicht trennbar",
+  W302: "Mail oder Telefon in J5 nicht gefunden",
+  W303: "Name in J5 mehrdeutig",
+  W304: "Vertragsbeginn in A100 nicht parsbar",
+  W305: "Offertnummer aus CRM fehlt, Verkaufschance eingesetzt",
+  W306: "Offertversion fehlt, 1.0 eingesetzt",
+  W307: "C53 != Summe der Listenpreise, Stückzahl nicht belegbar",
+  W308: "M9 liefert TODAY() statt eines eingefrorenen Datums",
+  W309: "standort.name leer",
+  W310: "Unterschiedliche Laufzeiten über mehrere Standorte",
+  W311: "Unterschiedliche Kalktool-Versionen",
+  W312: "#DIV/0! in H32 oder H39 (rein intern, ohne Wirkung auf die Offerte)",
+  W313: "Kalktool-Version unbekannt; Layout stimmt mit einem bekannten Mapping überein",
+  W314: "Beschriftung im Kalktool weicht vom erwarteten Layout ab",
+  W315: "Installationsadresse fehlt, Zeile entfällt",
+  W316: "Weder Offertnummer noch Verkaufschance vorhanden, Strich eingesetzt",
+  W317: "Standortname verweist auf den Kunden, Kundenname eingesetzt",
+  W320: "Blattname weicht vom erwarteten Namen ab",
+  W321: "Seitenzahlen im Inhaltsverzeichnis werden von Word beim Öffnen berechnet",
+};
+
+class OfferteError extends Error {
+  constructor(code, detail = "") {
+    super(`${code}: ${ERROR_TEXTS[code] || "Unbekannter Fehler"}${detail ? " – " + detail : ""}`);
+    this.code = code;
+    this.detail = detail;
+    this.bedeutung = ERROR_TEXTS[code] || "Unbekannter Fehler";
+  }
+}
+
+class Warnungen {
+  constructor() { this.items = []; this.standort = null; }
+  add(code, detail = "") {
+    const w = { code, detail, standort: this.standort, bedeutung: WARNING_TEXTS[code] || "" };
+    if (!this.items.some((x) => x.code === w.code && x.detail === w.detail && x.standort === w.standort)) {
+      this.items.push(w);
+    }
+  }
+  codes() { return [...new Set(this.items.map((w) => w.code))]; }
+}
+
+const EXTRACT = (() => {
+  "use strict";
+
+  const SHEET_INDEX = { KM: 0, SOL: 1 };
+
+  function ref(adresse) {
+    const [blatt, a1] = adresse.split("!");
+    return { blatt, a1, index: SHEET_INDEX[blatt] ?? 0 };
+  }
+
+  const istFehler = (v) => typeof v === "string" && v.trim().startsWith("#");
+
+  function zahl(v) {
+    return istFehler(v) ? 0 : FMT.zahl(v);
+  }
+
+  /** Spaltenbuchstabe -> Nummer */
+  function spalte(b) {
+    let n = 0;
+    for (const z of b) n = n * 26 + (z.charCodeAt(0) - 64);
+    return n;
+  }
+
+  function bereich(text) {
+    const [blatt, spanne] = text.split("!");
+    const [von, bis] = spanne.split(":");
+    const a = XLSX.adresse(von), b = XLSX.adresse(bis);
+    return { blatt, index: SHEET_INDEX[blatt] ?? 0,
+             z1: a.zeile, s1: a.spalte, z2: b.zeile, s2: b.spalte };
+  }
+
+  // Punkte und Leerzeichen sind hier bedeutungslos: "s. o." und "s.o." meinen
+  // dasselbe.
+  const DITO = new Set(["dito", "ditto", "dto", "idem", "so", "sieheoben", "wieoben", "gleich"]);
+
+  /** „dito“ als Standortname durch den Kundennamen ersetzen. */
+  function standortDito(ctx, warn) {
+    const name = FMT.trim(ctx.values["standort.name"]);
+    if (!DITO.has(name.replace(/[.\s]+/g, "").toLowerCase())) return;
+    const kunde = FMT.trim(ctx.values["kunde.firma"]);
+    if (!kunde) return;
+    ctx.values["standort.name"] = kunde;
+    warn.add("W317", `"${name}" -> "${kunde}"`);
+  }
+
+  /** Beschriftungen vergleichbar machen: Leerraum und Gross-/Kleinschreibung. */
+  function vergleichbar(text) {
+    return String(text ?? "").replace(/\s+/g, " ").trim().toLowerCase();
+  }
+
+  /** Layoutmarken prüfen: passt das Kalktool überhaupt zu diesem Mapping?
+
+     Bei bekannter Version fällt ein umgebautes Kalktool als W314 auf, statt
+     still falsche Zellen zu liefern. Bei unbekannter Version entscheidet
+     allein das Layout: stimmt es, wird mit W313 weitergearbeitet, sonst
+     bricht E202 ab, bevor irgendetwas gerendert wird. */
+  function pruefeLayout(lies, warn) {
+    const marken = MAPPING.layout_marken || {};
+    const abweichungen = [];
+    for (const [adresse, erwartet] of Object.entries(marken)) {
+      let ist = null;
+      try { ist = lies(adresse); } catch (e) { ist = null; }
+      if (vergleichbar(ist) !== vergleichbar(erwartet)) {
+        abweichungen.push(`${adresse}: erwartet "${erwartet}", gefunden "${ist ?? ""}"`);
+      }
+    }
+
+    const versionText = String(lies(MAPPING.fields["kalktool.version"].cell) ?? "").trim();
+    const bekannt = MAPPING.version && versionText.includes(MAPPING.version);
+    if (bekannt) {
+      if (abweichungen.length) warn.add("W314", abweichungen.slice(0, 3).join("; "));
+      return;
+    }
+    if (abweichungen.length) {
+      throw new OfferteError(
+        "E202",
+        `${versionText || "ohne Versionsangabe"}: das Layout stimmt mit keinem ` +
+          `bekannten Mapping überein – ${abweichungen.slice(0, 3).join("; ")}`,
+      );
+    }
+    warn.add("W313", `${versionText || "ohne Angabe"} → Mapping ${MAPPING.version}`);
+  }
+
+  /** Alle Felder und Positionslisten eines Kalktools lesen. */
+  function extract(wb, quelle, warn) {
+    // Blattnamen nur als Warnung prüfen (Abschnitt 2.2).
+    for (const [schluessel, spez] of Object.entries(MAPPING.sheets)) {
+      const name = wb.blattName(spez.index);
+      if (spez.expect_name && name !== spez.expect_name) {
+        warn.add("W320", `${schluessel}: erwartet "${spez.expect_name}", gefunden "${name}"`);
+      }
+    }
+    if (wb.blaetter.length < 2) throw new OfferteError("E201", quelle);
+
+    const ctx = { quelle, index: 1, values: {}, listen: {}, probes: {} };
+    const lies = (adresse) => { const r = ref(adresse); return wb.zelle(r.index, r.a1); };
+
+    pruefeLayout(lies, warn);
+
+    for (const [name, spez] of Object.entries(MAPPING.fields)) {
+      ctx.values[name] = lies(spez.cell);
+    }
+
+    ctx.values["kunde.plz_ort"] = PARSE.plzOrt(ctx.values["kunde.plz_ort_roh"], warn, "kunde");
+    ctx.values["standort.plz_ort"] = PARSE.plzOrt(ctx.values["standort.plz_ort_roh"], warn, "standort");
+    ctx.values["kunde.kontakt"] = PARSE.kontakt(ctx.values["kunde.kontakt_roh"], warn);
+    standortDito(ctx, warn);
+    ctx.values["vertragsbeginn"] = PARSE.vertragsbeginn(ctx.values["vertragsbeginn_roh"], warn);
+
+    // Ob M9 eine TODAY()-Formel trägt, ist aus den Werten allein nicht
+    // erkennbar; die Formel steht im Blatt-XML und wird dort geprüft.
+    if (wb.hatFormel && wb.hatFormel(ref(MAPPING.fields.datum.cell).index,
+                                     ref(MAPPING.fields.datum.cell).a1, "TODAY")) {
+      warn.add("W308", "KM!M9 enthält =TODAY()");
+    }
+
+    for (const [name, adresse] of Object.entries(MAPPING.probes || {})) {
+      ctx.probes[name] = lies(adresse);
+    }
+    if (istFehler(ctx.probes["divzero.hw"]) || istFehler(ctx.probes["divzero.sw"])) {
+      warn.add("W312", "Rabattsatz ohne Listenpreis");
+    }
+
+    for (const [name, spez] of Object.entries(MAPPING.lists)) {
+      ctx.listen[name] = spez.layout === "paired"
+        ? paare(wb, spez)
+        : zeilen(wb, spez);
+    }
+
+    stueckPruefen(ctx, wb, warn);
+    ctx.gesperrt = gesperrteWerte(wb);
+    return ctx;
+  }
+
+  function zellenWert(wb, b, zeile, spaltenBuchstabe) {
+    return wb.zelle(b.index, spaltenBuchstabe + zeile);
+  }
+
+  function zeilen(wb, spez) {
+    const b = bereich(spez.range);
+    const out = [];
+    for (let z = b.z1; z <= b.z2; z++) {
+      const bez = FMT.trim(zellenWert(wb, b, z, spez.cols.bezeichnung));
+      if (!bez || bez === "Support :") continue;
+
+      const betragsSpalte = spez.cols.netto || spez.cols.total || spez.cols.listenpreis;
+      const betrag = zahl(zellenWert(wb, b, z, betragsSpalte));
+      const filtert = (spez.skip_if || []).some((r) => r.includes("<= 0"));
+      if (filtert && betrag <= 0) continue;
+
+      const anzahlSpalte = spez.cols.anzahl || spez.cols.stunden;
+      const anzahl = anzahlSpalte ? zellenWert(wb, b, z, anzahlSpalte) : null;
+      const artnr = FMT.trim(spez.cols.artnr ? zellenWert(wb, b, z, spez.cols.artnr) : "") || "–";
+      const stueck = (anzahl !== null && anzahl !== "" && anzahl !== 0)
+        ? FMT.trim(anzahl)
+        : (spez.stueck_fix ? String(spez.stueck_fix) : "");
+
+      const extra = {};
+      if (spez.cols.listenpreis) extra.listenpreis = zahl(zellenWert(wb, b, z, spez.cols.listenpreis));
+      out.push({ bezeichnung: bez, artnr, stueck, betrag, extra });
+    }
+    return out;
+  }
+
+  /** Blockstruktur "dienstleistung": Zeile n = Label, Zeile n+1 = Beträge. */
+  function paare(wb, spez) {
+    const b = bereich(spez.range);
+    const nutz = spez.cols[spez.use_col || "verrechnet"];
+    const overrides = spez.label_override || {};
+    const out = [];
+    let z = b.z1;
+    while (z < b.z2) {
+      const roh = zellenWert(wb, b, z, nutz);
+      const label = FMT.trim(roh);
+      if (!label || typeof roh === "number") { z += 1; continue; }
+
+      const betrag = zahl(zellenWert(wb, b, z + 1, nutz));
+      if (betrag > 0) {
+        let sauber = overrides[label];
+        if (sauber === undefined) {
+          sauber = spez.label_fmt === "label_clean" ? FMT.labelClean(roh) : label;
+        }
+        out.push({ bezeichnung: sauber, artnr: "–", stueck: "", betrag, extra: {} });
+      }
+      z += 2;
+    }
+    return out;
+  }
+
+  /** KM!C53 == sum(KM!C27:C52) plausibilisieren (Abschnitt 5.5). */
+  function stueckPruefen(ctx, wb, warn) {
+    const spez = MAPPING.lists.hardware;
+    if (!spez || !spez.stueck_check) return;
+    const total = zahl(ctx.probes.stueck_summe);
+    const summe = (ctx.listen.hardware || []).reduce((s, p) => s + (p.extra.listenpreis || 0), 0);
+    ctx.probes.stueck_belegbar = Math.abs(total - summe) <= 0.01;
+    if (!ctx.probes.stueck_belegbar) warn.add("W307", "Stückzahl nicht belegbar");
+  }
+
+  /** Werte der Sperrliste – Grundlage der Ausgabeprüfung E601. */
+  function gesperrteWerte(wb) {
+    const out = [];
+    for (const eintrag of MAPPING.blocked || []) {
+      if (eintrag.includes(":")) {
+        const b = bereich(eintrag);
+        for (let z = b.z1; z <= b.z2; z++) {
+          for (let s = b.s1; s <= b.s2; s++) {
+            const v = wb.zelle(b.index, XLSX.spaltenName(s) + z);
+            if (typeof v === "number") out.push(v);
+          }
+        }
+      } else {
+        const r = ref(eintrag);
+        const v = wb.zelle(r.index, r.a1);
+        if (typeof v === "number") out.push(v);
+      }
+    }
+    return out;
+  }
+
+  return { extract, ref, zahl, bereich, spalte, standortDito, pruefeLayout };
+})();
+
+
+/* ===== 32-derive.js ===== */
+
+/* Ableitungsregeln (Abschnitt 5) und CRM (Abschnitt 4.4).
+
+   Alle Regeln sind Boolesche oder arithmetische Ausdrücke über Abschnitt 4.
+   Keine Regel liest eine Zelle, die nicht im Feldkatalog steht. */
+
+const DERIVE = (() => {
+  "use strict";
+
+  const VARIANTE = {
+    1: ["KAUF", null],
+    2: ["MIETE", "Mietvertrag"],
+    3: ["LEASING", "Leasingvertrag"],
+    4: ["LEASING", "Leasingvertrag"],
+    5: ["MIETE", "Mietvertrag"],
+  };
+
+  const PAUSCHALE_WORT = {
+    MIETE: "Miet- und Servicepauschalen",
+    LEASING: "Leasing- und Servicepauschalen",
+    KAUF: "Servicepauschalen",
+  };
+
+  const GUELTIGKEIT_TAGE = 60;
+
+  const num = (ctx, name) => EXTRACT.zahl(ctx.values[name]);
+  const text = (ctx, name) => FMT.trim(ctx.values[name]);
+
+  function variante(finanzierungsart) {
+    const key = Math.trunc(FMT.zahl(finanzierungsart));
+    if (!VARIANTE[key]) throw new OfferteError("E401", `finanzierungsart=${finanzierungsart}`);
+    return VARIANTE[key];
+  }
+
+  function derive(ctx, warn) {
+    const [art, wort] = variante(ctx.values.finanzierungsart);
+    const d = { variante: art, vertragsartWort: wort };
+
+    const volSw = num(ctx, "volumen.sw"), prSw = num(ctx, "preis.sw");
+    const volCol = num(ctx, "volumen.color"), prCol = num(ctx, "preis.color");
+    const volScan = num(ctx, "volumen.scan"), prScan = num(ctx, "preis.scan");
+
+    d.dienstleistungTotal = (ctx.listen.dienstleistung || []).reduce((s, p) => s + p.betrag, 0);
+
+    const solSw = EXTRACT.zahl(ctx.probes["solutions.sw_tot"]);
+    const solMnt = EXTRACT.zahl(ctx.probes["solutions.mnt_tot"]);
+    const solDl = EXTRACT.zahl(ctx.probes["solutions.dl_tot"]);
+    d.solutionsTotal = solSw + solMnt + solDl;
+
+    // Abschnitt 5.2 – Schalter. show.color prüft zusätzlich den Klickpreis:
+    // im Referenzfall ist volumen.color 0, preis.color aber 0.032.
+    d.show = {
+      sw: volSw > 0 || prSw > 0,
+      color: volCol > 0 || prCol > 0,
+      scan: volScan > 0 || prScan > 0,
+      fleet: !!text(ctx, "fleet.level"),
+      solutions: solSw > 0 || solMnt > 0 || solDl > 0,
+      dienstleistung: d.dienstleistungTotal > 0,
+      altvertrag: num(ctx, "restwert_altvertrag") > 0,
+      sla: !!text(ctx, "sla.type"),
+      zaehlerversand: !!text(ctx, "zaehlerversand"),
+      // Das Kalktool Q4 2025 führt weder Artikelnummer noch Zeilenpreis
+      // (Abschnitt 5.5); der Schalter bleibt bis zur Erweiterung falsch.
+      hardware_preise: art === "KAUF" && !!ctx.probes.hardware_spalten,
+    };
+
+    d.abSeite = { sw: Math.trunc(volSw) + 1, color: Math.trunc(volCol) + 1, scan: Math.trunc(volScan) + 1 };
+
+    const datum = ctx.values.datum;
+    d.gueltigBis = datum instanceof Date
+      ? new Date(datum.getTime() + GUELTIGKEIT_TAGE * 86400000)
+      : null;
+
+    const hardware = ctx.listen.hardware || [];
+    d.geraet = hardware.length ? hardware[0].bezeichnung : "";
+    d.slaKurz = PARSE.slaKurz(ctx.values["sla.type"]);
+
+    if (!text(ctx, "standort.name")) warn.add("W309", ctx.quelle);
+    if (ctx.probes.stueck_belegbar === false) {
+      // Stückzahl wird leer gerendert statt geraten (Abschnitt 5.5).
+      for (const p of hardware) p.stueck = "";
+    }
+    return d;
+  }
+
+  /** Summen über alle Standorte (Abschnitt 5.3). */
+  function gesamttotal(standorte) {
+    const g = { einmalig: 0, monatlich: 0, kauf: 0 };
+    for (const { ctx, d } of standorte) {
+      g.einmalig += d.dienstleistungTotal;
+      g.monatlich += num(ctx, "monatspauschale_total");
+      g.kauf += num(ctx, "vertragswert");
+    }
+    return g;
+  }
+
+  return { derive, gesamttotal, variante, num, text, PAUSCHALE_WORT };
+})();
+
+/** CRM-Datensatz mit den Ersatzregeln aus Abschnitt 4.4. */
+const CRM = (() => {
+  "use strict";
+
+  function neu(felder) {
+    const werte = felder || {};
+    const hol = (name) => FMT.trim(werte[name] || "");
+    return {
+      get: hol,
+      offertnummer(verkaufschance, warn) {
+        const v = hol("offertnummer");
+        if (v) return v;
+        if (!FMT.trim(verkaufschance)) {
+          // Ohne Verkaufschance bliebe die Zelle auf dem Deckblatt leer und
+          // sähe wie ein Versehen aus; der Strich sagt "nicht vergeben".
+          warn.add("W316", "Ersatz: –");
+          return "–";
+        }
+        warn.add("W305", `Ersatz: ${verkaufschance}`);
+        return verkaufschance;
+      },
+      offertversion(warn) {
+        const v = hol("offertversion");
+        if (v) return v;
+        warn.add("W306", "Ersatz: 1.0");
+        return "1.0";
+      },
+    };
+  }
+
+  return { neu };
+})();
+
+
+/* ===== 33-textblocks.js ===== */
+
+/* Textbausteine zusammensetzen (Abschnitt 8).
+
+   Der Wortlaut steht nicht hier, sondern in den Bausteinen. Dieses Modul
+   entscheidet nur, welcher Baustein wann gebraucht wird und mit welchen
+   Werten er gefüllt wird – die Regeln also, nicht die Formulierung. */
+
+const TEXT = (() => {
+  "use strict";
+
+  const num = DERIVE.num, txt = DERIVE.text;
+  const B = () => BAUSTEINE;
+
+  const headStandort = (ctx) => {
+    const name = txt(ctx, "standort.name");
+    return name
+      ? B().text("head_standort", { index: ctx.index, name })
+      : B().text("head_standort_ohne_name", { index: ctx.index });
+  };
+
+  const headDl = (ctx) => {
+    const name = txt(ctx, "standort.name");
+    return name
+      ? B().text("head_dienstleistung", { index: ctx.index, name })
+      : B().text("head_dienstleistung_ohne_name", { index: ctx.index });
+  };
+
+  /* Installationsadresse; leer, wenn das Kalktool keine führt.
+
+     Manche Kalktools lassen D7 und G7 leer, weil die Installationsadresse der
+     Kundenadresse entspricht. Dann entfällt die Zeile ganz – ein blosses
+     «Installationsadresse:» ohne Inhalt hilft niemandem. */
+  function lineAdresse(ctx) {
+    const ort = ctx.values["standort.plz_ort"] || {};
+    const strasse = txt(ctx, "standort.strasse");
+    const ortszeile = `${ort.plz || ""} ${ort.ort || ""}`.trim();
+    if (!strasse && !ortszeile) return "";
+
+    const text = B().text("line_adresse", {
+      strasse,
+      plz: ort.plz || "",
+      ort: ort.ort || "",
+    });
+    // Fehlt ein Teil, bleibt kein einsames Komma stehen.
+    return text
+      .replace(/\s*,\s*(?=,|$)/g, "")
+      .replace(/\s{2,}/g, " ")
+      .trim()
+      .replace(/,$/, "");
+  }
+
+  const serviceKopf = (d) => B().text("tabelle_service_kopf", { geraet: d.geraet });
+
+  const kopfHardware = (mitArtNr) => {
+    const spalten = [
+      B().text("tabelle_hardware_bezeichnung"),
+      B().text("tabelle_hardware_stueck"),
+    ];
+    return mitArtNr ? [B().text("tabelle_hardware_artnr"), ...spalten] : spalten;
+  };
+
+  const kopfDienstleistung = () => [
+    B().text("tabelle_dienstleistung_leistung"),
+    B().text("tabelle_dienstleistung_betrag"),
+  ];
+
+  const kopfService = (d) => [serviceKopf(d), B().text("tabelle_service_total")];
+
+  /** Zeilen der Servicetabelle in fester Reihenfolge (Abschnitt 8.2). */
+  function serviceZeilen(ctx, d) {
+    const zeilen = [];
+
+    const block1 = [B().text("service_geraet", { geraet: d.geraet })];
+    if (d.show.sla) {
+      // Ist sla.preis 0, wird kein Betrag ausgegeben – der SLA steckt in
+      // service.geraet und würde sonst doppelt wirken.
+      block1.push(B().text("service_sla", { sla: d.slaKurz }));
+    }
+    block1.push(B().text("service_inklusiv", {
+      volumen_color: FMT.intCh(num(ctx, "volumen.color")),
+      volumen_sw: FMT.intCh(num(ctx, "volumen.sw")),
+    }));
+    zeilen.push([block1, [FMT.chf(num(ctx, "service.geraet"))]]);
+
+    const klickT = [], klickB = [];
+    if (d.show.color) {
+      klickT.push(B().text("service_color", { ab_seite_color: d.abSeite.color }));
+      klickB.push(FMT.rate(num(ctx, "preis.color")));
+    }
+    if (d.show.sw) {
+      klickT.push(B().text("service_sw", { ab_seite_sw: d.abSeite.sw }));
+      klickB.push(FMT.rate(num(ctx, "preis.sw")));
+    }
+    if (klickT.length) zeilen.push([klickT, klickB]);
+
+    if (d.show.scan) {
+      zeilen.push([[B().text("service_scan", { ab_scan: d.abSeite.scan })],
+                   [FMT.rate(num(ctx, "preis.scan"))]]);
+    }
+
+    const fleetT = [], fleetB = [];
+    if (d.show.fleet) {
+      fleetT.push(B().text("service_fleet", { fleet: txt(ctx, "fleet.level") }));
+      fleetB.push(num(ctx, "fleet.preis") > 0 ? FMT.chf(num(ctx, "fleet.preis")) : "");
+    }
+    if (d.show.zaehlerversand) {
+      fleetT.push(B().text("service_zaehlerversand", { zaehlerversand: txt(ctx, "zaehlerversand") }));
+      fleetB.push("");
+    }
+    if (fleetT.length) zeilen.push([fleetT, fleetB.some(Boolean) ? fleetB : [""]]);
+
+    return zeilen;
+  }
+
+  /** Summenzeilen eines Standorts (Abschnitt 5.4). */
+  function totalZeilen(ctx, d) {
+    if (d.variante === "KAUF") {
+      return [[B().text("total_kauf"), FMT.chf(num(ctx, "vertragswert"))]];
+    }
+    const label = B().text("total_pauschale", {
+      summenlabel: txt(ctx, "summenlabel"),
+      laufzeit: FMT.intCh(num(ctx, "laufzeit")),
+    });
+    return [
+      [label, FMT.chf(num(ctx, "pauschale_ohne_service"))],
+      [B().text("total_monatspauschale"), FMT.chf(num(ctx, "monatspauschale_total"))],
+    ];
+  }
+
+  function gesamtZeilen(g, variante) {
+    const zeilen = [];
+    if (g.einmalig > 0) zeilen.push([B().text("gesamt_einmalig"), FMT.chf(g.einmalig)]);
+    zeilen.push(variante === "KAUF"
+      ? [B().text("gesamt_kauf"), FMT.chf(g.kauf)]
+      : [B().text("gesamt_monatlich"), FMT.chf(g.monatlich)]);
+    return zeilen;
+  }
+
+  /** Überschrift und Absätze des Vertragstexts (Abschnitt 8.3). */
+  function vertragstext(ctx, d) {
+    if (d.variante === "KAUF") {
+      return [B().text("vertrag_kauf_titel"), B().absaetze("vertrag_kauf")];
+    }
+    const beginn = ctx.values.vertragsbeginn;
+    const phrase = beginn
+      ? B().text("vertrag_beginn_datum", { vertragsbeginn: FMT.dateDe(beginn) })
+      : B().text("vertrag_beginn_offen");
+    return [
+      B().text("vertrag_miete_titel", { vertragsart: d.vertragsartWort }),
+      B().absaetze("vertrag_miete", {
+        vertragsart: d.vertragsartWort,
+        beginn: phrase,
+        laufzeit: FMT.intCh(num(ctx, "laufzeit")),
+      }),
+    ];
+  }
+
+  const PAUSCHALE_BAUSTEIN = {
+    MIETE: "pauschale_wort_miete",
+    LEASING: "pauschale_wort_leasing",
+    KAUF: "pauschale_wort_kauf",
+  };
+
+  function konditionenAbrechnung(ctx) {
+    const zeilen = [
+      B().text("kondition_pauschale", { fakt_pauschale: txt(ctx, "fakt.pauschale") }),
+      B().text("kondition_mehrseiten", { fakt_mehrseiten: txt(ctx, "fakt.mehrseiten") }),
+    ];
+    if (txt(ctx, "fakt.gebuehren")) {
+      zeilen.push(B().text("kondition_gebuehren", { fakt_gebuehren: txt(ctx, "fakt.gebuehren") }));
+    }
+    return zeilen;
+  }
+
+  function konditionenRechnung(ctx, d) {
+    return [
+      B().text("rechnung_einmalig"),
+      B().text("rechnung_pauschale", {
+        pauschale_wort: B().text(PAUSCHALE_BAUSTEIN[d.variante]),
+        fakt_pauschale: FMT.klein(txt(ctx, "fakt.pauschale")),
+      }),
+      B().text("rechnung_seitenpreise", {
+        fakt_mehrseiten: FMT.klein(txt(ctx, "fakt.mehrseiten")),
+      }),
+    ];
+  }
+
+  /** Fehlt ein Teil, entfällt das Segment samt Trennzeichen (Abschnitt 8.5). */
+  function nachweis(standorte) {
+    const einmalig = (f) => [...new Set(standorte.map(f).filter(Boolean))];
+    const versionen = einmalig((s) => DERIVE.text(s.ctx, "kalktool.version"));
+    const chancen = einmalig((s) => DERIVE.text(s.ctx, "verkaufschance"));
+    const art = DERIVE.text(standorte[0].ctx, "anlieferungsart");
+
+    const teile = [];
+    if (versionen.length) {
+      teile.push(B().text("nachweis_kalktool", { kalktool_version: versionen.join(", ") }));
+    }
+    if (chancen.length) {
+      teile.push(B().text("nachweis_verkaufschance", { verkaufschance: chancen.join(", ") }));
+    }
+    if (art) teile.push(B().text("nachweis_anlieferung", { anlieferungsart: art }));
+    return teile.join(B().text("nachweis_trenner"));
+  }
+
+  const gueltigkeit = (d) => B().text("gueltigkeit", { gueltig_bis: FMT.dateDe(d.gueltigBis) });
+  const ortDatum = (ctx) => B().text("ort_datum", { datum: FMT.dateDe(ctx.values.datum) });
+  const klassifizierung = () => B().text("klassifizierung");
+  const hardwareKapitel = () => B().text("hardware_kapitel");
+  const hardwareGruppe = () => B().text("hardware_gruppe");
+  const dlTotalLabel = () => B().text("total_dienstleistung");
+
+  return {
+    headStandort, headDl, lineAdresse, serviceKopf, serviceZeilen, totalZeilen,
+    gesamtZeilen, vertragstext, konditionenAbrechnung, konditionenRechnung,
+    nachweis, gueltigkeit, ortDatum, klassifizierung, dlTotalLabel,
+    hardwareKapitel, hardwareGruppe,
+    kopfHardware, kopfDienstleistung, kopfService,
+  };
+})();
+
+
+/* ===== 40-docx.js ===== */
+
+/* WordprocessingML bearbeiten (Abschnitte 3 und 10).
+
+   Adressiert wird ausschliesslich über w:tag von Inhaltssteuerelementen –
+   nie über Textsuche. Tabellen werden aus Musterzeilen geklont, nie neu
+   aufgebaut; dabei blieben tblGrid und Rahmen sonst auf der Strecke. */
+
+const W_NS = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
+
+const DOCX = (() => {
+  "use strict";
+
+  const parser = new DOMParser();
+  const serializer = new XMLSerializer();
+
+  const el = (doc, name) => doc.createElementNS(W_NS, name);
+  const attr = (knoten, name) => knoten.getAttributeNS(W_NS, name.replace("w:", ""));
+  const setAttr = (knoten, name, wert) => knoten.setAttributeNS(W_NS, name, wert);
+
+  /** Direkte Kinder mit dem gegebenen Namen (nicht rekursiv). */
+  function kinder(knoten, name) {
+    const out = [];
+    for (const k of knoten.children) if (k.localName === name) out.push(k);
+    return out;
+  }
+
+  function ersteKind(knoten, name) {
+    for (const k of knoten.children) if (k.localName === name) return k;
+    return null;
+  }
+
+  /** Alle Nachfahren mit dem gegebenen Namen. */
+  const alle = (knoten, name) => [...knoten.getElementsByTagNameNS(W_NS, name)];
+
+  function entfernen(knoten) {
+    if (knoten && knoten.parentNode) knoten.parentNode.removeChild(knoten);
+  }
+
+  // --- Absätze -----------------------------------------------------------
+
+  /** Sichtbarer Text eines Knotens, inklusive Inhalt von Steuerelementen. */
+  function knotenText(knoten) {
+    let out = "";
+    const lauf = (n) => {
+      for (const k of n.children) {
+        if (k.localName === "t") out += k.textContent;
+        else if (k.localName === "tab") out += "\t";
+        else if (k.localName === "br" || k.localName === "cr") out += "\n";
+        else lauf(k);
+      }
+    };
+    lauf(knoten);
+    return out;
+  }
+
+  /**
+   * Absatzinhalt durch genau einen Run ersetzen.
+   * Die Zeichenformatierung des ersten bestehenden Runs bleibt erhalten.
+   */
+  function setzeAbsatzText(p, text) {
+    const doc = p.ownerDocument;
+    const ersterRun = ersteKind(p, "r");
+    const rPr = ersterRun ? ersteKind(ersterRun, "rPr") : null;
+    const rPrKopie = rPr ? rPr.cloneNode(true) : null;
+
+    for (const k of [...p.children]) {
+      if (k.localName !== "pPr") p.removeChild(k);
+    }
+    if (text === "") return;
+
+    const run = el(doc, "w:r");
+    if (rPrKopie) run.appendChild(rPrKopie);
+    String(text).split("\n").forEach((zeile, i) => {
+      if (i) run.appendChild(el(doc, "w:br"));
+      const t = el(doc, "w:t");
+      t.setAttribute("xml:space", "preserve");
+      t.textContent = zeile;
+      run.appendChild(t);
+    });
+    p.appendChild(run);
+  }
+
+  /** Formatvorlage eines Absatzes über ihre interne ID setzen. */
+  function setzeAbsatzStil(p, stilId) {
+    const doc = p.ownerDocument;
+    let pPr = ersteKind(p, "pPr");
+    if (!pPr) { pPr = el(doc, "w:pPr"); p.insertBefore(pPr, p.firstChild); }
+    let pStyle = ersteKind(pPr, "pStyle");
+    if (!pStyle) { pStyle = el(doc, "w:pStyle"); pPr.insertBefore(pStyle, pPr.firstChild); }
+    setAttr(pStyle, "w:val", stilId);
+  }
+
+  function neuerAbsatz(muster, text, stilId) {
+    const p = muster.cloneNode(true);
+    setzeAbsatzText(p, text ?? "");
+    if (stilId) setzeAbsatzStil(p, stilId);
+    return p;
+  }
+
+  // --- Inhaltssteuerelemente --------------------------------------------
+
+  function sdtTag(sdt) {
+    const pr = ersteKind(sdt, "sdtPr");
+    if (!pr) return null;
+    const tag = ersteKind(pr, "tag");
+    return tag ? attr(tag, "w:val") : null;
+  }
+
+  const sdtInhalt = (sdt) => ersteKind(sdt, "sdtContent");
+
+  /** w:tag -> Liste der Steuerelemente, in Dokumentreihenfolge. */
+  function ankerKarte(wurzel) {
+    const karte = new Map();
+    for (const sdt of alle(wurzel, "sdt")) {
+      const tag = sdtTag(sdt);
+      if (tag) {
+        if (!karte.has(tag)) karte.set(tag, []);
+        karte.get(tag).push(sdt);
+      }
+    }
+    return karte;
+  }
+
+  function finde(wurzel, tag) {
+    for (const sdt of alle(wurzel, "sdt")) if (sdtTag(sdt) === tag) return sdt;
+    return null;
+  }
+
+  /**
+   * w:sdt durch seinen Inhalt ersetzen (Abschnitt 10.3).
+   * Ohne diesen Schritt überleben Reste der Vorlage sichtbar im Text.
+   */
+  function aufloesen(sdt) {
+    const eltern = sdt.parentNode;
+    if (!eltern) return;
+    const inhalt = sdtInhalt(sdt);
+    if (inhalt) {
+      while (inhalt.firstChild) eltern.insertBefore(inhalt.firstChild, sdt);
+    }
+    eltern.removeChild(sdt);
+  }
+
+  /** Alle Steuerelemente innerhalb eines Bereichs auflösen. */
+  function aufloesenInnere(bereich) {
+    let sdts = alle(bereich, "sdt");
+    let schutz = 0;
+    while (sdts.length && schutz++ < 200) {
+      for (const sdt of sdts) aufloesen(sdt);
+      sdts = alle(bereich, "sdt");
+    }
+  }
+
+  const absaetzeVon = (sdt) => kinder(sdtInhalt(sdt), "p");
+  const tabellenVon = (sdt) => kinder(sdtInhalt(sdt), "tbl");
+
+  /** TEXT-Anker: Inhalt durch genau einen Run ersetzen. */
+  function setzeText(sdt, text, stilId) {
+    aufloesenInnere(sdtInhalt(sdt));
+    const absaetze = absaetzeVon(sdt);
+    if (!absaetze.length) throw new OfferteError("E101", `TEXT-Anker ohne Absatz: ${sdtTag(sdt)}`);
+    absaetze.slice(1).forEach(entfernen);
+    setzeAbsatzText(absaetze[0], text);
+    if (stilId) setzeAbsatzStil(absaetze[0], stilId);
+  }
+
+  /**
+   * BLOCK-Anker: Inhalt durch n Absätze ersetzen.
+   * Eine leere Liste löscht den Absatz vollständig – ein leeres Kann-Feld
+   * erzeugt keine leere Zeile (Abschnitt 4.4).
+   */
+  function setzeBlock(sdt, zeilen, stilId) {
+    const inhalt = sdtInhalt(sdt);
+    aufloesenInnere(inhalt);
+    const absaetze = absaetzeVon(sdt);
+    if (!absaetze.length) throw new OfferteError("E101", `BLOCK-Anker ohne Absatz: ${sdtTag(sdt)}`);
+    const muster = absaetze[0].cloneNode(true);
+    absaetze.forEach(entfernen);
+    for (const zeile of zeilen) {
+      const [text, stil] = Array.isArray(zeile) ? zeile : [zeile, stilId];
+      inhalt.appendChild(neuerAbsatz(muster, text, stil));
+    }
+  }
+
+  /** SWITCH-Anker: genau eine Kindvariante bleibt stehen (Abschnitt 3.1). */
+  function waehleVariante(sdt, variantenTag) {
+    const inhalt = sdtInhalt(sdt);
+    let treffer = null;
+    for (const k of [...inhalt.children]) {
+      if (k.localName !== "sdt") continue;
+      if (sdtTag(k) === variantenTag) treffer = k;
+      else inhalt.removeChild(k);
+    }
+    if (!treffer) throw new OfferteError("E101", `SWITCH-Variante fehlt: ${variantenTag}`);
+    aufloesen(treffer);
+  }
+
+  /** Anker-Steuerelement direkt hinter sich selbst duplizieren (Abschnitt 11). */
+  function klonNach(sdt) {
+    const neu = sdt.cloneNode(true);
+    sdt.parentNode.insertBefore(neu, sdt.nextSibling);
+    return neu;
+  }
+
+  // --- Tabellen (Abschnitt 10) ------------------------------------------
+
+  const zeilen = (tbl) => kinder(tbl, "tr");
+  const zellen = (tr) => kinder(tr, "tc");
+
+  /**
+   * Zellinhalt absatzweise setzen (Abschnitt 10.2).
+   * Überzählige Absätze werden gelöscht, fehlende durch Klonen des letzten
+   * ergänzt. Steuerelemente in der Zelle werden vorher aufgelöst.
+   */
+  function setzeZelle(tc, texte) {
+    aufloesenInnere(tc);
+    const liste = (texte && texte.length ? texte : [""]).map((t) => String(t ?? ""));
+    let absaetze = kinder(tc, "p");
+    if (!absaetze.length) throw new OfferteError("E101", "Tabellenzelle ohne Absatz");
+
+    while (absaetze.length < liste.length) {
+      const neu = absaetze[absaetze.length - 1].cloneNode(true);
+      tc.insertBefore(neu, absaetze[absaetze.length - 1].nextSibling);
+      absaetze = kinder(tc, "p");
+    }
+    absaetze.slice(liste.length).forEach(entfernen);
+    absaetze = kinder(tc, "p");
+    liste.forEach((text, i) => setzeAbsatzText(absaetze[i], text));
+  }
+
+  /** Je Datensatz eine Musterzeile klonen und füllen. */
+  function fuelleZeilen(tbl, musterIndex, datensaetze) {
+    const trs = zeilen(tbl);
+    if (musterIndex >= trs.length) {
+      throw new OfferteError("E101", `Musterzeile ${musterIndex} fehlt`);
+    }
+    const muster = trs[musterIndex];
+    for (const satz of datensaetze) {
+      const tr = muster.cloneNode(true);
+      tbl.appendChild(tr);
+      const tcs = zellen(tr);
+      tcs.forEach((tc, i) => {
+        const inhalt = satz[i];
+        if (inhalt === undefined || inhalt === null) setzeZelle(tc, [""]);
+        else setzeZelle(tc, Array.isArray(inhalt) ? inhalt : [inhalt]);
+      });
+    }
+    entfernen(muster);
+  }
+
+  /**
+   * Eine Spalte samt ihrer Breite entfernen.
+   * Die freiwerdende Breite geht an die Nachbarspalte, damit die Tabelle so
+   * breit bleibt wie in der Vorlage.
+   */
+  function spalteEntfernen(tbl, index) {
+    const grid = ersteKind(tbl, "tblGrid");
+    if (grid) {
+      const cols = kinder(grid, "gridCol");
+      if (index < cols.length && cols.length > 1) {
+        const frei = parseInt(attr(cols[index], "w:w") || "0", 10);
+        const nachbar = cols[index + 1] || cols[index - 1];
+        setAttr(nachbar, "w:w", String(parseInt(attr(nachbar, "w:w") || "0", 10) + frei));
+        entfernen(cols[index]);
+      }
+    }
+    for (const tr of zeilen(tbl)) {
+      const tcs = zellen(tr);
+      if (index >= tcs.length || tcs.length <= 1) continue;
+      const frei = zellenBreite(tcs[index]);
+      const nachbar = tcs[index + 1] || tcs[index - 1];
+      setzeZellenBreite(nachbar, zellenBreite(nachbar) + frei);
+      entfernen(tcs[index]);
+    }
+  }
+
+  function zellenBreite(tc) {
+    const tcPr = ersteKind(tc, "tcPr");
+    const tcW = tcPr && ersteKind(tcPr, "tcW");
+    if (!tcW) return 0;
+    const typ = attr(tcW, "w:type");
+    if (typ && typ !== "dxa") return 0;
+    return parseInt(attr(tcW, "w:w") || "0", 10) || 0;
+  }
+
+  function setzeZellenBreite(tc, breite) {
+    const tcPr = ersteKind(tc, "tcPr");
+    const tcW = tcPr && ersteKind(tcPr, "tcW");
+    if (!tcW) return;
+    setAttr(tcW, "w:w", String(breite));
+    setAttr(tcW, "w:type", "dxa");
+  }
+
+  /**
+   * tblLook steuert die bedingte Formatierung (Abschnitt 10.4).
+   * Listentabellen ohne Summenzeile brauchen 04A0 (ohne lastRow), sonst wird
+   * die letzte Position fett dargestellt und liest sich wie ein Total.
+   */
+  function setzeTblLook(tbl, wert) {
+    const tblPr = ersteKind(tbl, "tblPr");
+    if (!tblPr) return;
+    let look = ersteKind(tblPr, "tblLook");
+    if (!look) { look = el(tbl.ownerDocument, "w:tblLook"); tblPr.appendChild(look); }
+    const bits = parseInt(wert, 16);
+    setAttr(look, "w:val", wert);
+    setAttr(look, "w:firstRow", bits & 0x0020 ? "1" : "0");
+    setAttr(look, "w:lastRow", bits & 0x0040 ? "1" : "0");
+    setAttr(look, "w:firstColumn", bits & 0x0080 ? "1" : "0");
+    setAttr(look, "w:lastColumn", bits & 0x0100 ? "1" : "0");
+    setAttr(look, "w:noHBand", bits & 0x0200 ? "1" : "0");
+    setAttr(look, "w:noVBand", bits & 0x0400 ? "1" : "0");
+  }
+
+  // --- Felder einfrieren (Abschnitt 12.2) -------------------------------
+
+  const FELDTYPEN = ["TIME", "DATE", "CREATEDATE", "PRINTDATE", "SAVEDATE"];
+
+  /**
+   * TIME-Felder im Fliesstext durch einen statischen Run ersetzen.
+   * Sie würden beim Öffnen auf das Tagesdatum springen und das Offertdatum
+   * überschreiben. Das Feld in der Fusszeile bleibt – es ist das Druckdatum.
+   */
+  function friereFelder(wurzel, ersatz) {
+    let ersetzt = 0;
+    for (const p of alle(wurzel, "p")) {
+      let runs = kinder(p, "r");
+      let i = 0;
+      while (i < runs.length) {
+        const fld = ersteKind(runs[i], "fldChar");
+        if (!fld || attr(fld, "w:fldCharType") !== "begin") { i++; continue; }
+
+        let ende = -1, instr = "";
+        for (let j = i; j < runs.length; j++) {
+          for (const it of kinder(runs[j], "instrText")) instr += it.textContent + " ";
+          const f = ersteKind(runs[j], "fldChar");
+          if (f && attr(f, "w:fldCharType") === "end") { ende = j; break; }
+        }
+        if (ende < 0) { i++; continue; }
+
+        const name = instr.trim().split(/\s+/)[0].toUpperCase();
+        if (!FELDTYPEN.includes(name)) { i = ende + 1; continue; }
+
+        const ziel = runs[i];
+        for (const k of [...ziel.children]) if (k.localName !== "rPr") ziel.removeChild(k);
+        const t = el(p.ownerDocument, "w:t");
+        t.setAttribute("xml:space", "preserve");
+        t.textContent = ersatz;
+        ziel.appendChild(t);
+        runs.slice(i + 1, ende + 1).forEach(entfernen);
+
+        runs = kinder(p, "r");
+        i = 0;
+        ersetzt++;
+      }
+    }
+    return ersetzt;
+  }
+
+  return {
+    parser, serializer, el, attr, setAttr, kinder, ersteKind, alle, entfernen,
+    knotenText, setzeAbsatzText, setzeAbsatzStil, neuerAbsatz,
+    sdtTag, sdtInhalt, ankerKarte, finde, aufloesen, aufloesenInnere,
+    absaetzeVon, tabellenVon, setzeText, setzeBlock, waehleVariante, klonNach,
+    zeilen, zellen, setzeZelle, fuelleZeilen, setzeTblLook, spalteEntfernen,
+    friereFelder,
+  };
+})();
+
+
+/* ===== 41-render.js ===== */
+
+/* Renderer und Pipeline (Abschnitte 1, 9, 11, 13).
+
+   Die Schritte bis VALIDATE_INPUT sind seiteneffektfrei. Erst danach wird das
+   Dokument berührt, erst nach bestandener Ausgabeprüfung entsteht eine Datei –
+   nie eine halbe Offerte. */
+
+const RENDER = (() => {
+  "use strict";
+
+  const num = DERIVE.num, txt = DERIVE.text;
+  const STIL = MAPPING.styles;
+
+  const ANKER_STIL = {
+    "OFF.KUNDE": "Normal", "OFF.KONTAKT": "Normal", "OFF.KLASSIFIZIERUNG": "Normal",
+    "OFF.NUMMER": "Normal", "OFF.VERSION": "Normal", "OFF.DATUM": "Normal",
+    "OFF.GUELTIG_BIS": "Normal", "HEAD.STANDORT": "Heading3",
+    "LINE.STANDORT_ADRESSE": "05Klein", "HEAD.DL": "Heading3",
+    "HEAD.SERVICE_STANDORT": "Heading3", "HEAD.VERTRAGSTEXT": "Heading2",
+    "LINE.NACHWEIS": "05Klein", "OFF.ORT_DATUM": "Normal",
+  };
+
+  const PER_STANDORT = ["SEC.STANDORT", "SEC.SERVICE", "TBL.TOTAL"];
+
+  class Renderer {
+    constructor(doc, crm, warn) {
+      this.doc = doc;
+      this.koerper = DOCX.alle(doc, "body")[0];
+      this.crm = crm;
+      this.warn = warn;
+      // Jeder Betrag, den der Renderer selbst setzt – Grundlage der
+      // Sperrlistenprüfung (Abschnitt 13.2).
+      this.gesetzt = new Set();
+    }
+
+    merke(wert) {
+      for (const treffer of String(wert).matchAll(/-?\d[\d’]*(?:\.\d+)?/g)) {
+        this.gesetzt.add(treffer[0]);
+      }
+      return wert;
+    }
+
+    merkeAlle(werte) {
+      for (const w of werte) Array.isArray(w) ? this.merkeAlle(w) : this.merke(w);
+    }
+
+    anker(tag, wurzel) {
+      const sdt = DOCX.finde(wurzel || this.koerper, tag);
+      if (!sdt) throw new OfferteError("E101", tag);
+      return sdt;
+    }
+
+    text(tag, wert, wurzel) {
+      DOCX.setzeText(this.anker(tag, wurzel), this.merke(wert), ANKER_STIL[tag]);
+    }
+
+    block(tag, zeilen, wurzel) {
+      this.merkeAlle(zeilen);
+      DOCX.setzeBlock(this.anker(tag, wurzel), zeilen, ANKER_STIL[tag]);
+    }
+
+    tabelle(tag, wurzel) {
+      const sdt = this.anker(tag, wurzel);
+      const tbls = DOCX.tabellenVon(sdt);
+      if (!tbls.length) throw new OfferteError("E101", `${tag}: kein Tabellenelement`);
+      return [sdt, tbls[0]];
+    }
+
+    // --- Deckblatt (Abschnitt 9) ---------------------------------------
+
+    deckblatt(ctx, d) {
+      const ort = ctx.values["kunde.plz_ort"] || {};
+      const kontakt = ctx.values["kunde.kontakt"] || {};
+      const name = [
+        this.crm.get("kontakt.vorname") || kontakt.vorname || "",
+        this.crm.get("kontakt.nachname") || kontakt.nachname || "",
+      ].filter(Boolean).join(" ");
+
+      const kunde = [txt(ctx, "kunde.firma")];
+      if (this.crm.get("kontakt.anrede")) kunde.push(this.crm.get("kontakt.anrede"));
+      if (name) kunde.push(name);
+      kunde.push(txt(ctx, "kunde.strasse"));
+      kunde.push(`${ort.plz || ""} ${ort.ort || ""}`.trim());
+      this.block("OFF.KUNDE", kunde.filter(Boolean));
+
+      // OFF.ANBIETER ist statisch und bleibt unverändert.
+      DOCX.aufloesen(this.anker("OFF.ANBIETER"));
+
+      const vk = [txt(ctx, "vk.name")];
+      for (const [feld, praefix] of [["vk.funktion", ""], ["vk.telefon", "Direkt "], ["vk.email", ""]]) {
+        const wert = this.crm.get(feld);
+        if (wert) vk.push(praefix + wert);
+      }
+      this.block("OFF.KONTAKT", vk.filter(Boolean));
+
+      this.text("OFF.KLASSIFIZIERUNG", TEXT.klassifizierung());
+      this.text("OFF.NUMMER", this.crm.offertnummer(txt(ctx, "verkaufschance"), this.warn));
+      this.text("OFF.VERSION", this.crm.offertversion(this.warn));
+      this.text("OFF.DATUM", FMT.dateDe(ctx.values.datum));
+      this.text("OFF.GUELTIG_BIS", TEXT.gueltigkeit(d));
+    }
+
+    // --- Standorte (Abschnitt 11) --------------------------------------
+
+    kloneStandorte(anzahl) {
+      for (const tag of PER_STANDORT) {
+        let letzte = this.anker(tag);
+        for (let i = 1; i < anzahl; i++) letzte = DOCX.klonNach(letzte);
+      }
+      const karte = DOCX.ankerKarte(this.koerper);
+      const out = {};
+      for (const tag of PER_STANDORT) out[tag] = karte.get(tag) || [];
+      return out;
+    }
+
+    standort(secStandort, secService, tblTotal, ctx, d) {
+      this.text("HEAD.STANDORT", TEXT.headStandort(ctx), secStandort);
+      const adresse = TEXT.lineAdresse(ctx);
+      if (adresse) {
+        this.text("LINE.STANDORT_ADRESSE", adresse, secStandort);
+      } else {
+        this.warn.add("W315", ctx.quelle);
+        DOCX.entfernen(this.anker("LINE.STANDORT_ADRESSE", secStandort));
+      }
+      this.hardware(ctx, secStandort);
+      this.dienstleistung(ctx, d, secStandort);
+
+      this.text("HEAD.SERVICE_STANDORT", TEXT.headStandort(ctx), secService);
+      this.service(ctx, d, secService);
+
+      this.total(tblTotal, TEXT.totalZeilen(ctx, d));
+    }
+
+    hardware(ctx, wurzel) {
+      const [, tbl] = this.tabelle("TBL.HARDWARE", wurzel);
+
+      const positionen = [...(ctx.listen.hardware || []),
+                          ...(ctx.listen["solutions.sw"] || []),
+                          ...(ctx.listen["solutions.maint"] || [])];
+
+      // Das Kalktool Q4 2025 führt keine Artikelnummern (Abschnitt 16, Punkt 1).
+      // Eine Spalte voller Gedankenstriche hilft niemandem, deshalb entfällt
+      // sie, solange keine einzige Position eine Nummer trägt.
+      const mitArtNr = positionen.some((p) => p.artnr !== "" && p.artnr !== "–");
+
+      if (!mitArtNr) DOCX.spalteEntfernen(tbl, 0);
+      const kopf = DOCX.zellen(DOCX.zeilen(tbl)[0]);
+      TEXT.kopfHardware(mitArtNr).forEach((titel, i) => DOCX.setzeZelle(kopf[i], [titel]));
+      const saetze = positionen.map((p) =>
+        (mitArtNr ? [p.artnr] : []).concat([p.bezeichnung, p.stueck]));
+      DOCX.fuelleZeilen(tbl, 1, saetze);
+      // Listentabelle ohne Summenzeile: lastRow aus.
+      DOCX.setzeTblLook(tbl, STIL.tbllook_liste || "04A0");
+    }
+
+    dienstleistung(ctx, d, wurzel) {
+      if (!d.show.dienstleistung) {
+        DOCX.entfernen(this.anker("HEAD.DL", wurzel));
+        DOCX.entfernen(this.anker("TBL.DIENSTLEISTUNG", wurzel));
+        return;
+      }
+      this.text("HEAD.DL", TEXT.headDl(ctx), wurzel);
+      const [, tbl] = this.tabelle("TBL.DIENSTLEISTUNG", wurzel);
+      const kopf = DOCX.zellen(DOCX.zeilen(tbl)[0]);
+      TEXT.kopfDienstleistung().forEach((titel, i) => DOCX.setzeZelle(kopf[i], [titel]));
+
+      const saetze = (ctx.listen.dienstleistung || []).map((p) => [p.bezeichnung, FMT.chf(p.betrag)]);
+      for (const p of ctx.listen["solutions.dl"] || []) saetze.push([p.bezeichnung, FMT.chf(p.betrag)]);
+      saetze.push([TEXT.dlTotalLabel(), FMT.chf(d.dienstleistungTotal)]);
+      this.merkeAlle(saetze);
+      DOCX.fuelleZeilen(tbl, 1, saetze);
+      DOCX.setzeTblLook(tbl, STIL.tbllook_summe || "04E0");
+    }
+
+    service(ctx, d, wurzel) {
+      const [, tbl] = this.tabelle("TBL.SERVICE", wurzel);
+      const kopf = DOCX.zellen(DOCX.zeilen(tbl)[0]);
+      TEXT.kopfService(d).forEach((titel, i) => DOCX.setzeZelle(kopf[i], [titel]));
+
+      const saetze = TEXT.serviceZeilen(ctx, d).map(([texte, betraege]) => [texte, betraege]);
+      this.merkeAlle(saetze);
+      DOCX.fuelleZeilen(tbl, 1, saetze);
+      // Kapitel 1.2 zeigt die Servicebestandteile ohne Summenzeile
+      // (Abschnitt 5.4); mit lastRow käme die letzte Zeile fett.
+      DOCX.setzeTblLook(tbl, STIL.tbllook_liste || "04A0");
+    }
+
+    total(sdt, zeilen) {
+      const tbls = DOCX.tabellenVon(sdt);
+      if (!tbls.length) throw new OfferteError("E101", "TBL.TOTAL: kein Tabellenelement");
+      this.merkeAlle(zeilen);
+      DOCX.fuelleZeilen(tbls[0], 0, zeilen.map(([l, b]) => [l, b]));
+      DOCX.setzeTblLook(tbls[0], STIL.tbllook_summe || "04E0");
+    }
+
+    /** Summe über alle Standorte; bei einem Standort entfällt sie ersatzlos. */
+    gesamttotal(g, variante, anzahl) {
+      const sdt = this.anker("TBL.GESAMTTOTAL");
+      if (anzahl <= 1) { DOCX.entfernen(sdt); return; }
+      this.total(sdt, TEXT.gesamtZeilen(g, variante));
+    }
+
+    // --- Gerätedatenblätter --------------------------------------------
+
+    /**
+     * Je Gerät ein Abschnitt aus dem zugehörigen Datenblatt.
+     * Ohne Datenblätter entfällt das Kapitel ersatzlos.
+     */
+    hardwareKapitel(vorbereitet) {
+      const sdt = this.anker("SEC.HARDWARE");
+      if (!vorbereitet || !vorbereitet.length) {
+        DOCX.entfernen(sdt);
+        return;
+      }
+      const inhalt = DOCX.sdtInhalt(sdt);
+      const muster = DOCX.kinder(inhalt, "p")[0];
+      if (!muster) throw new OfferteError("E101", "SEC.HARDWARE ohne Absatz");
+
+      const bloecke = [
+        DOCX.neuerAbsatz(muster, TEXT.hardwareKapitel(), "Heading1"),
+        DOCX.neuerAbsatz(muster, TEXT.hardwareGruppe(), "Heading2"),
+      ];
+      for (const eintrag of vorbereitet) bloecke.push(...eintrag.bloecke);
+
+      while (inhalt.firstChild) inhalt.removeChild(inhalt.firstChild);
+      for (const b of bloecke) inhalt.appendChild(b);
+    }
+
+    // --- Vertragstext, Konditionen, Schluss ----------------------------
+
+    vertragstext(ctx, d) {
+      const [kopf, absaetze] = TEXT.vertragstext(ctx, d);
+      this.text("HEAD.VERTRAGSTEXT", kopf);
+      const sdt = this.anker("SW.VERTRAGSTEXT");
+      DOCX.waehleVariante(sdt, `SW.VERTRAGSTEXT.${d.variante}`);
+      this.merkeAlle(absaetze);
+      DOCX.setzeBlock(sdt, absaetze, "Normal");
+    }
+
+    konditionen(ctx, d) {
+      const tbl = this.anker("TBL.KONDITIONEN");
+      this.block("KOND.ABRECHNUNG", TEXT.konditionenAbrechnung(ctx), tbl);
+      this.block("KOND.RECHNUNG", TEXT.konditionenRechnung(ctx, d), tbl);
+      // Die Konditionentabelle ist statisch; ihr tblLook bleibt, wie die
+      // Vorlage es definiert.
+    }
+
+    schluss(standorte) {
+      this.text("OFF.ORT_DATUM", TEXT.ortDatum(standorte[0].ctx));
+      this.text("LINE.NACHWEIS", TEXT.nachweis(standorte));
+    }
+
+    /** Alle verbliebenen Anker auflösen – ausser dem Inhaltsverzeichnis. */
+    loeseAlleAuf() {
+      for (const [tag, elemente] of DOCX.ankerKarte(this.koerper)) {
+        if (tag === "SYS.TOC" || tag === "Seitenumbruch nicht löschen") continue;
+        for (const e of elemente) DOCX.aufloesen(e);
+      }
+    }
+  }
+
+  function render(doc, standorte, gesamt, crm, warn, datenblaetter) {
+    const r = new Renderer(doc, crm, warn);
+    const erste = standorte[0];
+
+    r.deckblatt(erste.ctx, erste.d);
+    const kopien = r.kloneStandorte(standorte.length);
+    standorte.forEach((s, i) => {
+      r.standort(kopien["SEC.STANDORT"][i], kopien["SEC.SERVICE"][i], kopien["TBL.TOTAL"][i], s.ctx, s.d);
+    });
+    r.gesamttotal(gesamt, erste.d.variante, standorte.length);
+
+    // Bei unterschiedlichen Laufzeiten nennt der Vertragstext die längste (W310).
+    const leit = standorte.reduce((a, b) => (num(b.ctx, "laufzeit") > num(a.ctx, "laufzeit") ? b : a));
+    r.hardwareKapitel(datenblaetter);
+    r.vertragstext(leit.ctx, erste.d);
+    r.konditionen(erste.ctx, erste.d);
+    r.schluss(standorte);
+    r.loeseAlleAuf();
+    return r.gesetzt;
+  }
+
+  return { render };
+})();
+
+
+/* ===== 42-pipeline.js ===== */
+
+/* Validierung (Abschnitt 13) und die Pipeline (Abschnitt 1). */
+
+const PIPELINE = (() => {
+  "use strict";
+
+  const num = DERIVE.num, txt = DERIVE.text;
+  const TOLERANZ = 0.01;
+  const RE_PLATZHALTER = /%%[^%\s]+%%|\{[a-z][\w.|]*\}/;
+  const RE_ZAHL = /-?\d[\d’]*(?:\.\d+)?/g;
+
+  // Ein .docx ist ein ZIP, muss aber als Word-Dokument ausgezeichnet werden,
+  // sonst speichert der Browser es als .zip.
+  const MIME_DOCX =
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+
+  /** Abbruchregeln je Standort (Abschnitt 13.1). */
+  function pruefeEingabe(ctx, d) {
+    for (const [name, spez] of Object.entries(MAPPING.fields)) {
+      if (spez.req !== "M") continue;
+      if (spez.only && !spez.only.includes(d.variante)) continue;
+      const wert = ctx.values[name];
+      if (wert === null || wert === undefined || (typeof wert === "string" && !wert.trim())) {
+        throw new OfferteError("E212", `${ctx.quelle}: Pflichtfeld ${name} (${spez.cell}) ist leer`);
+      }
+    }
+
+    if (d.variante === "MIETE" || d.variante === "LEASING") {
+      if (num(ctx, "laufzeit") <= 0) throw new OfferteError("E411", ctx.quelle);
+      if (num(ctx, "pauschale_ohne_service") === 0) throw new OfferteError("E413", ctx.quelle);
+    }
+    if (d.variante === "KAUF" && num(ctx, "vertragswert") === 0) {
+      throw new OfferteError("E414", ctx.quelle);
+    }
+    if (!(ctx.listen.hardware || []).some((p) => p.bezeichnung)) {
+      throw new OfferteError("E412", ctx.quelle);
+    }
+
+    // Doppelzählungssperre (Abschnitt 5.4): L95 = L92 + L93 + L94.
+    if (d.variante === "MIETE" || d.variante === "LEASING") {
+      const total = num(ctx, "monatspauschale_total");
+      const teile = num(ctx, "pauschale_ohne_service") + num(ctx, "service.solution") + num(ctx, "service.geraet");
+      if (Math.abs(total - teile) > TOLERANZ) {
+        throw new OfferteError("E402", `${ctx.quelle}: L95=${total} != L92+L93+L94=${teile}`);
+      }
+    }
+  }
+
+  /** Regeln über Standorte hinweg (Abschnitt 11). */
+  function pruefeUeberStandorte(standorte, warn) {
+    if (standorte.length < 2) return;
+    const varianten = new Set(standorte.map((s) => s.d.variante));
+    if (varianten.size > 1) throw new OfferteError("E403", [...varianten].sort().join(", "));
+
+    const kunden = new Set(standorte.map((s) => txt(s.ctx, "kunde.firma")));
+    if (kunden.size > 1) throw new OfferteError("E404", [...kunden].sort().join(", "));
+
+    const laufzeiten = new Set(standorte.map((s) => Math.trunc(num(s.ctx, "laufzeit"))));
+    if (laufzeiten.size > 1) warn.add("W310", [...laufzeiten].sort().join(", "));
+
+    const versionen = new Set(standorte.map((s) => txt(s.ctx, "kalktool.version")));
+    if (versionen.size > 1) warn.add("W311", [...versionen].sort().join(", "));
+  }
+
+  /** Formatierte Ausprägungen aller gesperrten Zellwerte (Abschnitt 13.2). */
+  function gesperrteZeichenketten(standorte) {
+    const out = new Set();
+    for (const { ctx } of standorte) {
+      for (const wert of ctx.gesperrt || []) {
+        // Kleine Zahlen wie 1, 60 oder 0.6 kommen als Stückzahl, Laufzeit oder
+        // Kalkulationsfaktor legitim vor und sind nicht unterscheidbar.
+        if (Math.abs(wert) < 100) continue;
+        for (const t of [FMT.chf(wert), FMT.rate(wert), FMT.intCh(wert)]) {
+          out.add(t.replace("CHF ", "").trim());
+        }
+      }
+    }
+    return out;
+  }
+
+  /**
+   * Sperrliste und Restplatzhalter im gerenderten Dokument.
+   * Verglichen wird auf ganzen Zahltoken und nur gegen Werte, die der
+   * Renderer nicht selbst gesetzt hat: 300 aus der gesperrten Zelle KM!M74
+   * fände sonst einen Treffer im völlig legitimen CHF 300.00.
+   */
+  function pruefeAusgabe(text, gesperrt, gesetzt) {
+    const imDokument = new Set(text.match(RE_ZAHL) || []);
+    const treffer = [...gesperrt].filter((w) => !gesetzt.has(w) && imDokument.has(w)).sort();
+    if (treffer.length) throw new OfferteError("E601", treffer.slice(0, 5).join(", "));
+    const rest = RE_PLATZHALTER.exec(text);
+    if (rest) throw new OfferteError("E602", rest[0]);
+  }
+
+  // --- Pipeline ---------------------------------------------------------
+
+  /**
+   * Zahlen, die in der Vorlage ohnehin stehen und keiner Zelle entstammen.
+   *
+   * Die Konditionentabelle nennt die Stundensätze für Technikereinsätze
+   * (180, 120, 200, 130). Steht eine davon zufällig auch in einer gesperrten
+   * Zelle, wäre das kein Leck – sie stand schon im Dokument, bevor überhaupt
+   * ein Kalktool gelesen wurde.
+   *
+   * Der Inhalt der Blattanker zählt nicht dazu: was dort steht, soll der
+   * Renderer überschreiben. Bleibt eine Zahl von dort stehen, ist das ein
+   * Vorlagenrest und wird weiterhin erkannt.
+   */
+  function statischeToken(vorlagenXml) {
+    const doc = DOCX.parser.parseFromString(vorlagenXml, "application/xml");
+    for (const sdt of [...doc.getElementsByTagNameNS(W_NS, "sdt")]) {
+      if (sdt.getElementsByTagNameNS(W_NS, "sdt").length) continue; // Behälter
+      if (DOCX.sdtTag(sdt) === "SYS.TOC") continue;
+      const inhalt = DOCX.sdtInhalt(sdt);
+      if (inhalt) while (inhalt.firstChild) inhalt.removeChild(inhalt.firstChild);
+    }
+    const text = DOCX.alle(doc, "p").map((p) => DOCX.knotenText(p)).join("\n");
+    return new Set(text.match(RE_ZAHL) || []);
+  }
+
+  /** Zahlen eines Datenblatts – Technikdaten, Artikelnummern, Jahreszahlen. */
+  function datenblattToken(quelle) {
+    const text = DOCX.alle(quelle.document, "p").map((p) => DOCX.knotenText(p)).join("\n");
+    return text.match(RE_ZAHL) || [];
+  }
+
+  function base64ZuBytes(b64) {
+    const roh = atob(b64);
+    const bytes = new Uint8Array(roh.length);
+    for (let i = 0; i < roh.length; i++) bytes[i] = roh.charCodeAt(i);
+    return bytes;
+  }
+
+  /** Gelesene Werte, ohne ein Dokument zu erzeugen. */
+  async function pruefen(dateien) {
+    const warn = new Warnungen();
+    const standorte = [];
+    for (let i = 0; i < dateien.length; i++) {
+      warn.standort = i + 1;
+      const wb = await XLSX.oeffnen(await dateien[i].arrayBuffer());
+      const ctx = EXTRACT.extract(wb, dateien[i].name, warn);
+      ctx.index = i + 1;
+      standorte.push({ ctx, d: DERIVE.derive(ctx, warn) });
+    }
+    warn.standort = null;
+    for (const s of standorte) { warn.standort = s.ctx.index; pruefeEingabe(s.ctx, s.d); }
+    warn.standort = null;
+    pruefeUeberStandorte(standorte, warn);
+    return { standorte, warn };
+  }
+
+  /** Vollständige Generierung; liefert Blob, Dateiname und Prüfprotokoll. */
+  async function erzeugen(dateien, crmFelder, optionen) {
+    const wahl = Object.assign(
+      { datenblaetter: true, spezifikation: true }, optionen || {}
+    );
+    const { standorte, warn } = await pruefen(dateien);
+    const gesamt = DERIVE.gesamttotal(standorte);
+    const crm = CRM.neu(crmFelder);
+
+    // Vorlage öffnen und Ankerkatalog prüfen.
+    const vorlage = await ZIP.lesen(base64ZuBytes(VORLAGE_BASE64).buffer);
+    const vorlagenXml = ZIP.text(vorlage, "word/document.xml");
+    const doc = DOCX.parser.parseFromString(vorlagenXml, "application/xml");
+    if (doc.getElementsByTagName("parsererror").length) {
+      throw new OfferteError("E101", "Vorlage nicht lesbar");
+    }
+
+    // Datenblätter beschaffen und übernehmen, bevor gerendert wird: die
+    // Formatvorlagen des Datenblatts müssen im Ziel stehen, bevor ein Absatz
+    // sie benutzt.
+    let vorbereitet = [];
+    if (wahl.datenblaetter) {
+      vorbereitet = await datenblaetterUebernehmen(
+        vorlage, doc, standorte, warn, wahl.spezifikation
+      );
+    }
+
+    const gesetzt = RENDER.render(doc, standorte, gesamt, crm, warn, vorbereitet);
+
+    // Nachbearbeitung: TIME-Felder einfrieren (Abschnitt 12.2).
+    const koerper = DOCX.alle(doc, "body")[0];
+    DOCX.friereFelder(koerper, FMT.dateDe(standorte[0].ctx.values.datum));
+
+    // Inhaltsverzeichnis neu aufbauen; ohne diesen Schritt bliebe der
+    // zwischengespeicherte Stand der Vorlage stehen (Abschnitt 12.1).
+    TOC.neuAufbauen(koerper);
+    setzeUpdateFields(vorlage);
+    warn.add("W321", "Word berechnet sie beim Öffnen");
+
+    // Ausgabeprüfung, bevor eine Datei entsteht. Zahlen aus der Vorlage und
+    // aus den Datenblättern sind kein Beleg für ein Leck: sie hängen nicht
+    // vom Kalktool ab.
+    const unverdaechtig = new Set(gesetzt);
+    for (const t of statischeToken(vorlagenXml)) unverdaechtig.add(t);
+    for (const eintrag of vorbereitet) {
+      for (const t of eintrag.token || []) unverdaechtig.add(t);
+    }
+    const text = DOCX.alle(koerper, "p").map((p) => DOCX.knotenText(p)).join("\n");
+    pruefeAusgabe(text, gesperrteZeichenketten(standorte), unverdaechtig);
+
+    vorlage.set("word/document.xml", DOCX.serializer.serializeToString(doc));
+    const blob = await ZIP.schreiben(vorlage, vorlage.reihenfolge, MIME_DOCX);
+
+    return {
+      blob,
+      dateiname: dateiname(standorte),
+      standorte,
+      warn,
+      protokoll: protokoll(standorte, warn),
+    };
+  }
+
+  /** Die gebrauchten Datenblätter laden und ihre Blöcke übernehmen. */
+  async function datenblaetterUebernehmen(vorlage, doc, standorte, warn, mitSpezifikation) {
+    const treffer = await DATENBLAETTER.fuerStandorte(standorte, warn);
+    if (!treffer.length) return [];
+
+    const uebernahme = new UEBERNAHME.Uebernahme(vorlage, doc, DATENBLAETTER.STIL_ABBILDUNG);
+    const aus = [];
+    for (const eintrag of treffer) {
+      let quelle;
+      try {
+        quelle = await UEBERNAHME.quelleLesen(await DATENBLAETTER.puffer(eintrag));
+      } catch (e) {
+        warn.add("W331", `${eintrag.modell}: nicht lesbar`);
+        continue;
+      }
+      uebernahme.vorbereiten(quelle, eintrag.kennung);
+      const bloecke = DATENBLAETTER.bloecke(quelle, mitSpezifikation)
+        .map((b) => uebernahme.block(b, quelle, eintrag.kennung));
+      aus.push({ modell: eintrag.modell, bloecke, token: datenblattToken(quelle) });
+    }
+    uebernahme.abschliessen();
+    return aus;
+  }
+
+  function setzeUpdateFields(dateien) {
+    const name = "word/settings.xml";
+    if (!dateien.has(name)) return;
+    let xml = ZIP.text(dateien, name);
+    if (/<w:updateFields[^>]*\/>/.test(xml)) {
+      xml = xml.replace(/<w:updateFields[^>]*\/>/, '<w:updateFields w:val="true"/>');
+    } else {
+      xml = xml.replace(/<\/w:settings>/, '<w:updateFields w:val="true"/></w:settings>');
+    }
+    dateien.set(name, xml);
+  }
+
+  function saeubern(text) {
+    return String(text || "").replace(/[^\wÀ-ÿ.\-_ ]/g, "_").trim().replace(/\s+/g, "_");
+  }
+
+  function dateiname(standorte) {
+    const ctx = standorte[0].ctx;
+    const teile = ["Offerte", saeubern(txt(ctx, "kunde.firma")) || "Offerte"];
+    const chance = saeubern(txt(ctx, "verkaufschance"));
+    if (chance) teile.push(chance);
+    return teile.join("_").slice(0, 150) + ".docx";
+  }
+
+  /** Begleitdatei mit allen Warnungen (Abschnitt 13.3). */
+  function protokoll(standorte, warn) {
+    const erste = standorte[0];
+    const z = [
+      `# Prüfprotokoll – ${dateiname(standorte)}`, "",
+      "## Eingaben", "",
+      `- Mapping: \`${MAPPING.version}\``,
+      `- Standorte: ${standorte.length}`,
+      ...standorte.map((s) => `  - ${s.ctx.index}. \`${s.ctx.quelle}\``),
+      "", "## Abgeleitete Werte", "", "| Grösse | Wert |", "|---|---|",
+      `| variante | \`${erste.d.variante}\` |`,
+      `| laufzeit | ${FMT.intCh(num(erste.ctx, "laufzeit"))} Monate |`,
+      `| kunde.firma | ${txt(erste.ctx, "kunde.firma")} |`,
+      `| datum | ${FMT.dateDe(erste.ctx.values.datum)} |`,
+      `| gueltig_bis | ${FMT.dateDe(erste.d.gueltigBis)} |`,
+    ];
+    for (const { ctx, d } of standorte) {
+      z.push(`| Standort ${ctx.index} – einmalige Kosten | ${FMT.chf(d.dienstleistungTotal)} |`);
+      z.push(d.variante === "KAUF"
+        ? `| Standort ${ctx.index} – Vertragswert | ${FMT.chf(num(ctx, "vertragswert"))} |`
+        : `| Standort ${ctx.index} – Monatspauschale total | ${FMT.chf(num(ctx, "monatspauschale_total"))} |`);
+    }
+
+    z.push("", "## Schalter", "", "| Schalter | Standort | Wert |", "|---|---|---|");
+    for (const { ctx, d } of standorte) {
+      for (const name of Object.keys(d.show).sort()) {
+        z.push(`| show.${name} | ${ctx.index} | ${d.show[name] ? "wahr" : "falsch"} |`);
+      }
+    }
+
+    z.push("", "## Warnungen", "");
+    if (warn.items.length) {
+      z.push("| Code | Standort | Bedeutung | Detail |", "|---|---|---|---|");
+      for (const w of warn.items) {
+        z.push(`| \`${w.code}\` | ${w.standort || "–"} | ${w.bedeutung} | ${w.detail || "–"} |`);
+      }
+    } else {
+      z.push("Keine Warnungen.");
+    }
+
+    z.push("", "## Prüfungen", "",
+      "- Sperrliste (E601): keine Treffer im gerenderten Dokument.",
+      "- Restplatzhalter (E602): keine gefunden.",
+      `- Doppelzählungssperre (E402): geprüft für alle ${standorte.length} Standorte.`, "");
+    return z.join("\n");
+  }
+
+  return { pruefen, erzeugen, pruefeAusgabe, gesperrteZeichenketten, statischeToken };
+})();
+
+
+/* ===== 43-toc.js ===== */
+
+/* Inhaltsverzeichnis neu aufbauen (Abschnitt 12.1).
+
+   Nach dem Rendern stimmen weder Einträge noch Seitenzahlen des
+   zwischengespeicherten Verzeichnisses – ohne Neuaufbau bliebe "Standort A"
+   aus der Vorlage stehen.
+
+   Von den sechs Schritten des Abschnitts sind fünf hier umsetzbar. Schritt 4
+   (Seitenzahl je Überschrift aus einem PDF-Rendering lesen) kann der Browser
+   nicht; die PAGEREF-Felder bleiben deshalb ohne zwischengespeichertes
+   Ergebnis und Word füllt sie beim Öffnen. */
+
+const TOC = (() => {
+  "use strict";
+
+  const EBENEN = { Heading1: 1, Heading2: 2, Heading3: 3 };
+  const TOC_STIL = { 1: "TOC1", 2: "TOC2", 3: "TOC3" };
+
+  function absatzStil(p) {
+    const pPr = DOCX.ersteKind(p, "pPr");
+    if (!pPr) return "Normal";
+    const st = DOCX.ersteKind(pPr, "pStyle");
+    return st ? DOCX.attr(st, "w:val") : "Normal";
+  }
+
+  /** Überschriften einsammeln und durchnummerieren (Schritte 1 und 2). */
+  function ueberschriften(koerper) {
+    const zaehler = [0, 0, 0];
+    const eintraege = [];
+    for (const p of DOCX.alle(koerper, "p")) {
+      const ebene = EBENEN[absatzStil(p)];
+      if (!ebene) continue;
+      const titel = DOCX.knotenText(p).trim();
+      if (!titel) continue;
+
+      zaehler[ebene - 1] += 1;
+      for (let i = ebene; i < 3; i++) zaehler[i] = 0;
+
+      const nummer = ebene === 1 ? `${zaehler[0]}.0`
+                   : ebene === 2 ? `${zaehler[0]}.${zaehler[1]}`
+                   : `${zaehler[0]}.${zaehler[1]}.${zaehler[2]}`;
+      eintraege.push({ nummer, titel, ebene, marke: `_Toc${900000 + eintraege.length}`, absatz: p });
+    }
+    return eintraege;
+  }
+
+  /** Bestehende _Toc-Lesezeichen entfernen, neue setzen (Schritt 3). */
+  function lesezeichen(koerper, eintraege) {
+    const offen = new Set();
+    for (const start of DOCX.alle(koerper, "bookmarkStart")) {
+      const name = DOCX.attr(start, "w:name") || "";
+      if (name.startsWith("_Toc")) {
+        offen.add(DOCX.attr(start, "w:id"));
+        DOCX.entfernen(start);
+      }
+    }
+    for (const ende of DOCX.alle(koerper, "bookmarkEnd")) {
+      if (offen.has(DOCX.attr(ende, "w:id"))) DOCX.entfernen(ende);
+    }
+
+    eintraege.forEach((e, i) => {
+      const doc = e.absatz.ownerDocument;
+      const start = DOCX.el(doc, "w:bookmarkStart");
+      DOCX.setAttr(start, "w:id", String(9000 + i));
+      DOCX.setAttr(start, "w:name", e.marke);
+      const ende = DOCX.el(doc, "w:bookmarkEnd");
+      DOCX.setAttr(ende, "w:id", String(9000 + i));
+
+      const pPr = DOCX.ersteKind(e.absatz, "pPr");
+      e.absatz.insertBefore(start, pPr ? pPr.nextSibling : e.absatz.firstChild);
+      e.absatz.appendChild(ende);
+    });
+  }
+
+  /** Verzeichniseinträge aus den Vorlagen-Absätzen klonen (Schritt 5). */
+  function aufbauen(tocSdt, eintraege) {
+    const inhalt = DOCX.sdtInhalt(tocSdt);
+    if (!inhalt) return;
+
+    const muster = {};
+    let kopf = null;
+    for (const p of DOCX.kinder(inhalt, "p")) {
+      const stil = absatzStil(p);
+      const alsToc = Object.entries(TOC_STIL).find(([, name]) => name === stil);
+      if (alsToc) {
+        if (!muster[alsToc[0]]) muster[alsToc[0]] = p.cloneNode(true);
+      } else if (!kopf) {
+        kopf = p.cloneNode(true);
+      }
+    }
+    const vorhandene = DOCX.kinder(inhalt, "p");
+    if (!Object.keys(muster).length) {
+      if (!vorhandene.length) return;
+      const letzter = vorhandene[vorhandene.length - 1].cloneNode(true);
+      for (const ebene of [1, 2, 3]) muster[ebene] = letzter.cloneNode(true);
+    }
+
+    for (const k of [...inhalt.children]) inhalt.removeChild(k);
+    if (kopf) inhalt.appendChild(kopf);
+
+    for (const e of eintraege) {
+      const vorlage = muster[e.ebene] || muster[Math.max(...Object.keys(muster).map(Number))];
+      const p = vorlage.cloneNode(true);
+      DOCX.setzeAbsatzText(p, "");
+      DOCX.setzeAbsatzStil(p, TOC_STIL[e.ebene]);
+      eintragFuellen(p, e);
+      inhalt.appendChild(p);
+    }
+  }
+
+  function eintragFuellen(p, e) {
+    const doc = p.ownerDocument;
+    const link = DOCX.el(doc, "w:hyperlink");
+    DOCX.setAttr(link, "w:anchor", e.marke);
+    DOCX.setAttr(link, "w:history", "1");
+    p.appendChild(link);
+
+    run(link, `${e.nummer}\t${e.titel}`);
+    run(link, "\t");
+    pageref(link, e);
+  }
+
+  function run(eltern, text) {
+    const doc = eltern.ownerDocument;
+    const r = DOCX.el(doc, "w:r");
+    text.split("\t").forEach((teil, i) => {
+      if (i) r.appendChild(DOCX.el(doc, "w:tab"));
+      if (teil) {
+        const t = DOCX.el(doc, "w:t");
+        t.setAttribute("xml:space", "preserve");
+        t.textContent = teil;
+        r.appendChild(t);
+      }
+    });
+    eltern.appendChild(r);
+    return r;
+  }
+
+  /** PAGEREF-Feld ohne zwischengespeichertes Ergebnis – Word rechnet es aus. */
+  function pageref(eltern, e) {
+    const doc = eltern.ownerDocument;
+
+    const mitFldChar = (typ) => {
+      const r = DOCX.el(doc, "w:r");
+      const f = DOCX.el(doc, "w:fldChar");
+      DOCX.setAttr(f, "w:fldCharType", typ);
+      r.appendChild(f);
+      eltern.appendChild(r);
+    };
+
+    mitFldChar("begin");
+    const r = DOCX.el(doc, "w:r");
+    const it = DOCX.el(doc, "w:instrText");
+    it.setAttribute("xml:space", "preserve");
+    it.textContent = ` PAGEREF ${e.marke} \\h `;
+    r.appendChild(it);
+    eltern.appendChild(r);
+    mitFldChar("separate");
+    run(eltern, "");
+    mitFldChar("end");
+  }
+
+  function neuAufbauen(koerper) {
+    const tocSdt = DOCX.finde(koerper, "SYS.TOC");
+    if (!tocSdt) return 0;
+    const eintraege = ueberschriften(koerper);
+    lesezeichen(koerper, eintraege);
+    aufbauen(tocSdt, eintraege);
+    return eintraege.length;
+  }
+
+  return { neuAufbauen, ueberschriften };
+})();
+
+
+/* ===== 44-datenblaetter.js ===== */
+
+/* Gerätedatenblätter beschaffen und in die Offerte einsetzen.
+
+   Zwei Wege, je nachdem, wo die Seite läuft:
+
+   * von einem Server geladen – dann liegt neben der Seite ein Verzeichnis
+     `datenblaetter/` mit einer `index.json`, und geholt wird nur das eine
+     gebrauchte Datenblatt statt aller;
+   * als Datei geöffnet oder ohne Netz – dann zieht man das Datenblatt von
+     Hand hinein, wie das Kalktool.
+
+   Zugeordnet wird über den Modellnamen. Passt nichts oder mehreres, entsteht
+   eine Warnung – geraten wird nicht. */
+
+const DATENBLAETTER = (() => {
+  "use strict";
+
+  const VERZEICHNIS = "datenblaetter/";
+  const INDEX = VERZEICHNIS + "index.json";
+
+  // Überschriften heissen in den Datenblättern anders als in der
+  // Offertvorlage; ohne Zuordnung fände das Inhaltsverzeichnis das Kapitel nicht.
+  const STIL_ABBILDUNG = {
+    berschrift1: "Heading1",
+    berschrift2: "Heading2",
+    berschrift3: "Heading3",
+    berschrift4: "Heading4",
+  };
+
+  const STIL_SPEZIFIKATION = "Fliesstext10ptSpezifikationGerte";
+
+  /** Modellnamen vergleichbar machen: ohne Sprachkürzel, Version, Trennzeichen. */
+  function normalisieren(text) {
+    return String(text || "")
+      .toLowerCase()
+      .replace(/\b(de|fr|it|en)\b/g, " ")
+      .replace(/\bv\d+\b/g, " ")
+      .replace(/[^a-z0-9]+/g, "");
+  }
+
+  /** Von Hand hinzugefügte Datenblätter: Dateiname -> File. */
+  let eigene = [];
+
+  const setzeEigene = (dateien) => { eigene = [...dateien]; };
+  const anzahlEigene = () => eigene.length;
+
+  let serverIndex = null;   // null = noch nicht gefragt, [] = keine vorhanden
+
+  /**
+   * Verzeichnis der Datenblätter auf dem Server.
+   * Fehlt es oder läuft die Seite als Datei, bleibt die Liste leer.
+   */
+  async function serverListe() {
+    if (serverIndex !== null) return serverIndex;
+    serverIndex = [];
+    if (location.protocol !== "http:" && location.protocol !== "https:") {
+      return serverIndex;
+    }
+    try {
+      const antwort = await fetch(INDEX, { cache: "no-cache" });
+      if (!antwort.ok) return serverIndex;
+      const daten = await antwort.json();
+      if (Array.isArray(daten && daten.datenblaetter)) {
+        serverIndex = daten.datenblaetter.map((e) => ({
+          modell: e.modell,
+          datei: e.datei,
+          schluessel: normalisieren(e.modell),
+        }));
+      }
+    } catch {
+      // Kein Verzeichnis, kein Netz – die Offerte entsteht ohne das Kapitel.
+    }
+    return serverIndex;
+  }
+
+  const verfuegbar = async () => (await serverListe()).length + eigene.length;
+
+  /** Alle bekannten Quellen als einheitliche Liste. */
+  async function alle() {
+    const aus = (await serverListe()).map((e) => ({ ...e, herkunft: "server" }));
+    for (const datei of eigene) {
+      const modell = datei.name.replace(/\.(dotx|docx|dotm|docm)$/i, "");
+      aus.push({ modell, datei, schluessel: normalisieren(modell), herkunft: "datei" });
+    }
+    return aus;
+  }
+
+  /** Das Datenblatt zu einer Gerätebezeichnung; sonst null und eine Warnung. */
+  async function finde(bezeichnung, warn) {
+    const gesucht = normalisieren(bezeichnung);
+    if (!gesucht) return null;
+    const liste = await alle();
+
+    const genau = liste.filter((e) => e.schluessel === gesucht);
+    const treffer = genau.length ? genau : liste.filter((e) => e.schluessel.includes(gesucht));
+
+    if (treffer.length === 1) return treffer[0];
+    if (treffer.length > 1) {
+      warn.add("W330", `${bezeichnung}: ${treffer.map((t) => t.modell).join(", ")}`);
+      return null;
+    }
+    if (liste.length) warn.add("W331", bezeichnung);
+    return null;
+  }
+
+  async function puffer(eintrag) {
+    if (eintrag.herkunft === "datei") return eintrag.datei.arrayBuffer();
+    const antwort = await fetch(VERZEICHNIS + eintrag.datei, { cache: "no-cache" });
+    if (!antwort.ok) throw new OfferteError("E201", `${eintrag.datei} nicht erreichbar`);
+    return antwort.arrayBuffer();
+  }
+
+  const absatzStil = (el) => {
+    if (el.localName === "tbl") {
+      const pr = DOCX.ersteKind(el, "tblPr");
+      const s = pr && DOCX.ersteKind(pr, "tblStyle");
+      return s ? DOCX.attr(s, "w:val") : "";
+    }
+    const ppr = DOCX.ersteKind(el, "pPr");
+    const s = ppr && DOCX.ersteKind(ppr, "pStyle");
+    return s ? DOCX.attr(s, "w:val") : "Normal";
+  };
+
+  /**
+   * Blockelemente ab der Modellüberschrift.
+   * Überschrift 1 und 2 setzt der Renderer einmal für alle Geräte.
+   */
+  function bloecke(quelle, mitSpezifikation) {
+    const body = quelle.document.getElementsByTagNameNS(W_NS, "body")[0];
+    const aus = [];
+    let begonnen = false;
+    for (const kind of body.children) {
+      if (kind.localName !== "p" && kind.localName !== "tbl") continue;
+      const stil = absatzStil(kind);
+      if (!begonnen) {
+        if (kind.localName === "p" && (stil === "berschrift3" || stil === "Heading3")) {
+          begonnen = true;
+        } else {
+          continue;
+        }
+      }
+      if (!mitSpezifikation && stil === STIL_SPEZIFIKATION) continue;
+      aus.push(kind);
+    }
+    return aus;
+  }
+
+  /**
+   * Je angebotenem Gerät ein Datenblatt, ohne Wiederholungen.
+   * Gesucht wird zum Gerät, nicht zum Zubehör.
+   */
+  async function fuerStandorte(standorte, warn) {
+    const aus = [];
+    const gesehen = new Set();
+    for (const { ctx, d } of standorte) {
+      warn.standort = ctx.index;
+      if (!d.geraet) continue;
+      const eintrag = await finde(d.geraet, warn);
+      if (!eintrag) continue;
+      const kennung = eintrag.herkunft + ":" + eintrag.modell;
+      if (gesehen.has(kennung)) continue;
+      gesehen.add(kennung);
+      aus.push({ ...eintrag, kennung });
+    }
+    warn.standort = null;
+    return aus;
+  }
+
+  return {
+    normalisieren, setzeEigene, anzahlEigene, verfuegbar, alle, finde,
+    puffer, bloecke, fuerStandorte,
+    STIL_ABBILDUNG, VERZEICHNIS,
+  };
+})();
+
+
+/* ===== 50-vorlage.js ===== */
+
 /* Erzeugt von tools/browser_daten.py – nicht von Hand bearbeiten. */
 /* Die ankerbasierte Vorlage, eingebettet – damit die Seite ohne
    Netzwerkzugriff auskommt und als einzelne Datei funktioniert. */
@@ -2497,3 +6889,635 @@ const VORLAGE_BASE64 = [
   "AAgAYJkbXcXgkdS7AQAA6wUAABMAAAAAAAAAAAAAAIABCM4CAGRvY1Byb3BzL2N1c3RvbS54bWxQSwECFAMUAAAACABgmRtdjSg3",
   "fO8AAABDAQAAGQAAAAAAAAAAAAAAgAH0zwIAZG9jTWV0YWRhdGEvTGFiZWxJbmZvLnhtbFBLBQYAAAAAJAAkAHkJAAAa0QIAAAA="
 ].join('');
+
+
+/* ===== 60-app.js ===== */
+
+/* Oberfläche der Browser-Fassung.
+
+   Alles läuft lokal: kein Server, kein Netzwerkzugriff, keine Fremdbibliothek.
+   Die Datei spricht nur mit PIPELINE und trifft keine Entscheidung über den
+   Inhalt der Offerte. */
+
+(() => {
+  "use strict";
+
+  const $ = (id) => document.getElementById(id);
+
+  // Ohne diese beiden Schnittstellen lässt sich kein ZIP entpacken.
+  if (typeof DecompressionStream === "undefined" || typeof CompressionStream === "undefined") {
+    document.body.innerHTML =
+      '<div class="nicht-unterstuetzt"><h2>Browser zu alt</h2>' +
+      "<p>Diese Seite braucht <code>DecompressionStream</code>, um ein Kalktool zu lesen. " +
+      "Unterstützt wird das ab Chrome&nbsp;103, Edge&nbsp;103, Firefox&nbsp;113 und " +
+      "Safari&nbsp;16.4. Bitte einen aktuellen Browser verwenden.</p></div>";
+    return;
+  }
+
+  // Die Oberfläche wird auch von der Prüfseite geladen, die diesen Rahmen
+  // nicht mitbringt.
+  if (!$("ablage")) return;
+
+  const ablage = $("ablage");
+  const dateiwahl = $("dateiwahl");
+  const liste = $("liste");
+  const ergebnis = $("ergebnis");
+  const knopfPruefen = $("pruefen");
+  const knopfErzeugen = $("erzeugen");
+
+  const CRM_FELDER = {
+    offertnummer: "offertnummer",
+    offertversion: "offertversion",
+    anrede: "kontakt.anrede",
+    vorname: "kontakt.vorname",
+    nachname: "kontakt.nachname",
+    vk_funktion: "vk.funktion",
+    vk_email: "vk.email",
+    vk_telefon: "vk.telefon",
+  };
+
+  /** Gewählte Kalktools; die Reihenfolge ist die Reihenfolge der Standorte. */
+  let dateien = [];
+  let offeneUrls = [];
+
+  // --- Auswahl ---------------------------------------------------------
+
+  function hinzufuegen(neue) {
+    for (const datei of neue) {
+      if (!/\.(xlsx|xlsm)$/i.test(datei.name)) {
+        zeigeMeldung(`${datei.name}: nur .xlsx und .xlsm werden gelesen.`);
+        continue;
+      }
+      if (!dateien.some((d) => d.name === datei.name && d.size === datei.size)) {
+        dateien.push(datei);
+      }
+    }
+    zeichneListe();
+  }
+
+  function zeichneListe() {
+    liste.innerHTML = "";
+    dateien.forEach((datei, i) => {
+      const li = document.createElement("li");
+      const nr = el("span", "nummer", String(i + 1));
+      const name = el("span", "dateiname", datei.name);
+      name.title = datei.name;
+      const groesse = el("span", "dateigroesse", (datei.size / 1024).toFixed(0) + " kB");
+      li.append(nr, name, groesse,
+        mini("↑", "Nach oben", i === 0, () => tausche(i, i - 1)),
+        mini("↓", "Nach unten", i === dateien.length - 1, () => tausche(i, i + 1)),
+        mini("×", "Entfernen", false, () => { dateien.splice(i, 1); zeichneListe(); }));
+      liste.append(li);
+    });
+    $("reihenfolge-hinweis").classList.toggle("versteckt", dateien.length < 2);
+    knopfPruefen.disabled = knopfErzeugen.disabled = dateien.length === 0;
+  }
+
+  function mini(zeichen, titel, deaktiviert, bei) {
+    const b = document.createElement("button");
+    b.className = "mini";
+    b.type = "button";
+    b.textContent = zeichen;
+    b.title = titel;
+    b.setAttribute("aria-label", titel);
+    b.disabled = deaktiviert;
+    b.onclick = bei;
+    return b;
+  }
+
+  function tausche(a, b) {
+    [dateien[a], dateien[b]] = [dateien[b], dateien[a]];
+    zeichneListe();
+  }
+
+  ablage.onclick = () => dateiwahl.click();
+  ablage.onkeydown = (e) => {
+    if (e.key === "Enter" || e.key === " ") { e.preventDefault(); dateiwahl.click(); }
+  };
+  dateiwahl.onchange = () => { hinzufuegen(dateiwahl.files); dateiwahl.value = ""; };
+
+  for (const art of ["dragenter", "dragover"]) {
+    ablage.addEventListener(art, (e) => { e.preventDefault(); ablage.classList.add("aktiv"); });
+  }
+  for (const art of ["dragleave", "drop"]) {
+    ablage.addEventListener(art, (e) => { e.preventDefault(); ablage.classList.remove("aktiv"); });
+  }
+  ablage.addEventListener("drop", (e) => hinzufuegen(e.dataTransfer.files));
+
+  // --- Auslösen --------------------------------------------------------
+
+  function crmFelder() {
+    const out = {};
+    for (const [id, feld] of Object.entries(CRM_FELDER)) {
+      const wert = $(id).value.trim();
+      if (wert) out[feld] = wert;
+    }
+    return out;
+  }
+
+  function laden(knopf, text) {
+    knopf.dataset.text = knopf.textContent;
+    knopf.innerHTML = `<span class="lader"></span>${text}`;
+    knopfPruefen.disabled = knopfErzeugen.disabled = true;
+  }
+
+  function fertig(knopf) {
+    knopf.textContent = knopf.dataset.text;
+    knopfPruefen.disabled = knopfErzeugen.disabled = dateien.length === 0;
+  }
+
+  knopfPruefen.onclick = async () => {
+    laden(knopfPruefen, "Wird gelesen …");
+    try {
+      const { standorte, warn } = await PIPELINE.pruefen(dateien);
+      zeigeVorschau(standorte, warn);
+    } catch (e) {
+      zeigeFehler(e);
+    } finally {
+      fertig(knopfPruefen);
+    }
+  };
+
+  knopfErzeugen.onclick = async () => {
+    laden(knopfErzeugen, "Wird erzeugt …");
+    try {
+      zeigeOfferte(await PIPELINE.erzeugen(dateien, crmFelder(), {
+        datenblaetter: $("datenblaetter").checked,
+        spezifikation: $("spezifikation").checked,
+      }));
+    } catch (e) {
+      zeigeFehler(e);
+    } finally {
+      fertig(knopfErzeugen);
+    }
+  };
+
+  // --- Anzeige ---------------------------------------------------------
+
+  function el(tag, klasse, text) {
+    const n = document.createElement(tag);
+    if (klasse) n.className = klasse;
+    if (text !== undefined) n.textContent = text;
+    return n;
+  }
+
+  function tabelle(paare) {
+    const t = el("table", "werte");
+    for (const [name, wert] of paare) {
+      if (wert === null || wert === undefined || wert === "") continue;
+      const tr = el("tr");
+      tr.append(el("th", null, name), el("td", null, wert));
+      t.append(tr);
+    }
+    return t;
+  }
+
+  function kopfKachel(standorte) {
+    const { ctx, d } = standorte[0];
+    const ort = ctx.values["kunde.plz_ort"] || {};
+    const k = el("div", "kachel");
+    const titel = el("h3");
+    titel.append(el("span", "marke", d.variante), " " + DERIVE.text(ctx, "kunde.firma"));
+    k.append(titel, tabelle([
+      ["Ort", `${ort.plz || ""} ${ort.ort || ""}`.trim()],
+      ["Verkäufer", DERIVE.text(ctx, "vk.name")],
+      ["Verkaufschance", DERIVE.text(ctx, "verkaufschance")],
+      ["Laufzeit", d.variante === "KAUF" ? null : FMT.monate(DERIVE.num(ctx, "laufzeit"))],
+      ["Offertdatum", FMT.dateDe(ctx.values.datum)],
+      ["Gültig bis", FMT.dateDe(d.gueltigBis)],
+      ["Standorte", String(standorte.length)],
+      ["Kalktool", DERIVE.text(ctx, "kalktool.version")],
+    ]));
+    return k;
+  }
+
+  function standortBlock({ ctx, d }, anzahl) {
+    const det = el("details", "standort");
+    if (ctx.index === 1) det.open = true;
+
+    const betrag = d.variante === "KAUF"
+      ? FMT.chf(DERIVE.num(ctx, "vertragswert"))
+      : FMT.chf(DERIVE.num(ctx, "monatspauschale_total"));
+
+    const summary = el("summary");
+    summary.append(
+      el("span", null, `Standort ${ctx.index}: ${DERIVE.text(ctx, "standort.name") || "ohne Namen"}`),
+      el("span", "dateigroesse", betrag)
+    );
+
+    const inhalt = el("div", "inhalt");
+    inhalt.append(tabelle([
+      ["Quelle", ctx.quelle],
+      ["Installationsadresse", TEXT.lineAdresse(ctx).replace("Installationsadresse: ", "")],
+      ["Gerät", d.geraet],
+      ["Positionen", (ctx.listen.hardware || []).map((p) => p.bezeichnung).join(", ")],
+      ["Einmalige Kosten", FMT.chf(d.dienstleistungTotal)],
+      [d.variante === "KAUF" ? "Total Kauf" : "Monatspauschale total", betrag],
+    ]));
+
+    const schalter = el("div", "schalterliste");
+    for (const name of Object.keys(d.show).sort()) {
+      schalter.append(el("span", d.show[name] ? "an" : null, name));
+    }
+    inhalt.append(schalter);
+
+    det.append(summary, inhalt);
+    return det;
+  }
+
+  function warnungsKachel(warn) {
+    if (!warn.items.length) {
+      const k = el("div", "kachel gut");
+      k.append(el("h3", null, "Keine Warnungen"));
+      return k;
+    }
+    const k = el("div", "kachel warn");
+    k.append(el("h3", null, `${warn.items.length} Warnung${warn.items.length === 1 ? "" : "en"}`));
+    const t = el("table", "werte");
+    for (const w of warn.items) {
+      const tr = el("tr");
+      const th = el("th");
+      th.append(el("code", null, w.code));
+      if (w.standort) th.append(" · Standort " + w.standort);
+      tr.append(th, el("td", null, w.bedeutung + (w.detail ? ` – ${w.detail}` : "")));
+      t.append(tr);
+    }
+    k.append(t, el("p", "hinweis",
+      "Warnungen stehen auch im Prüfprotokoll – nie im Dokument selbst."));
+    return k;
+  }
+
+  function zeigeVorschau(standorte, warn) {
+    ergebnis.innerHTML = "";
+    ergebnis.append(
+      el("p", "hinweis", "Gelesene Werte. Es wurde noch kein Dokument erzeugt."),
+      kopfKachel(standorte),
+      ...standorte.map((s) => standortBlock(s, standorte.length)),
+      warnungsKachel(warn)
+    );
+  }
+
+  function zeigeOfferte(fertig) {
+    aufraeumen();
+    ergebnis.innerHTML = "";
+
+    const kachel = el("div", "kachel gut");
+    kachel.append(el("h3", null, "Offerte erzeugt"));
+
+    const download = el("div", "download");
+    download.append(
+      herunterladen(fertig.blob, fertig.dateiname, "Offerte herunterladen", false),
+      herunterladen(new Blob([fertig.protokoll], { type: "text/markdown;charset=utf-8" }),
+                    fertig.dateiname + ".pruefprotokoll.md", "Prüfprotokoll", true)
+    );
+    kachel.append(download);
+
+    ergebnis.append(
+      kachel,
+      kopfKachel(fertig.standorte),
+      ...fertig.standorte.map((s) => standortBlock(s, fertig.standorte.length)),
+      warnungsKachel(fertig.warn)
+    );
+  }
+
+  function herunterladen(blob, name, beschriftung, zweitrangig) {
+    const url = URL.createObjectURL(blob);
+    offeneUrls.push(url);
+    const a = el("a", zweitrangig ? "zweitrangig" : null, beschriftung);
+    a.href = url;
+    a.download = name;
+    return a;
+  }
+
+  function aufraeumen() {
+    for (const url of offeneUrls) URL.revokeObjectURL(url);
+    offeneUrls = [];
+  }
+
+  function zeigeFehler(e) {
+    ergebnis.innerHTML = "";
+    const k = el("div", "kachel fehler");
+    if (e instanceof OfferteError) {
+      k.append(el("h3", null, "Abbruch – es wurde keine Datei erzeugt"));
+      const t = el("table", "werte");
+      const tr = el("tr");
+      const th = el("th");
+      th.append(el("code", null, e.code));
+      tr.append(th, el("td", null, e.bedeutung));
+      t.append(tr);
+      if (e.detail) {
+        const tr2 = el("tr");
+        tr2.append(el("th", null, "Detail"), el("td", null, e.detail));
+        t.append(tr2);
+      }
+      k.append(t, el("p", "hinweis",
+        "Der Generator bricht ab, statt eine halbe Offerte zu schreiben. " +
+        "Bitte den genannten Wert im Kalktool prüfen."));
+    } else {
+      k.append(el("h3", null, "Fehlgeschlagen"), el("p", null, e.message || String(e)));
+      console.error(e);
+    }
+    ergebnis.append(k);
+  }
+
+  function zeigeMeldung(text) {
+    ergebnis.innerHTML = "";
+    const k = el("div", "kachel warn");
+    k.append(el("h3", null, "Hinweis"), el("p", null, text));
+    ergebnis.append(k);
+  }
+
+  // --- Start -----------------------------------------------------------
+
+  // --- Gerätedatenblätter ----------------------------------------------
+
+  $("db-waehlen").onclick = () => $("db-datei").click();
+  $("db-datei").onchange = () => {
+    DATENBLAETTER.setzeEigene($("db-datei").files);
+    $("db-datei").value = "";
+    datenblattStandMelden();
+  };
+
+  async function datenblattStandMelden() {
+    const vomServer = (await DATENBLAETTER.alle()).filter((e) => e.herkunft === "server").length;
+    const eigene = DATENBLAETTER.anzahlEigene();
+    const hinweis = $("db-hinweis");
+
+    if (vomServer) {
+      hinweis.textContent =
+        `${vomServer} Datenblätter liegen auf dem Server bereit; geladen wird nur das gebrauchte.`;
+      $("db-eigene").classList.add("versteckt");
+    } else {
+      hinweis.textContent =
+        "Diese Seite läuft ohne Server. Das Datenblatt zum Gerät bitte von Hand wählen.";
+      $("db-eigene").classList.remove("versteckt");
+    }
+    $("db-eigene-anzahl").textContent = eigene
+      ? (eigene === 1 ? " – 1 Datei gewählt" : ` – ${eigene} Dateien gewählt`)
+      : "";
+
+    const verfuegbar = vomServer + eigene;
+    $("datenblaetter").disabled = verfuegbar === 0 && vomServer === 0 && eigene === 0;
+    umschaltenSpezifikation();
+  }
+
+  function umschaltenSpezifikation() {
+    const an = $("datenblaetter").checked && !$("datenblaetter").disabled;
+    $("schalter-spezifikation").style.opacity = an ? "1" : ".45";
+    $("spezifikation").disabled = !an;
+  }
+  $("datenblaetter").onchange = umschaltenSpezifikation;
+  datenblattStandMelden();
+
+  $("status").textContent = "Version 3.0.0 · Kalktool " + MAPPING.version;
+  $("fuss-status").textContent =
+    "Seitenzahlen im Inhaltsverzeichnis berechnet Word beim Öffnen.";
+
+  // Wird die Seite von einem Server ausgeliefert, lässt sich daneben das
+  // Offline-Paket herunterladen. Lokal geöffnet wäre der Verweis tot.
+  if (location.protocol === "http:" || location.protocol === "https:") {
+    const a = el("a", null, "Offline-Paket herunterladen");
+    a.href = "Offerttool-PoC.zip";
+    a.download = "Offerttool-PoC.zip";
+    const p = el("p", "offline-hinweis");
+    p.append("Diese Seite läuft auch ohne Server: ", a,
+             " – entpacken und die HTML-Datei doppelklicken.");
+    $("ablage").parentNode.insertBefore(p, $("ablage").nextSibling);
+  }
+  zeichneListe();
+})();
+
+
+/* ===== 61-editor.js ===== */
+
+/* Editor für die Textbausteine.
+
+   Jede Formulierung der Offerte lässt sich hier ändern, ohne eine Datei zu
+   bearbeiten. Geprüft wird bei jedem Tastendruck: ein unzulässiger Platzhalter
+   wird sofort gemeldet und nicht gespeichert. */
+
+(() => {
+  "use strict";
+
+  const $ = (id) => document.getElementById(id);
+  if (!$("texte-liste")) return;
+
+  const liste = $("texte-liste");
+  const katalog = BAUSTEINE.katalog;
+
+  const el = (tag, klasse, text) => {
+    const n = document.createElement(tag);
+    if (klasse) n.className = klasse;
+    if (text !== undefined) n.textContent = text;
+    return n;
+  };
+
+  // --- Reiter ----------------------------------------------------------
+
+  function zeige(welche) {
+    const offerte = welche === "offerte";
+    $("ansicht-offerte").classList.toggle("versteckt", !offerte);
+    $("ansicht-texte").classList.toggle("versteckt", offerte);
+    $("reiter-offerte").classList.toggle("aktiv", offerte);
+    $("reiter-texte").classList.toggle("aktiv", !offerte);
+    $("reiter-offerte").setAttribute("aria-selected", String(offerte));
+    $("reiter-texte").setAttribute("aria-selected", String(!offerte));
+  }
+  $("reiter-offerte").onclick = () => zeige("offerte");
+  $("reiter-texte").onclick = () => zeige("texte");
+
+  // --- Aufbau ----------------------------------------------------------
+
+  function zeichne() {
+    liste.innerHTML = "";
+    for (const [gruppe, titel] of Object.entries(katalog.gruppen)) {
+      const eintraege = Object.entries(katalog.bausteine)
+        .filter(([, b]) => b.gruppe === gruppe);
+      if (!eintraege.length) continue;
+
+      const box = el("details", "texte-gruppe");
+      // Offen, damit sich ein gesuchter Text auch mit der Browsersuche finden
+      // lässt und niemand erst Gruppen aufklappen muss.
+      box.open = true;
+      const kopf = el("summary");
+      kopf.append(el("span", null, titel),
+                  el("span", "anzahl", `${eintraege.length} Bausteine`));
+      box.append(kopf);
+      for (const [schluessel] of eintraege) box.append(baustein(schluessel));
+      liste.append(box);
+    }
+    zaehlerAktualisieren();
+  }
+
+  function baustein(schluessel) {
+    const spez = katalog.bausteine[schluessel];
+    const box = el("div", "baustein");
+    box.dataset.schluessel = schluessel;
+
+    const kopf = el("div", "baustein-kopf");
+    kopf.append(el("span", "baustein-titel", spez.titel));
+    const ruecksetzen = el("button", "zuruecksetzen", "auf Original zurücksetzen");
+    ruecksetzen.type = "button";
+    ruecksetzen.hidden = !BAUSTEINE.geaendert(schluessel);
+    kopf.append(ruecksetzen);
+    box.append(kopf);
+
+    if (spez.hinweis) box.append(el("p", "baustein-hinweis", spez.hinweis));
+
+    const feld = el("textarea");
+    feld.value = BAUSTEINE.rohtext(schluessel).join("\n\n");
+    feld.rows = Math.min(8, Math.max(1, Math.ceil(feld.value.length / 78)));
+    feld.setAttribute("aria-label", spez.titel);
+    box.append(feld);
+
+    const erlaubt = spez.platzhalter || [];
+    if (erlaubt.length) {
+      const chips = el("div", "chips");
+      chips.append(el("span", "beschriftung", "Einfügen:"));
+      for (const name of erlaubt) {
+        const chip = el("button", "chip", "{" + name + "}");
+        chip.type = "button";
+        chip.title = katalog.platzhalter[name] || "";
+        chip.onclick = () => einfuegen(feld, "{" + name + "}");
+        chips.append(chip);
+      }
+      box.append(chips);
+    }
+
+    const fuss = el("div", "baustein-fuss");
+    const vorschau = el("div", "vorschau");
+    fuss.append(vorschau);
+    box.append(fuss);
+
+    const aktualisieren = () => {
+      const absaetze = feld.value.split("\n\n");
+      const fehler = BAUSTEINE.pruefeText(schluessel, absaetze);
+      feld.classList.toggle("fehlerhaft", Boolean(fehler));
+      vorschau.classList.toggle("fehler", Boolean(fehler));
+      vorschau.innerHTML = "";
+
+      if (fehler) {
+        vorschau.append(el("span", null, fehler));
+        return;
+      }
+      vorschau.append(el("span", null, "So sieht es aus: "));
+      vorschau.append(el("strong", null, beispiel(absaetze)));
+
+      const istStandard = absaetze.join("\n\n") === standardText(schluessel);
+      BAUSTEINE.setzen(schluessel, istStandard ? null : absaetze);
+      box.classList.toggle("geaendert", !istStandard);
+      ruecksetzen.hidden = istStandard;
+      zaehlerAktualisieren();
+    };
+
+    ruecksetzen.onclick = () => {
+      feld.value = standardText(schluessel);
+      aktualisieren();
+      feld.focus();
+    };
+
+    feld.oninput = aktualisieren;
+    aktualisieren();
+    box.classList.toggle("geaendert", BAUSTEINE.geaendert(schluessel));
+    return box;
+  }
+
+  function standardText(schluessel) {
+    const spez = katalog.bausteine[schluessel];
+    return (spez.absaetze ? spez.absaetze : [spez.text]).join("\n\n");
+  }
+
+  /** Vorschau mit Beispielwerten – die stehen nie in einer echten Offerte. */
+  function beispiel(absaetze) {
+    const werte = katalog.beispiele || {};
+    const gefuellt = absaetze.map((a) =>
+      a.replace(/(?<!\{)\{([a-z_][a-z0-9_]*)\}(?!\})/g, (_, n) => werte[n] ?? "…")
+       .split("{{").join("{").split("}}").join("}")
+    ).join(" ⏎ ");
+    return gefuellt.length > 160 ? gefuellt.slice(0, 157) + "…" : gefuellt;
+  }
+
+  function einfuegen(feld, text) {
+    const start = feld.selectionStart ?? feld.value.length;
+    const ende = feld.selectionEnd ?? start;
+    feld.value = feld.value.slice(0, start) + text + feld.value.slice(ende);
+    feld.selectionStart = feld.selectionEnd = start + text.length;
+    feld.focus();
+    feld.dispatchEvent(new Event("input"));
+  }
+
+  function zaehlerAktualisieren() {
+    const n = BAUSTEINE.anzahlGeaendert();
+    const marke = $("texte-zaehler");
+    marke.classList.toggle("versteckt", n === 0);
+    marke.textContent = n === 1 ? "1 Baustein geändert" : `${n} Bausteine geändert`;
+  }
+
+  // --- Sichern, Laden, Zurücksetzen ------------------------------------
+
+  $("texte-sichern").onclick = () => {
+    const daten = BAUSTEINE.exportieren();
+    if (!Object.keys(daten).length) {
+      alert("Es ist noch kein Baustein geändert – es gibt nichts zu sichern.");
+      return;
+    }
+    const blob = new Blob([JSON.stringify(daten, null, 2)],
+                          { type: "application/json;charset=utf-8" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "Textbausteine.json";
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+  };
+
+  $("texte-laden").onclick = () => $("texte-datei").click();
+
+  $("texte-datei").onchange = async () => {
+    const datei = $("texte-datei").files[0];
+    $("texte-datei").value = "";
+    if (!datei) return;
+    try {
+      const anzahl = BAUSTEINE.importieren(JSON.parse(await datei.text()));
+      zeichne();
+      alert(anzahl === 1 ? "1 Baustein geladen." : `${anzahl} Bausteine geladen.`);
+    } catch (e) {
+      alert("Die Datei konnte nicht geladen werden.\n\n" + (e.detail || e.message));
+    }
+  };
+
+  $("texte-alle-zuruecksetzen").onclick = () => {
+    if (!BAUSTEINE.anzahlGeaendert()) return;
+    if (!confirm("Alle eigenen Texte verwerfen und die mitgelieferten wiederherstellen?")) return;
+    BAUSTEINE.zuruecksetzen();
+    zeichne();
+  };
+
+  // --- Suche -----------------------------------------------------------
+
+  const suche = $("texte-suche");
+  if (suche) {
+    suche.oninput = () => {
+      const begriff = suche.value.trim().toLowerCase();
+      for (const box of liste.querySelectorAll(".texte-gruppe")) {
+        let sichtbar = 0;
+        for (const b of box.querySelectorAll(".baustein")) {
+          const spez = katalog.bausteine[b.dataset.schluessel];
+          const heuhaufen = [
+            spez.titel, spez.hinweis || "", b.dataset.schluessel,
+            b.querySelector("textarea").value,
+          ].join(" ").toLowerCase();
+          const treffer = !begriff || heuhaufen.includes(begriff);
+          b.classList.toggle("versteckt", !treffer);
+          if (treffer) sichtbar++;
+        }
+        box.classList.toggle("versteckt", sichtbar === 0);
+        if (begriff) box.open = true;
+      }
+    };
+  }
+
+  zeichne();
+})();
+</script>
+</body>
+</html>

@@ -78,6 +78,20 @@ JSON, ein Objekt pro Offerte. Pflichtfelder in Abschnitt 4.4.
 Bei einer neuen Kalktool-Version wird nur die YAML dupliziert und angepasst; die Auswahl erfolgt
 über `KM!C1` (`"Version: Q4 2025"`).
 
+**Unbekannte Version.** Im Feld sind ältere Kalktools im Umlauf, deren `KM!C1` eine Version nennt,
+für die es keine YAML gibt. Geraten wird trotzdem nicht: jede YAML führt unter `layout_marken` die
+Beschriftungen, die an bestimmten Zellen stehen müssen (`KM!A5` = `Kunde :` und so weiter).
+
+| Lage | Verhalten |
+|---|---|
+| Version bekannt, Marken stimmen | Mapping wird verwendet |
+| Version bekannt, Marke weicht ab | Mapping wird verwendet, `W314` |
+| Version unbekannt, genau ein Mapping passt | dieses Mapping, `W313` |
+| Version unbekannt, mehrere oder kein Mapping passt | Abbruch `E202` |
+
+So kostet eine kleine Abweichung eine Warnung statt einer verweigerten Offerte, ein wirklich
+umgebautes Kalktool aber führt zum Abbruch, bevor irgendwelche Zellen falsch gelesen werden.
+
 ---
 
 ## 3. Ankerkatalog
@@ -599,7 +613,9 @@ beim Öffnen auf das Tagesdatum springen und das Offertdatum überschreiben. Reg
 | `E101` | Anker aus Abschnitt 3.2 fehlt in der Vorlage |
 | `E102` | Unbekannter Anker in der Vorlage |
 | `E201` | Kalktool nicht lesbar oder Blattanzahl < 2 |
+| `E202` | Kalktool-Version unbekannt und Layout passt zu keinem Mapping |
 | `E211` | Zelle aus dem Feldkatalog ausserhalb des Blattbereichs |
+| `E212` | Pflichtfeld im Kalktool ist leer |
 | `E401` | `finanzierungsart` leer oder nicht in 1–5 |
 | `E402` | `L95 ≠ L92 + L93 + L94` (Toleranz 0.01) |
 | `E403` | Gemischte Finanzierungsarten über mehrere Standorte |
@@ -651,6 +667,11 @@ aller gesperrten Zellen gehalten. Treffer → `E601`, Datei wird verworfen.
 | `W310` | Unterschiedliche Laufzeiten über mehrere Standorte |
 | `W311` | Unterschiedliche Kalktool-Versionen |
 | `W312` | `#DIV/0!` in `H32` oder `H39` (rein intern, ohne Wirkung auf die Offerte) |
+| `W313` | Kalktool-Version unbekannt; Layout stimmt mit einem bekannten Mapping überein |
+| `W314` | Beschriftung im Kalktool weicht vom erwarteten Layout ab |
+| `W315` | Installationsadresse fehlt, Zeile entfällt |
+| `W316` | Weder Offertnummer noch Verkaufschance vorhanden, Strich eingesetzt |
+| `W317` | Standortname verweist auf den Kunden, Kundenname eingesetzt |
 
 Warnungen erscheinen im Log **und** in einer Begleitdatei `<offerte>.pruefprotokoll.md`, nie im
 Dokument selbst.

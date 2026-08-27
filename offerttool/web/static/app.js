@@ -109,6 +109,8 @@ async function senden(pfad, mitFeldern) {
   if (mitFeldern) {
     for (const feld of CRM) f.append(feld, $(feld).value.trim());
     f.append("seitenzahlen", $("seitenzahlen").checked ? "true" : "false");
+    f.append("datenblaetter", $("datenblaetter").checked ? "true" : "false");
+    f.append("spezifikation", $("spezifikation").checked ? "true" : "false");
   }
   const antwort = await fetch(pfad, { method: "POST", body: f });
   const inhalt = await antwort.json().catch(() => ({}));
@@ -314,6 +316,23 @@ fetch("/api/gesundheit")
     $("fuss-status").textContent = g.seitenzahlen_moeglich
       ? "Seitenzahlen im Inhaltsverzeichnis werden berechnet."
       : "Ohne LibreOffice auf dem Server: Verzeichnis ohne Seitenzahlen (W321).";
+
+    // Ohne hinterlegte Datenblätter haben die beiden Kästchen keine Wirkung.
+    const anzahl = g.datenblaetter || 0;
+    $("datenblaetter-hinweis").textContent = anzahl
+      ? `${anzahl} Datenblätter hinterlegt, je Gerät rund drei Seiten`
+      : "keine Datenblätter auf dem Server hinterlegt";
+    if (!anzahl) {
+      $("datenblaetter").checked = false;
+      $("datenblaetter").disabled = true;
+      $("spezifikation").disabled = true;
+    }
+    const umschalten = () => {
+      $("schalter-spezifikation").style.opacity = $("datenblaetter").checked ? "1" : ".45";
+      $("spezifikation").disabled = !anzahl || !$("datenblaetter").checked;
+    };
+    $("datenblaetter").onchange = umschalten;
+    umschalten();
     if (!g.seitenzahlen_moeglich) {
       $("seitenzahlen").checked = false;
       $("seitenzahlen").disabled = true;

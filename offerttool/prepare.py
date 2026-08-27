@@ -128,6 +128,7 @@ def prepare(
     _prepare_toc(loc)
     _prepare_kapitel_1(loc)
     _prepare_vertragstext(loc, kauf)
+    _prepare_hardware(loc)
     _prepare_konditionen(loc)
     _prepare_schluss(loc)
 
@@ -153,8 +154,12 @@ def _prepare_deckblatt(loc: Locator) -> None:
     # Anbieteradresse (statisch) und Ansprechperson
     zelle = _cell(t_anbieter, 0, 2)
     blocks = _cell_blocks(zelle)
-    wrap_in_sdt(blocks[0:3], "OFF.ANBIETER")
-    wrap_in_sdt(blocks[3:8], "OFF.KONTAKT")
+    # Die Beschriftungen in Spalte 1 stehen auf festen Zeilen: "Anbieter" auf
+    # Zeile 1, "Ihre Ansprechperson" auf Zeile 5.  Der Leerabsatz nach der
+    # Adresse gehört deshalb zum statischen Anbieterblock – sonst rutscht der
+    # Kontakt eine Zeile hoch und die Beschriftung steht neben der falschen.
+    wrap_in_sdt(blocks[0:4], "OFF.ANBIETER")
+    wrap_in_sdt(blocks[4:8], "OFF.KONTAKT")
     # Die leere Vorlagenzeile "Direkt\t\t\t\t" entfällt: die Direktwahl wird als
     # Zeile des Blocks OFF.KONTAKT gesetzt, sonst stünde sie zweimal im Dokument.
     for b in blocks[8:]:
@@ -341,6 +346,19 @@ def _kauf_absaetze(kauf_doc, muster_p) -> list:
 
 
 # --- Konditionen -----------------------------------------------------------
+
+
+def _prepare_hardware(loc: Locator) -> None:
+    """Platz für die Gerätedatenblätter schaffen (Kapitel nach den Preisen).
+
+    Der Anker steht vor dem Kapitel «Konditionen». Bleibt er leer, wird er
+    beim Rendern ersatzlos entfernt – ohne Datenblätter entsteht kein
+    leeres Kapitel.
+    """
+    konditionen = loc.para("Heading1", "Konditionen")
+    platzhalter = make_paragraph(konditionen, "", "Normal")
+    konditionen.addprevious(platzhalter)
+    wrap_in_sdt([platzhalter], "SEC.HARDWARE")
 
 
 def _prepare_konditionen(loc: Locator) -> None:

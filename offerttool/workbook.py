@@ -108,6 +108,29 @@ class Kalktool:
         self.close()
 
 
+def lies_ohne_mapping(path: str | Path):
+    """Zellzugriff, bevor ein Mapping gewählt ist – für die Layoutprüfung.
+
+    Blätter werden nach Position angesprochen: KM ist das erste, SOL das
+    zweite. Das gilt für jede bekannte Kalktool-Version.
+    """
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        wb = openpyxl.load_workbook(Path(path), data_only=True, read_only=True)
+    reihenfolge = {"KM": 0, "SOL": 1}
+
+    def lies(ref: CellRef):
+        idx = reihenfolge.get(ref.sheet, 0)
+        if idx >= len(wb.worksheets):
+            return None
+        ws = wb.worksheets[idx]
+        if ref.row > max(ws.max_row, 1) or ref.col > max(ws.max_column, 1):
+            return None
+        return ws.cell(row=ref.row, column=ref.col).value
+
+    return lies, wb
+
+
 def read_version_cell(path: str | Path, address: str = "KM!C1") -> str:
     """Versionszelle lesen, bevor ein Mapping gewählt ist."""
     ref = parse_cell(address)

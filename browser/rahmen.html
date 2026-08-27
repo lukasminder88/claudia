@@ -14,11 +14,17 @@
       <h1>Offerttool</h1>
       <p class="untertitel">Offerte aus dem Kalktool – regelbasiert, ohne KI</p>
     </div>
+    <nav class="reiter" role="tablist">
+      <button id="reiter-offerte" class="reiter-knopf aktiv" role="tab"
+              aria-selected="true" aria-controls="ansicht-offerte">Offerte</button>
+      <button id="reiter-texte" class="reiter-knopf" role="tab"
+              aria-selected="false" aria-controls="ansicht-texte">Textbausteine</button>
+    </nav>
     <div class="status" id="status" aria-live="polite"></div>
   </div>
 </header>
 
-<main class="raster" id="raster">
+<main class="raster" id="ansicht-offerte" role="tabpanel">
 
   <section class="spalte" aria-labelledby="h-eingabe">
     <h2 id="h-eingabe">1 · Kalktools</h2>
@@ -59,6 +65,27 @@
       <label class="breit">Direktwahl Verkauf <input id="vk_telefon" placeholder="+41 58 551 11 22"></label>
     </div>
 
+    <h2>3 · Gerätedatenblätter <span class="freiwillig">freiwillig</span></h2>
+    <p class="hinweis" id="db-hinweis">Wird geprüft …</p>
+
+    <label class="schalter">
+      <input type="checkbox" id="datenblaetter" checked>
+      <span>Datenblatt als Kapitel anhängen
+        <em>je Gerät rund drei Seiten</em></span>
+    </label>
+
+    <label class="schalter" id="schalter-spezifikation">
+      <input type="checkbox" id="spezifikation" checked>
+      <span>mit Gerätespezifikation
+        <em>die Optionsliste am Schluss des Datenblatts</em></span>
+    </label>
+
+    <p class="hinweis versteckt" id="db-eigene">
+      <button type="button" class="verweis" id="db-waehlen">Datenblätter von Hand wählen</button>
+      <span id="db-eigene-anzahl"></span>
+      <input type="file" id="db-datei" accept=".dotx,.docx,.dotm,.docm" multiple hidden>
+    </p>
+
     <div class="knopfleiste">
       <button id="pruefen" class="knopf zweitrangig" disabled>Werte prüfen</button>
       <button id="erzeugen" class="knopf" disabled>Offerte erzeugen</button>
@@ -73,6 +100,30 @@
   </section>
 
 </main>
+
+<!-- ---------------- Textbausteine ---------------- -->
+<section class="texte versteckt" id="ansicht-texte" role="tabpanel" aria-labelledby="reiter-texte">
+  <div class="texte-kopf">
+    <div>
+      <h2>Textbausteine</h2>
+      <p class="hinweis">
+        Hier steht jede Formulierung der Offerte. Änderungen wirken sofort und
+        bleiben in diesem Browser gespeichert. Was in geschweiften Klammern
+        steht, wird beim Erzeugen durch einen Wert aus dem Kalktool ersetzt.
+      </p>
+    </div>
+    <div class="texte-werkzeuge">
+      <input type="search" id="texte-suche" placeholder="Baustein suchen …"
+             aria-label="Textbausteine durchsuchen">
+      <span id="texte-zaehler" class="marke versteckt"></span>
+      <button id="texte-sichern" class="knopf zweitrangig" type="button">Sichern</button>
+      <button id="texte-laden" class="knopf zweitrangig" type="button">Laden</button>
+      <button id="texte-alle-zuruecksetzen" class="knopf zweitrangig" type="button">Alle zurücksetzen</button>
+      <input type="file" id="texte-datei" accept=".json" hidden>
+    </div>
+  </div>
+  <div id="texte-liste"></div>
+</section>
 
 <footer class="fuss">
   <span>Alle Beträge netto, exklusive MWST und vRB.</span>

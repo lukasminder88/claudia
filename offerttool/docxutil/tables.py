@@ -94,6 +94,56 @@ def fill_rows(tbl_el, muster_index: int, datensaetze: list[list]) -> list:
     return erzeugt
 
 
+def remove_column(tbl_el, index: int) -> None:
+    """Eine Spalte samt ihrer Breite aus der Tabelle entfernen.
+
+    Die freiwerdende Breite geht an die Nachbarspalte, damit die Tabelle so
+    breit bleibt wie in der Vorlage.  Ohne diese Umverteilung zöge sich die
+    Tabelle zusammen und passte nicht mehr zum übrigen Satzspiegel.
+    """
+    grid = tbl_el.find(W("w:tblGrid"))
+    if grid is not None:
+        cols = grid.findall(W("w:gridCol"))
+        if index < len(cols) and len(cols) > 1:
+            frei = int(cols[index].get(qn("w:w")) or 0)
+            nachbar = cols[index + 1] if index + 1 < len(cols) else cols[index - 1]
+            nachbar.set(qn("w:w"), str(int(nachbar.get(qn("w:w")) or 0) + frei))
+            delete(cols[index])
+
+    for tr in rows(tbl_el):
+        tcs = cells(tr)
+        if index >= len(tcs) or len(tcs) <= 1:
+            continue
+        frei = _cell_width(tcs[index])
+        nachbar = tcs[index + 1] if index + 1 < len(tcs) else tcs[index - 1]
+        _set_cell_width(nachbar, _cell_width(nachbar) + frei)
+        delete(tcs[index])
+
+
+def _cell_width(tc_el) -> int:
+    tc_pr = tc_el.find(W("w:tcPr"))
+    if tc_pr is None:
+        return 0
+    tc_w = tc_pr.find(W("w:tcW"))
+    if tc_w is None or tc_w.get(qn("w:type")) not in (None, "dxa"):
+        return 0
+    try:
+        return int(tc_w.get(qn("w:w")) or 0)
+    except ValueError:
+        return 0
+
+
+def _set_cell_width(tc_el, breite: int) -> None:
+    tc_pr = tc_el.find(W("w:tcPr"))
+    if tc_pr is None:
+        return
+    tc_w = tc_pr.find(W("w:tcW"))
+    if tc_w is None:
+        return
+    tc_w.set(qn("w:w"), str(breite))
+    tc_w.set(qn("w:type"), "dxa")
+
+
 def set_tbl_look(tbl_el, value: str) -> None:
     """``tblLook`` setzen – steuert die bedingte Formatierung (Abschnitt 10.4).
 

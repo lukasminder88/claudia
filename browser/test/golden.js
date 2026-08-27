@@ -42,6 +42,90 @@
     PARSE.plzOrt("Birsfelden", w1);
     wahr("W301 bei unteilbarem Ort", w1.codes().includes("W301"));
 
+    // --- Textbausteine (Abschnitt 8) ---
+    gleich("Baustein mit Werten", BAUSTEINE.text("head_standort", { index: 1, name: "Museum" }),
+      "Standort 1: Museum");
+    gleich("Baustein ohne Platzhalter", BAUSTEINE.text("klassifizierung"), "Vertraulich");
+    wahr("Bausteine vollständig", Object.keys(BAUSTEINE.katalog.bausteine).length > 40);
+
+    wahr("unbekannter Platzhalter wird gemeldet",
+      /gibt es nicht/.test(BAUSTEINE.pruefeText("head_standort", ["Standort {naem}"]) || ""));
+    wahr("nicht vorgesehener Platzhalter wird gemeldet",
+      /nicht vorgesehen/.test(BAUSTEINE.pruefeText("head_standort", ["Standort {geraet}"]) || ""));
+    wahr("einzelne Klammer wird gemeldet",
+      /Klammer/.test(BAUSTEINE.pruefeText("klassifizierung", ["Vertraulich {"]) || ""));
+    gleich("gültiger Text ohne Beanstandung",
+      BAUSTEINE.pruefeText("head_standort", ["Einsatzort {index} – {name}"]), null);
+
+    BAUSTEINE.setzen("head_standort", ["Einsatzort {index} – {name}"]);
+    gleich("eigener Text greift", BAUSTEINE.text("head_standort", { index: 2, name: "Werkhof" }),
+      "Einsatzort 2 – Werkhof");
+    wahr("als geändert vermerkt", BAUSTEINE.geaendert("head_standort"));
+    gleich("Export enthält den Text", BAUSTEINE.exportieren()["head_standort"],
+      "Einsatzort {index} – {name}");
+    BAUSTEINE.setzen("head_standort", null);
+    gleich("zurückgesetzt", BAUSTEINE.text("head_standort", { index: 1, name: "Museum" }),
+      "Standort 1: Museum");
+    wahr("nicht mehr als geändert vermerkt", !BAUSTEINE.geaendert("head_standort"));
+
+    let abgewiesen = false;
+    try { BAUSTEINE.importieren({ gibt_es_nicht: "x" }); } catch { abgewiesen = true; }
+    wahr("unbekannter Schlüssel beim Laden abgewiesen", abgewiesen);
+    BAUSTEINE.zuruecksetzen();
+
+    // --- Sperrliste: statischer Vorlagentext ist kein Leck ---
+    {
+      // Die Konditionentabelle nennt 180 CHF pro Stunde. Steht 180 zufällig
+      // auch in einer gesperrten Zelle, ist das kein Leck.
+      const statisch = new Set(["180", "120", "130", "200"]);
+      let abgebrochen = false;
+      try { PIPELINE.pruefeAusgabe("Stundensatz 180.- CHF", new Set(["180"]), statisch); }
+      catch { abgebrochen = true; }
+      wahr("Stundensatz der Vorlage schlägt nicht an", !abgebrochen);
+
+      let erkannt = false;
+      try { PIPELINE.pruefeAusgabe("Irgendwo 2’645", new Set(["2’645"]), statisch); }
+      catch (e) { erkannt = e.code === "E601"; }
+      wahr("echter Sperrwert wird weiterhin erkannt", erkannt);
+    }
+
+    // --- Datenblätter (Zuordnung ohne Raten) ---
+    gleich("Modellname normalisiert",
+      DATENBLAETTER.normalisieren("bizhub C3351i de"), DATENBLAETTER.normalisieren("bizhub C3351i"));
+    gleich("Sprachkürzel und Version fallen weg",
+      DATENBLAETTER.normalisieren("brother MFC-L3750CDW de v2"), "brothermfcl3750cdw");
+
+    {
+      const w = new Warnungen();
+      DATENBLAETTER.setzeEigene([]);
+      const treffer = await DATENBLAETTER.finde("bizhub C3351i", w);
+      wahr("ohne Quellen kein Treffer", treffer === null);
+    }
+
+    // --- Kleine Abweichungen zwischen realen Kalktools ---
+    {
+      const w = new Warnungen();
+      gleich("Kontakt mit Kommas", PARSE.kontakt("Istvan Scheibler, 076 310 34 18, post@istvanscheibler.net", w),
+        { vorname: "Istvan", nachname: "Scheibler", email: "post@istvanscheibler.net", telefon: "076 310 34 18" });
+
+      const w2 = new Warnungen();
+      gleich("leeres PLZ-Feld ist keine Warnung", PARSE.plzOrt("", w2, "standort"), { plz: "", ort: "" });
+      gleich("leeres PLZ-Feld ohne W301", w2.codes(), []);
+
+      const leer = { quelle: "x", index: 1, values: { "standort.plz_ort": {} }, listen: {}, probes: {} };
+      gleich("Adresszeile entfällt", TEXT.lineAdresse(leer), "");
+
+      const w3 = new Warnungen();
+      const dito = { values: { "standort.name": "dito", "kunde.firma": "Grafikstudio Scheibler" } };
+      EXTRACT.standortDito(dito, w3);
+      gleich("dito wird zum Kunden", dito.values["standort.name"], "Grafikstudio Scheibler");
+      gleich("dito meldet W317", w3.codes(), ["W317"]);
+
+      const w4 = new Warnungen();
+      gleich("Offertnummer ohne Verkaufschance", CRM.neu({}).offertnummer("", w4), "–");
+      gleich("Offertnummer meldet W316", w4.codes(), ["W316"]);
+    }
+
     if (!datei) return zeige();
 
     // --- Referenzfall (Abschnitt 14) ---
@@ -104,6 +188,11 @@
       "vk.email": "thomas.steiner@graphax.ch",
     });
     wahr("Blob erzeugt", fertig.blob.size > 50000);
+    // Ein .docx ist ein ZIP; ohne den richtigen MIME-Typ hängt der Browser
+    // beim Herunterladen ".zip" an den Dateinamen an.
+    gleich("MIME-Typ der Offerte", fertig.blob.type,
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document");
+    wahr("Dateiname endet auf .docx", fertig.dateiname.endsWith(".docx"));
     gleich("Dateiname", fertig.dateiname, "Offerte_Gemeindeverwaltung_Birsfelden_V-2026-04768.docx");
 
     const dateien = await ZIP.lesen(await fertig.blob.arrayBuffer());

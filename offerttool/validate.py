@@ -11,6 +11,7 @@ from decimal import Decimal
 from .derive import Derived
 from .errors import OfferteError, WarningCollector
 from .extract import StandortContext
+from .docxutil.xmlutil import paragraph_text
 from .formatters import _to_decimal, chf, int_ch, rate
 from .mapping import Mapping
 
@@ -28,7 +29,9 @@ def validate_input(ctx: StandortContext, d: Derived, mapping: Mapping) -> None:
             continue
         value = ctx.values.get(name)
         if value is None or (isinstance(value, str) and not value.strip()):
-            raise OfferteError("E211", f"{ctx.quelle}: Pflichtfeld {name} ({spec.cell.a1}) ist leer")
+            raise OfferteError(
+                "E212", f"{ctx.quelle}: {name} ({spec.cell.a1}) ist leer"
+            )
 
     if d.variante in ("MIETE", "LEASING"):
         if ctx.num("laufzeit") <= 0:
@@ -89,6 +92,39 @@ def blocked_strings(standorte: list[tuple[StandortContext, Derived]]) -> set[str
             for text in (chf(dec), rate(dec), int_ch(dec)):
                 out.add(text.replace("CHF ", "").strip())
     return out
+
+
+def statische_token(vorlage_pfad) -> set[str]:
+    """Zahlen, die in der Vorlage ohnehin stehen und keiner Zelle entstammen.
+
+    Die Konditionentabelle nennt die Stundensätze für Technikereinsätze
+    (180, 120, 200, 130). Steht eine dieser Zahlen zufällig auch in einer
+    gesperrten Zelle des Kalktools, wäre das kein Leck – sie stand schon im
+    Dokument, bevor überhaupt ein Kalktool gelesen wurde.
+
+    Der Inhalt der **Blattanker** zählt nicht dazu: was dort steht, soll der
+    Renderer überschreiben. Bleibt eine Zahl von dort stehen, ist das ein
+    Vorlagenrest und wird weiterhin erkannt.
+    """
+    import docx
+
+    from .docxutil.xmlutil import W, sdt_content, sdt_tag
+
+    doc = docx.Document(str(vorlage_pfad))
+    for sdt in doc.element.body.findall(".//" + W("w:sdt")):
+        if sdt.findall(".//" + W("w:sdt")):
+            continue  # Behälter: nur seine Blätter werden gefüllt
+        if sdt_tag(sdt) == "SYS.TOC":
+            continue  # das Verzeichnis wird ohnehin neu aufgebaut
+        inhalt = sdt_content(sdt)
+        if inhalt is not None:
+            for kind in list(inhalt):
+                inhalt.remove(kind)
+
+    text = "\n".join(
+        paragraph_text(p) for p in doc.element.body.iter(W("w:p"))
+    )
+    return set(RE_ZAHL.findall(text))
 
 
 def validate_output(text: str, gesperrt: set[str], emitted: set[str] | None = None) -> None:

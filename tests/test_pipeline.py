@@ -184,3 +184,254 @@ def test_keine_datei_bei_abbruch(tmp_path):
     with pytest.raises(OfferteError):
         generiere([datei], VORLAGE, ziel, toc_seitenzahlen=False)
     assert not ziel.exists()
+
+
+# --- Erscheinungsbild (nach Sichtprüfung des gerenderten PDF) --------------
+
+
+def _tabellen(pfad):
+    """Alle Tabellen des Dokuments mit Style, tblLook und Zeileninhalten."""
+    import docx
+    from docx.oxml.ns import qn
+
+    from offerttool.docxutil.tables import cells, rows
+    from offerttool.docxutil.xmlutil import W, paragraph_text
+
+    d = docx.Document(str(pfad))
+    out = []
+    for tbl in d.element.body.iter(W("w:tbl")):
+        pr = tbl.find(W("w:tblPr"))
+        stil = pr.find(W("w:tblStyle")) if pr is not None else None
+        look = pr.find(W("w:tblLook")) if pr is not None else None
+        out.append({
+            "stil": stil.get(qn("w:val")) if stil is not None else None,
+            "look": look.get(qn("w:val")) if look is not None else None,
+            "zeilen": [
+                [" ".join(paragraph_text(p) for p in tc.findall(W("w:p"))).strip()
+                 for tc in cells(tr)]
+                for tr in rows(tbl)
+            ],
+        })
+    return out
+
+
+def test_servicetabelle_ohne_summenzeile(offerte):
+    """Kapitel 1.2 hat keine Summenzeile, also darf lastRow nicht gesetzt sein.
+
+    Mit lastRow setzt Word die letzte Zeile fett; die Zählerstandszeile läse
+    sich dann wie ein Total (Abschnitt 5.4 und 10.4).
+    """
+    service = [t for t in _tabellen(offerte.offerte) if t["stil"] == "graphax1000"]
+    assert service, "Servicetabelle nicht gefunden"
+    for t in service:
+        assert t["look"] == "04A0", t["look"]
+
+
+def test_hardwaretabelle_ohne_leere_artikelspalte(offerte):
+    """Führt das Kalktool keine Artikelnummern, entfällt die Spalte."""
+    hardware = [t for t in _tabellen(offerte.offerte) if t["stil"] == "graphax11"]
+    assert hardware, "Hardwaretabelle nicht gefunden"
+    kopf = hardware[0]["zeilen"][0]
+    assert kopf == ["Bezeichnung", "Stück"], kopf
+    for zeile in hardware[0]["zeilen"]:
+        assert len(zeile) == 2, zeile
+        assert "–" not in zeile
+
+
+def test_hardwaretabelle_zeigt_artikelnummern_wenn_vorhanden(tmp_path):
+    """Sobald das Kalktool Artikelnummern liefert, erscheint die Spalte wieder."""
+
+    from offerttool.derive import derive
+    from offerttool.errors import WarningCollector
+    from offerttool.extract import extract
+    from offerttool.mapping import load_mapping
+    from offerttool.workbook import Kalktool
+
+    from .conftest import MAPPING
+
+    # Die Zuordnung kennt heute keine Artikelnummernspalte; geprüft wird
+    # deshalb der Renderer selbst, mit einer Position, die eine Nummer trägt.
+    m = load_mapping(MAPPING)
+    w = WarningCollector()
+    with Kalktool(KALKTOOL, m, w) as kt:
+        ctx = extract(kt, m, w)
+    ctx.index = 1
+    d = derive(ctx, w)
+    ctx.listen["hardware"][0].artnr = "ACVD021"
+
+    import docx
+
+    from offerttool.crm import CRM
+    from offerttool.derive import gesamttotal
+    from offerttool.render import render
+
+    doc = docx.Document(str(VORLAGE))
+    render(doc, [(ctx, d)], gesamttotal([(ctx, d)]), m, CRM({}), w)
+    ziel = tmp_path / "mit_artnr.docx"
+    doc.save(str(ziel))
+
+    hardware = [t for t in _tabellen(ziel) if t["stil"] == "graphax11"]
+    assert hardware[0]["zeilen"][0] == ["Artikel No.", "Bezeichnung", "Stück"]
+    assert hardware[0]["zeilen"][1][0] == "ACVD021"
+
+
+def test_anbieterblock_haelt_die_beschriftungen_auf_hoehe(offerte):
+    """Die Beschriftung "Ihre Ansprechperson" steht auf Zeile 5 der Zelle.
+
+    Der Leerabsatz nach der Graphax-Adresse gehört deshalb zum statischen
+    Anbieterblock; ohne ihn rutscht der Kontakt hoch und die Beschriftung
+    steht neben "Telefon Zentrale".
+    """
+    import docx
+
+    from offerttool.docxutil.tables import cells, rows
+    from offerttool.docxutil.xmlutil import W, paragraph_text
+
+    d = docx.Document(str(offerte.offerte))
+    for tbl in d.element.body.iter(W("w:tbl")):
+        zeilen = rows(tbl)
+        if not zeilen:
+            continue
+        tcs = cells(zeilen[0])
+        if len(tcs) < 3:
+            continue
+        beschriftung = [paragraph_text(p).strip() for p in tcs[0].findall(W("w:p"))]
+        if "Anbieter" not in beschriftung:
+            continue
+        inhalt = [paragraph_text(p).strip() for p in tcs[2].findall(W("w:p"))]
+        zeile = beschriftung.index("Ihre Ansprechperson")
+        assert inhalt[zeile] == "Thomas Steiner", (zeile, inhalt[:8])
+        return
+    raise AssertionError("Anbieterblock nicht gefunden")
+
+
+# --- Sperrliste: Fehlalarm durch statischen Vorlagentext ------------------
+
+
+def test_stundensatz_der_vorlage_ist_kein_leck(tmp_path):
+    """Die Konditionentabelle nennt 180 CHF pro Stunde.
+
+    Steht 180 zufällig auch in einer gesperrten Zelle des Kalktools, ist das
+    kein Leck: die Zahl stand im Dokument, bevor überhaupt ein Kalktool
+    gelesen wurde. Vorher brach der Generator hier mit E601 ab.
+    """
+    datei = _variiere(KALKTOOL, tmp_path / "mit180.xlsx", E53=180)
+    ergebnis = generiere(
+        [datei], VORLAGE, tmp_path / "mit180.docx", toc_seitenzahlen=False
+    )
+    text = dokumenttext(ergebnis.offerte)
+    assert "180.- CHF pro Stunde" in text
+    assert "Gemeindeverwaltung Birsfelden" in text
+
+
+@pytest.mark.parametrize("wert", [120, 130, 200])
+def test_weitere_zahlen_der_vorlage_ebenso(tmp_path, wert):
+    """120, 130 und 200 stehen ebenfalls in den Konditionen."""
+    datei = _variiere(KALKTOOL, tmp_path / f"w{wert}.xlsx", E53=wert)
+    ergebnis = generiere(
+        [datei], VORLAGE, tmp_path / f"w{wert}.docx", toc_seitenzahlen=False
+    )
+    assert ergebnis.offerte.exists()
+
+
+def test_echte_sperrwerte_werden_weiterhin_erkannt():
+    """Die Ausnahme darf die Prüfung nicht aushebeln."""
+    from offerttool.errors import OfferteError
+    from offerttool.validate import statische_token, validate_output
+
+    statisch = statische_token(VORLAGE)
+    assert "180" in statisch, "Stundensatz nicht als statisch erkannt"
+
+    for wert in ("2’645", "1’587", "2’024.75"):
+        assert wert not in statisch
+        with pytest.raises(OfferteError) as exc:
+            validate_output(f"Im Dokument steht {wert}", {wert}, statisch)
+        assert exc.value.code == "E601"
+
+
+def test_vorlagenreste_gelten_nicht_als_statisch():
+    """Was in einem Anker steht, soll überschrieben werden.
+
+    Bleibt eine Zahl von dort stehen, ist das ein Vorlagenrest und muss
+    weiterhin auffallen – die Musterzeilen dürfen deshalb nicht in die
+    Ausnahmeliste geraten.
+    """
+    from offerttool.validate import statische_token
+
+    statisch = statische_token(VORLAGE)
+    # Beträge aus den Musterzeilen der Vorlage
+    for rest in ("112.65", "257"):
+        assert rest not in statisch, f"{rest} wäre als Rest nicht mehr erkennbar"
+
+
+# --- Kleine Abweichungen zwischen realen Kalktools -------------------------
+
+
+def _erzeuge(pfad, tmp_path, **kwargs):
+    from offerttool.pipeline import generiere
+
+    ziel = tmp_path / "offerte.docx"
+    return generiere([pfad], VORLAGE, ziel, toc_seitenzahlen=False, **kwargs), ziel
+
+
+def test_unbekannte_version_wird_ueber_das_layout_erkannt(abweichendes_kalktool, tmp_path):
+    """Eine ältere Versionsangabe darf nicht abbrechen, solange das Layout passt."""
+    pfad = abweichendes_kalktool({"KM!C1": "Version: 2024.03"})
+    ergebnis, ziel = _erzeuge(pfad, tmp_path)
+    assert ziel.exists()
+    assert "W313" in ergebnis.warnungen.codes()
+
+
+def test_umgebautes_kalktool_bricht_ab(abweichendes_kalktool, tmp_path):
+    """Stimmt bei unbekannter Version auch das Layout nicht, wird nichts geraten."""
+    from offerttool.errors import OfferteError
+
+    pfad = abweichendes_kalktool({"KM!C1": "Version: 2024.03", "KM!A26": "Spalte X"})
+    with pytest.raises(OfferteError) as fehler:
+        _erzeuge(pfad, tmp_path)
+    assert fehler.value.code == "E202"
+    assert not (tmp_path / "offerte.docx").exists()
+
+
+def test_bekannte_version_meldet_verschobene_beschriftung(abweichendes_kalktool, tmp_path):
+    """Bei bekannter Version ist eine fremde Beschriftung eine Warnung, kein Abbruch."""
+    pfad = abweichendes_kalktool({"KM!A26": "Spalte X"})
+    ergebnis, ziel = _erzeuge(pfad, tmp_path)
+    assert ziel.exists()
+    assert "W314" in ergebnis.warnungen.codes()
+
+
+def test_leere_installationsadresse_laesst_die_zeile_weg(abweichendes_kalktool, tmp_path):
+    """Ohne Standortadresse entfällt die Zeile, statt leer stehen zu bleiben."""
+    pfad = abweichendes_kalktool({"KM!D7": None, "KM!G7": None})
+    ergebnis, ziel = _erzeuge(pfad, tmp_path)
+    text = dokumenttext(ziel)
+    assert "W315" in ergebnis.warnungen.codes()
+    assert "W301" not in ergebnis.warnungen.codes()
+    assert "Installationsadresse" not in text
+
+
+def test_kontakt_mit_kommas_wird_getrennt(abweichendes_kalktool, tmp_path):
+    """"Name, Telefon, Mail" darf keine Kommas im Kundennamen hinterlassen."""
+    pfad = abweichendes_kalktool(
+        {"KM!J5": "Istvan Scheibler, 076 310 34 18, post@istvanscheibler.net"}
+    )
+    _, ziel = _erzeuge(pfad, tmp_path)
+    text = dokumenttext(ziel)
+    assert "Istvan Scheibler" in text
+    assert "Scheibler," not in text
+
+
+def test_dito_als_standortname_wird_zum_kunden(abweichendes_kalktool, tmp_path):
+    """„dito“ verweist auf den Kunden und gehört nicht in eine Überschrift."""
+    pfad = abweichendes_kalktool({"KM!B7": "dito"})
+    ergebnis, ziel = _erzeuge(pfad, tmp_path)
+    assert "W317" in ergebnis.warnungen.codes()
+    assert "Standort 1: dito" not in dokumenttext(ziel)
+
+
+def test_ohne_verkaufschance_steht_ein_strich(abweichendes_kalktool, tmp_path):
+    """Ohne Offertnummer und Verkaufschance bleibt die Zelle nicht leer."""
+    pfad = abweichendes_kalktool({"KM!M8": None})
+    ergebnis, _ = _erzeuge(pfad, tmp_path)
+    assert "W316" in ergebnis.warnungen.codes()

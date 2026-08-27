@@ -12,3 +12,7 @@ venv/
 /out/
 node_modules/
 dist/
+
+# Gerätedatenblätter: Geschäftsunterlagen, gehören nicht ins Repository.
+/datenblaetter/
+/public/datenblaetter/

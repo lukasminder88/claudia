@@ -7,6 +7,7 @@ seiteneffektfrei und berührt das Dokument nicht.
 from __future__ import annotations
 
 import datetime as _dt
+import re
 from dataclasses import dataclass, field
 from decimal import Decimal
 
@@ -77,6 +78,7 @@ def extract(kalktool: Kalktool, mapping: Mapping, warn: WarningCollector) -> Sta
         ctx.values.get("standort.plz_ort_roh"), warn, "standort"
     )
     ctx.values["kunde.kontakt"] = parsers.parse_kontakt(ctx.values.get("kunde.kontakt_roh"), warn)
+    _standort_dito(ctx, warn)
     ctx.values["vertragsbeginn"] = parsers.parse_vertragsbeginn(
         ctx.values.get("vertragsbeginn_roh"), warn
     )
@@ -100,6 +102,25 @@ def extract(kalktool: Kalktool, mapping: Mapping, warn: WarningCollector) -> Sta
     _check_stueck(ctx, kalktool, mapping, warn)
     ctx.blocked_values = kalktool.blocked_values()
     return ctx
+
+
+# Kürzel, mit denen im Kalktool auf den Kunden verwiesen wird, statt den
+# Standort noch einmal auszuschreiben.
+# Punkte und Leerzeichen sind hier bedeutungslos: "s. o." und "s.o." meinen
+# dasselbe.
+DITO = {"dito", "ditto", "dto", "idem", "so", "sieheoben", "wieoben", "gleich"}
+
+
+def _standort_dito(ctx: StandortContext, warn: WarningCollector) -> None:
+    """„dito“ als Standortname durch den Kundennamen ersetzen."""
+    name = trim(ctx.values.get("standort.name"))
+    if re.sub(r"[.\s]+", "", name).lower() not in DITO:
+        return
+    kunde = trim(ctx.values.get("kunde.firma"))
+    if not kunde:
+        return
+    ctx.values["standort.name"] = kunde
+    warn.add("W317", f"{name!r} -> {kunde!r}")
 
 
 def _formula_is_today(kalktool: Kalktool, mapping: Mapping) -> bool:

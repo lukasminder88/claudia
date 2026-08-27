@@ -15,7 +15,7 @@ from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from ..cli import STANDARD_VORLAGE
+from ..cli import STANDARD_DATENBLAETTER, STANDARD_VORLAGE
 from ..derive import derive
 from ..errors import ERROR_TEXTS, OfferteError, WarningCollector
 from ..extract import extract
@@ -141,10 +141,18 @@ def _crm_aus_formular(werte: dict[str, str]) -> dict:
 def gesundheit() -> dict:
     from ..docxutil.toc import soffice_verfuegbar
 
+    from ..hardware import Bibliothek
+
+    datenblaetter = (
+        len(Bibliothek.laden(STANDARD_DATENBLAETTER))
+        if STANDARD_DATENBLAETTER.is_dir()
+        else 0
+    )
     return {
         "version": app.version,
         "auftraege": len(speicher),
         "seitenzahlen_moeglich": soffice_verfuegbar(),
+        "datenblaetter": datenblaetter,
     }
 
 
@@ -188,6 +196,8 @@ async def erzeugen(
     vk_email: str = Form(""),
     vk_telefon: str = Form(""),
     seitenzahlen: bool = Form(True),
+    datenblaetter: bool = Form(True),
+    spezifikation: bool = Form(True),
 ) -> dict:
     """Erzeugt die Offerte und hält sie zum Abholen bereit."""
     import json
@@ -221,6 +231,12 @@ async def erzeugen(
                 ziel,
                 crm_pfad,
                 toc_seitenzahlen=seitenzahlen,
+                datenblaetter_pfad=(
+                    STANDARD_DATENBLAETTER
+                    if datenblaetter and STANDARD_DATENBLAETTER.is_dir()
+                    else None
+                ),
+                mit_spezifikation=spezifikation,
             )
     except Exception:
         speicher.loeschen(auftrag.id)

@@ -98,8 +98,14 @@ const ZIP = (() => {
 
   // --- Schreiben ---------------------------------------------------------
 
-  /** Schreibt eine Map (Name -> Uint8Array | string) als ZIP-Blob. */
-  async function schreiben(dateien, reihenfolge) {
+  /**
+   * Schreibt eine Map (Name -> Uint8Array | string) als ZIP-Blob.
+   *
+   * ``typ`` bestimmt den MIME-Typ des Ergebnisses. Ein .docx ist zwar ein
+   * ZIP, muss aber als Word-Dokument ausgezeichnet werden: sonst hängt der
+   * Browser beim Herunterladen ".zip" an den Dateinamen an.
+   */
+  async function schreiben(dateien, reihenfolge, typ) {
     const namen = reihenfolge || [...dateien.keys()];
     const teile = [];
     const verzeichnis = [];
@@ -169,7 +175,7 @@ const ZIP = (() => {
     ev.setUint32(16, zentralStart, true);
     teile.push(ende);
 
-    return new Blob(teile, { type: "application/zip" });
+    return new Blob(teile, { type: typ || "application/zip" });
   }
 
   return { lesen, schreiben, text, crc32 };

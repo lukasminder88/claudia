@@ -25,6 +25,7 @@ from pathlib import Path
 
 import docx
 
+from .bausteine import Bausteine, lade as lade_bausteine
 from .crm import CRM
 from .derive import Derived, derive, gesamttotal
 from .docxutil.anchor_ops import find
@@ -32,14 +33,21 @@ from .docxutil.fields import freeze_fields, set_update_fields
 from .docxutil.toc import build_toc, collect_headings, seitenzahlen, set_bookmarks
 from .docxutil.xmlutil import W, paragraph_text
 from .errors import OfferteError, WarningCollector
+from .hardware import Bibliothek, datenblaetter_fuer
 from .extract import StandortContext, extract
 from .formatters import date_de
-from .mapping import Mapping, load_mapping, select_mapping
+from .mapping import Mapping, load_mapping, waehle_mapping
 from .prepare import validate_template
 from .render import render
 from .report import schreibe_protokoll
-from .validate import blocked_strings, validate_across, validate_input, validate_output
-from .workbook import Kalktool, read_version_cell
+from .validate import (
+    blocked_strings,
+    statische_token,
+    validate_across,
+    validate_input,
+    validate_output,
+)
+from .workbook import Kalktool, lies_ohne_mapping, read_version_cell
 
 log = logging.getLogger("offerttool")
 
@@ -60,6 +68,9 @@ def generiere(
     mapping_pfad: str | Path | None = None,
     *,
     toc_seitenzahlen: bool = True,
+    bausteine_pfad: str | Path | None = None,
+    datenblaetter_pfad: str | Path | None = None,
+    mit_spezifikation: bool = True,
 ) -> Ergebnis:
     """Eine Offerte aus n Kalktools erzeugen.
 
@@ -71,9 +82,12 @@ def generiere(
     warn = WarningCollector()
     ziel = Path(ziel)
 
-    # 1 LOAD_TEMPLATE
+    # 1 LOAD_TEMPLATE – die Textbausteine werden hier geprüft, nicht erst
+    # beim Rendern: ein Tippfehler im Wortlaut soll auffallen, bevor
+    # irgendetwas geschrieben wird.
     log.info("1 LOAD_TEMPLATE %s", vorlage)
     validate_template(vorlage)
+    bausteine: Bausteine = lade_bausteine(bausteine_pfad)
 
     # 2 LOAD_SOURCES / 3 EXTRACT / 4 PARSE / 5 DERIVE
     crm = CRM.load(crm_pfad)
@@ -82,11 +96,16 @@ def generiere(
     for i, pfad in enumerate(kalktools, start=1):
         warn.standort = i
         log.info("2 LOAD_SOURCES %s", pfad)
-        m = (
-            load_mapping(mapping_pfad)
-            if mapping_pfad
-            else select_mapping(read_version_cell(pfad))
-        )
+        if mapping_pfad:
+            m = load_mapping(mapping_pfad)
+        else:
+            # Passt die Versionsangabe nicht, entscheidet das Layout – geraten
+            # wird nicht (Abschnitt 2.4).
+            lies, wb = lies_ohne_mapping(pfad)
+            try:
+                m = waehle_mapping(read_version_cell(pfad), lies, warn)
+            finally:
+                wb.close()
         mapping = mapping or m
         with Kalktool(pfad, m, warn) as kt:
             log.info("3 EXTRACT / 4 PARSE %s", pfad)
@@ -106,10 +125,21 @@ def generiere(
     validate_across(standorte, warn)
     gesamt = gesamttotal(standorte)
 
+    # Gerätedatenblätter zuordnen. Fehlt eines, ist das eine Warnung und kein
+    # Abbruch – die Offerte bleibt ohne dieses Kapitel vollständig.
+    datenblaetter = []
+    if datenblaetter_pfad:
+        bibliothek = Bibliothek.laden(datenblaetter_pfad)
+        log.info("6 VALIDATE_INPUT: %d Datenblätter verfügbar", len(bibliothek))
+        datenblaetter = datenblaetter_fuer(standorte, bibliothek, warn)
+
     # 7 RENDER – erst hier entsteht ein Dokument.
     log.info("7 RENDER")
     doc = docx.Document(str(vorlage))
-    emitted = render(doc, standorte, gesamt, mapping, crm, warn)
+    emitted = render(
+        doc, standorte, gesamt, mapping, crm, warn, bausteine,
+        datenblaetter, mit_spezifikation,
+    )
 
     # 8 POSTPROCESS
     log.info("8 POSTPROCESS")
@@ -118,12 +148,19 @@ def generiere(
     # 9 VALIDATE_OUTPUT – erst nach bestandener Prüfung wird geschrieben.
     log.info("9 VALIDATE_OUTPUT")
     text = _dokumenttext(doc)
-    validate_output(text, blocked_strings(standorte), emitted)
+    # Zahlen aus der Vorlage und aus den Datenblättern sind kein Beleg für ein
+    # Leck: sie hängen nicht vom Kalktool ab. Geprüft wird, was der Generator
+    # selbst eingebracht hat.
+    unverdaechtig = emitted | statische_token(vorlage)
+    for _bezeichnung, blatt in datenblaetter:
+        unverdaechtig |= _datenblatt_token(blatt)
+    validate_output(text, blocked_strings(standorte), unverdaechtig)
 
     ziel.parent.mkdir(parents=True, exist_ok=True)
     doc.save(str(ziel))
     protokoll = schreibe_protokoll(
-        ziel, standorte, warn, mapping.version, str(vorlage)
+        ziel, standorte, warn, mapping.version, str(vorlage),
+        bausteine=str(bausteine.quelle) if bausteine.quelle else "mitgeliefert",
     )
     for w in warn.items:
         # Der Aufrufer gibt die Warnungen selbst aus; im Log stehen sie nur,
@@ -158,6 +195,17 @@ def _postprocess(doc, standorte, warn: WarningCollector, mit_seitenzahlen: bool)
 
     build_toc(toc_sdt, eintraege, ok)
     set_update_fields(doc, True)
+
+
+def _datenblatt_token(blatt) -> set[str]:
+    """Zahlen eines Datenblatts – Technikdaten, Artikelnummern, Jahreszahlen."""
+    from .validate import RE_ZAHL
+
+    quelle = blatt.laden()
+    text = "\n".join(
+        paragraph_text(p) for p in quelle.body.iter(W("w:p"))
+    )
+    return set(RE_ZAHL.findall(text))
 
 
 def _dokumenttext(doc) -> str:

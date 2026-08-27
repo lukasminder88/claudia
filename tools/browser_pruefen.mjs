@@ -6,7 +6,7 @@ import { fileURLToPath } from "url";
 import path from "path";
 
 const WURZEL = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
-const SEITE = path.join(WURZEL, "dist", "Pruefung.html");
+const SEITE = path.join(WURZEL, "dist", "pruefung.html");
 const KALKTOOL = path.join(WURZEL, "examples", "Kalktool_Birsfelden_C3351i.xlsx");
 
 let chromium;

@@ -3,7 +3,9 @@
 const ERROR_TEXTS = {
   E101: "Anker aus Abschnitt 3.2 fehlt in der Vorlage",
   E201: "Kalktool nicht lesbar oder Blattanzahl < 2",
+  E202: "Kalktool-Version unbekannt und Layout passt zu keinem Mapping",
   E211: "Zelle aus dem Feldkatalog ausserhalb des Blattbereichs",
+  E212: "Pflichtfeld im Kalktool ist leer",
   E401: "finanzierungsart leer oder nicht in 1-5",
   E402: "L95 != L92 + L93 + L94 (Toleranz 0.01)",
   E403: "Gemischte Finanzierungsarten über mehrere Standorte",
@@ -29,6 +31,11 @@ const WARNING_TEXTS = {
   W310: "Unterschiedliche Laufzeiten über mehrere Standorte",
   W311: "Unterschiedliche Kalktool-Versionen",
   W312: "#DIV/0! in H32 oder H39 (rein intern, ohne Wirkung auf die Offerte)",
+  W313: "Kalktool-Version unbekannt; Layout stimmt mit einem bekannten Mapping überein",
+  W314: "Beschriftung im Kalktool weicht vom erwarteten Layout ab",
+  W315: "Installationsadresse fehlt, Zeile entfällt",
+  W316: "Weder Offertnummer noch Verkaufschance vorhanden, Strich eingesetzt",
+  W317: "Standortname verweist auf den Kunden, Kundenname eingesetzt",
   W320: "Blattname weicht vom erwarteten Namen ab",
   W321: "Seitenzahlen im Inhaltsverzeichnis werden von Word beim Öffnen berechnet",
 };
@@ -84,6 +91,58 @@ const EXTRACT = (() => {
              z1: a.zeile, s1: a.spalte, z2: b.zeile, s2: b.spalte };
   }
 
+  // Punkte und Leerzeichen sind hier bedeutungslos: "s. o." und "s.o." meinen
+  // dasselbe.
+  const DITO = new Set(["dito", "ditto", "dto", "idem", "so", "sieheoben", "wieoben", "gleich"]);
+
+  /** „dito“ als Standortname durch den Kundennamen ersetzen. */
+  function standortDito(ctx, warn) {
+    const name = FMT.trim(ctx.values["standort.name"]);
+    if (!DITO.has(name.replace(/[.\s]+/g, "").toLowerCase())) return;
+    const kunde = FMT.trim(ctx.values["kunde.firma"]);
+    if (!kunde) return;
+    ctx.values["standort.name"] = kunde;
+    warn.add("W317", `"${name}" -> "${kunde}"`);
+  }
+
+  /** Beschriftungen vergleichbar machen: Leerraum und Gross-/Kleinschreibung. */
+  function vergleichbar(text) {
+    return String(text ?? "").replace(/\s+/g, " ").trim().toLowerCase();
+  }
+
+  /** Layoutmarken prüfen: passt das Kalktool überhaupt zu diesem Mapping?
+
+     Bei bekannter Version fällt ein umgebautes Kalktool als W314 auf, statt
+     still falsche Zellen zu liefern. Bei unbekannter Version entscheidet
+     allein das Layout: stimmt es, wird mit W313 weitergearbeitet, sonst
+     bricht E202 ab, bevor irgendetwas gerendert wird. */
+  function pruefeLayout(lies, warn) {
+    const marken = MAPPING.layout_marken || {};
+    const abweichungen = [];
+    for (const [adresse, erwartet] of Object.entries(marken)) {
+      let ist = null;
+      try { ist = lies(adresse); } catch (e) { ist = null; }
+      if (vergleichbar(ist) !== vergleichbar(erwartet)) {
+        abweichungen.push(`${adresse}: erwartet "${erwartet}", gefunden "${ist ?? ""}"`);
+      }
+    }
+
+    const versionText = String(lies(MAPPING.fields["kalktool.version"].cell) ?? "").trim();
+    const bekannt = MAPPING.version && versionText.includes(MAPPING.version);
+    if (bekannt) {
+      if (abweichungen.length) warn.add("W314", abweichungen.slice(0, 3).join("; "));
+      return;
+    }
+    if (abweichungen.length) {
+      throw new OfferteError(
+        "E202",
+        `${versionText || "ohne Versionsangabe"}: das Layout stimmt mit keinem ` +
+          `bekannten Mapping überein – ${abweichungen.slice(0, 3).join("; ")}`,
+      );
+    }
+    warn.add("W313", `${versionText || "ohne Angabe"} → Mapping ${MAPPING.version}`);
+  }
+
   /** Alle Felder und Positionslisten eines Kalktools lesen. */
   function extract(wb, quelle, warn) {
     // Blattnamen nur als Warnung prüfen (Abschnitt 2.2).
@@ -98,6 +157,8 @@ const EXTRACT = (() => {
     const ctx = { quelle, index: 1, values: {}, listen: {}, probes: {} };
     const lies = (adresse) => { const r = ref(adresse); return wb.zelle(r.index, r.a1); };
 
+    pruefeLayout(lies, warn);
+
     for (const [name, spez] of Object.entries(MAPPING.fields)) {
       ctx.values[name] = lies(spez.cell);
     }
@@ -105,6 +166,7 @@ const EXTRACT = (() => {
     ctx.values["kunde.plz_ort"] = PARSE.plzOrt(ctx.values["kunde.plz_ort_roh"], warn, "kunde");
     ctx.values["standort.plz_ort"] = PARSE.plzOrt(ctx.values["standort.plz_ort_roh"], warn, "standort");
     ctx.values["kunde.kontakt"] = PARSE.kontakt(ctx.values["kunde.kontakt_roh"], warn);
+    standortDito(ctx, warn);
     ctx.values["vertragsbeginn"] = PARSE.vertragsbeginn(ctx.values["vertragsbeginn_roh"], warn);
 
     // Ob M9 eine TODAY()-Formel trägt, ist aus den Werten allein nicht
@@ -218,5 +280,5 @@ const EXTRACT = (() => {
     return out;
   }
 
-  return { extract, ref, zahl, bereich, spalte };
+  return { extract, ref, zahl, bereich, spalte, standortDito, pruefeLayout };
 })();

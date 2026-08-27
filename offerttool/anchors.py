@@ -46,6 +46,7 @@ CATALOG: tuple[Anchor, ...] = (
     Anchor("TBL.SERVICE", TABLE, "Wartungs- und Klickkosten", "graphax1000"),
     Anchor("TBL.TOTAL", TABLE, "Summen", "graphax100"),
     Anchor("TBL.GESAMTTOTAL", TABLE, "Summe über alle Standorte", "graphax100"),
+    Anchor("SEC.HARDWARE", SECTION, "Kapitel mit den Gerätedatenblättern"),
     Anchor("SW.VERTRAGSTEXT", SWITCH, "Kauf / Miete / Leasing", "Normal"),
     Anchor("HEAD.VERTRAGSTEXT", TEXT, "Überschrift Laufzeit/Kündigung", "Heading2"),
     Anchor("TBL.KONDITIONEN", TABLE, "Konditionentabelle", "graphax20"),

@@ -14,6 +14,24 @@ const MAPPING = {
       "expect_name": "Détail Solutions"
     }
   },
+  "layout_marken": {
+    "KM!A1": "Kalkulationstool",
+    "KM!A3": "Verkäufer :",
+    "KM!A5": "Kunde :",
+    "KM!A7": "Standort :",
+    "KM!A25": "Hardware",
+    "KM!A26": "Modell - Beschreibung / Artikel",
+    "KM!C26": "Listenpreis",
+    "KM!J15": "Laufzeit",
+    "KM!L15": "Fakt. Pauschale",
+    "KM!L16": "Fakt. Mehrseiten",
+    "KM!A59": "Netto Verkaufspreis",
+    "KM!A62": "Vertragswert",
+    "KM!A71": "Verrechnet",
+    "KM!B71": "Finanziert",
+    "SOL!A20": "Anzahl",
+    "SOL!C20": "Bezeichnung"
+  },
   "fields": {
     "kunde.firma": {
       "cell": "KM!B5",
@@ -55,19 +73,19 @@ const MAPPING = {
       "cell": "KM!D7",
       "type": "TXT",
       "fmt": "trim",
-      "req": "M"
+      "req": "W"
     },
     "standort.plz_ort_roh": {
       "cell": "KM!G7",
       "type": "TXT",
       "fmt": "parse_plz_ort",
-      "req": "M"
+      "req": "W"
     },
     "vk.name": {
       "cell": "KM!B3",
       "type": "TXT",
       "fmt": "trim",
-      "req": "M"
+      "req": "W"
     },
     "vk.nr": {
       "cell": "KM!E3",
@@ -79,7 +97,7 @@ const MAPPING = {
       "cell": "KM!M8",
       "type": "TXT",
       "fmt": "trim",
-      "req": "M"
+      "req": "W"
     },
     "datum": {
       "cell": "KM!M9",

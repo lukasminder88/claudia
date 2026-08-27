@@ -10,12 +10,15 @@ import re
 
 from . import textblocks as T
 from .anchors import BY_TAG, PER_STANDORT
+from .bausteine import Bausteine
 from .crm import CRM
 from .derive import Derived, Gesamt
 from .docxutil.anchor_ops import (
     clone_anchor_after,
+    content_children,
     find,
     remove,
+    replace_children,
     resolve,
     select_switch,
     set_block,
@@ -23,8 +26,17 @@ from .docxutil.anchor_ops import (
     tables_of,
     tag_map,
 )
-from .docxutil.tables import cells, fill_rows, rows, set_cell_paragraphs, set_tbl_look
+from .docxutil.tables import (
+    cells,
+    fill_rows,
+    remove_column,
+    rows,
+    set_cell_paragraphs,
+    set_tbl_look,
+)
+from .docxutil.xmlutil import make_paragraph
 from .errors import OfferteError, WarningCollector
+from .hardware import STIL_ABBILDUNG, Datenblatt
 from .extract import StandortContext
 from .formatters import chf, date_de, trim
 from .mapping import Mapping
@@ -35,7 +47,11 @@ RE_BETRAG = re.compile(r"-?\d[\d’]*(?:\.\d+)?")
 class Renderer:
     """Füllt eine ankerbasierte Vorlage aus n Standortkontexten."""
 
-    def __init__(self, doc, mapping: Mapping, crm: CRM, warn: WarningCollector) -> None:
+    def __init__(
+        self, doc, mapping: Mapping, crm: CRM, warn: WarningCollector,
+        bausteine: Bausteine | None = None,
+    ) -> None:
+        self.b = bausteine or T.standard()
         self.doc = doc
         self.body = doc.element.body
         self.mapping = mapping
@@ -119,15 +135,13 @@ class Renderer:
                 vk.append(praefix + wert)
         self._block("OFF.KONTAKT", [z for z in vk if z])
 
-        self._text("OFF.KLASSIFIZIERUNG", T.KLASSIFIZIERUNG)
+        self._text("OFF.KLASSIFIZIERUNG", T.klassifizierung(self.b))
         self._text(
             "OFF.NUMMER", self.crm.offertnummer(erste.text("verkaufschance"), self.warn)
         )
         self._text("OFF.VERSION", self.crm.offertversion(self.warn))
         self._text("OFF.DATUM", date_de(erste.get("datum")))
-        self._text(
-            "OFF.GUELTIG_BIS", T.GUELTIGKEIT.format(gueltig_bis=date_de(d.gueltig_bis))
-        )
+        self._text("OFF.GUELTIG_BIS", T.gueltigkeit(d, self.b))
 
     # -- Standorte (Abschnitt 11) ------------------------------------------
 
@@ -142,24 +156,44 @@ class Renderer:
         return {tag: tm[tag] for tag in PER_STANDORT}
 
     def standort(self, sec_standort, sec_service, tbl_total_sdt, ctx: StandortContext, d: Derived) -> None:
-        self._text("HEAD.STANDORT", T.head_standort(ctx), sec_standort)
-        self._text("LINE.STANDORT_ADRESSE", T.line_adresse(ctx), sec_standort)
+        self._text("HEAD.STANDORT", T.head_standort(ctx, self.b), sec_standort)
+        adresse = T.line_adresse(ctx, self.b)
+        if adresse:
+            self._text("LINE.STANDORT_ADRESSE", adresse, sec_standort)
+        else:
+            # Ohne Adresse keine leere Zeile im Dokument.
+            self.warn.add("W315", ctx.quelle)
+            remove(self._anchor("LINE.STANDORT_ADRESSE", sec_standort))
         self._hardware(ctx, sec_standort)
         self._dienstleistung(ctx, d, sec_standort)
 
-        self._text("HEAD.SERVICE_STANDORT", T.head_standort(ctx), sec_service)
+        self._text("HEAD.SERVICE_STANDORT", T.head_standort(ctx, self.b), sec_service)
         self._service(ctx, d, sec_service)
 
-        self._total(tbl_total_sdt, T.total_zeilen(ctx, d))
+        self._total(tbl_total_sdt, T.total_zeilen(ctx, d, self.b))
 
     def _hardware(self, ctx: StandortContext, root) -> None:
         sdt, tbl = self._table("TBL.HARDWARE", root)
-        set_cell_paragraphs(cells(rows(tbl)[0])[0], ["Artikel No."])
-        set_cell_paragraphs(cells(rows(tbl)[0])[1], ["Bezeichnung"])
-        set_cell_paragraphs(cells(rows(tbl)[0])[2], ["Stück"])
-        datensaetze = [[p.artnr, p.bezeichnung, p.stueck] for p in ctx.listen.get("hardware", [])]
-        for p in ctx.listen.get("solutions.sw", []) + ctx.listen.get("solutions.maint", []):
-            datensaetze.append([p.artnr, p.bezeichnung, p.stueck])
+
+        positionen = list(ctx.listen.get("hardware", []))
+        positionen += ctx.listen.get("solutions.sw", [])
+        positionen += ctx.listen.get("solutions.maint", [])
+
+        # Das Kalktool Q4 2025 führt keine Artikelnummern (Abschnitt 16, Punkt 1).
+        # Eine Spalte voller Gedankenstriche hilft niemandem, deshalb entfällt
+        # sie, solange keine einzige Position eine Nummer trägt.  Sobald das
+        # Kalktool welche liefert, erscheint sie von selbst wieder.
+        mit_artnr = any(p.artnr not in ("", "–") for p in positionen)
+
+        if not mit_artnr:
+            remove_column(tbl, 0)
+        kopf = cells(rows(tbl)[0])
+        for zelle, titel in zip(kopf, T.kopf_hardware(mit_artnr, self.b)):
+            set_cell_paragraphs(zelle, [titel])
+        datensaetze = [
+            ([p.artnr] if mit_artnr else []) + [p.bezeichnung, p.stueck] for p in positionen
+        ]
+
         fill_rows(tbl, 1, datensaetze)
         # Listentabelle ohne Summenzeile: lastRow aus (Abschnitt 10.4).
         set_tbl_look(tbl, self.mapping.style("tbllook_liste", "04A0"))
@@ -169,33 +203,34 @@ class Renderer:
             remove(self._anchor("HEAD.DL", root))
             remove(self._anchor("TBL.DIENSTLEISTUNG", root))
             return
-        self._text("HEAD.DL", T.head_dl(ctx), root)
+        self._text("HEAD.DL", T.head_dl(ctx, self.b), root)
         sdt, tbl = self._table("TBL.DIENSTLEISTUNG", root)
-        set_cell_paragraphs(cells(rows(tbl)[0])[0], ["Leistung"])
-        set_cell_paragraphs(cells(rows(tbl)[0])[1], ["Betrag"])
+        for zelle, titel in zip(cells(rows(tbl)[0]), T.kopf_dienstleistung(self.b)):
+            set_cell_paragraphs(zelle, [titel])
         datensaetze = [[p.bezeichnung, chf(p.betrag)] for p in ctx.listen["dienstleistung"]]
         for p in ctx.listen.get("solutions.dl", []):
             datensaetze.append([p.bezeichnung, chf(p.betrag)])
-        datensaetze.append([T.DL_TOTAL_LABEL, chf(d.dienstleistung_total)])
+        datensaetze.append([T.dl_total_label(self.b), chf(d.dienstleistung_total)])
         self._emit_all(datensaetze)
         fill_rows(tbl, 1, datensaetze)
         set_tbl_look(tbl, self.mapping.style("tbllook_summe", "04E0"))
 
     def _service(self, ctx: StandortContext, d: Derived, root) -> None:
         sdt, tbl = self._table("TBL.SERVICE", root)
-        set_cell_paragraphs(cells(rows(tbl)[0])[0], [T.SERVICE_KOPF.format(geraet=d.geraet)])
-        set_cell_paragraphs(cells(rows(tbl)[0])[1], ["Total"])
-        datensaetze = []
-        for texte, betrag in T.service_zeilen(ctx, d):
-            betraege = betrag if isinstance(betrag, list) else [betrag]
-            # Trägt keine Zeile des Blocks einen Betrag, bleibt die Zelle leer –
-            # sonst entstünden mehrere leere Absätze untereinander.
-            if not any(b for b in betraege):
-                betraege = [""]
-            datensaetze.append([texte, betraege])
+        for zelle, titel in zip(cells(rows(tbl)[0]), T.kopf_service(d, self.b)):
+            set_cell_paragraphs(zelle, [titel])
+        # Trägt keine Zeile eines Blocks einen Betrag, bleibt die Zelle leer –
+        # sonst entstünden mehrere leere Absätze untereinander.
+        datensaetze = [
+            [texte, betraege if any(betraege) else [""]]
+            for texte, betraege in T.service_zeilen(ctx, d, self.b)
+        ]
         self._emit_all(datensaetze)
         fill_rows(tbl, 1, datensaetze)
-        set_tbl_look(tbl, self.mapping.style("tbllook_summe", "04E0"))
+        # Kapitel 1.2 zeigt die Servicebestandteile ohne Summenzeile
+        # (Abschnitt 5.4); mit lastRow käme die letzte Zeile fett und läse
+        # sich wie ein Total.
+        set_tbl_look(tbl, self.mapping.style("tbllook_liste", "04A0"))
 
     def _total(self, sdt, zeilen: list[tuple[str, str]]) -> None:
         tbls = tables_of(sdt)
@@ -211,19 +246,12 @@ class Renderer:
         if anzahl <= 1:
             remove(sdt)
             return
-        zeilen = []
-        if g.einmalig > 0:
-            zeilen.append((T.GESAMT_EINMALIG, chf(g.einmalig)))
-        if variante == "KAUF":
-            zeilen.append((T.GESAMT_KAUF, chf(g.kauf)))
-        else:
-            zeilen.append((T.GESAMT_MONATLICH, chf(g.monatlich)))
-        self._total(sdt, zeilen)
+        self._total(sdt, T.gesamt_zeilen(g.einmalig, g.monatlich, g.kauf, variante, self.b))
 
     # -- Vertragstext, Konditionen, Schluss --------------------------------
 
     def vertragstext(self, ctx: StandortContext, d: Derived) -> None:
-        head, absaetze = T.vertragstext(ctx, d)
+        head, absaetze = T.vertragstext(ctx, d, self.b)
         self._text("HEAD.VERTRAGSTEXT", head)
         sdt = self._anchor("SW.VERTRAGSTEXT")
         select_switch(sdt, f"SW.VERTRAGSTEXT.{d.variante}")
@@ -232,15 +260,50 @@ class Renderer:
 
     def konditionen(self, ctx: StandortContext, d: Derived) -> None:
         tbl_sdt = self._anchor("TBL.KONDITIONEN")
-        self._block("KOND.ABRECHNUNG", T.konditionen_abrechnung(ctx), tbl_sdt)
-        self._block("KOND.RECHNUNG", T.konditionen_rechnung(ctx, d), tbl_sdt)
+        self._block("KOND.ABRECHNUNG", T.konditionen_abrechnung(ctx, self.b), tbl_sdt)
+        self._block("KOND.RECHNUNG", T.konditionen_rechnung(ctx, d, self.b), tbl_sdt)
         # Die Konditionentabelle ist statisch und keine Summentabelle – ihr
         # tblLook bleibt so, wie die Vorlage es definiert (Abschnitt 8.4).
 
     def schluss(self, standorte: list[StandortContext]) -> None:
         erste = standorte[0]
-        self._text("OFF.ORT_DATUM", T.ORT_DATUM.format(datum=date_de(erste.get("datum"))))
-        self._text("LINE.NACHWEIS", T.nachweis(standorte))
+        self._text("OFF.ORT_DATUM", T.ort_datum(erste, self.b))
+        self._text("LINE.NACHWEIS", T.nachweis(standorte, self.b))
+
+    # -- Gerätedatenblätter ------------------------------------------------
+
+    def hardware_kapitel(
+        self, blaetter: list[tuple[str, Datenblatt]], mit_spezifikation: bool
+    ) -> None:
+        """Je Gerät ein Abschnitt aus dem zugehörigen Datenblatt.
+
+        Ohne Datenblätter entfällt das Kapitel ersatzlos – kein leerer
+        Abschnitt, keine Überschrift.
+        """
+        from .docxutil.uebernehmen import Uebernahme
+
+        sdt = self._anchor("SEC.HARDWARE")
+        if not blaetter:
+            remove(sdt)
+            return
+
+        inhalt = content_children(sdt)
+        if not inhalt:
+            raise OfferteError("E101", "SEC.HARDWARE ohne Absatz")
+        muster = inhalt[0]
+
+        uebernahme = Uebernahme(self.doc, STIL_ABBILDUNG)
+        bloecke = [
+            make_paragraph(muster, self.b.text("hardware_kapitel"), "Heading1"),
+            make_paragraph(muster, self.b.text("hardware_gruppe"), "Heading2"),
+        ]
+        for _bezeichnung, blatt in blaetter:
+            quelle = blatt.laden()
+            uebernahme.vorbereiten(quelle)
+            for block in blatt.bloecke(mit_spezifikation):
+                bloecke.append(uebernahme.block(block, quelle))
+
+        replace_children(sdt, bloecke)
 
     # -- Abschluss ---------------------------------------------------------
 
@@ -260,9 +323,12 @@ def render(
     mapping: Mapping,
     crm: CRM,
     warn: WarningCollector,
+    bausteine: Bausteine | None = None,
+    datenblaetter: list | None = None,
+    mit_spezifikation: bool = True,
 ) -> set[str]:
     """Vollständige Befüllung; gibt die selbst gesetzten Beträge zurück."""
-    r = Renderer(doc, mapping, crm, warn)
+    r = Renderer(doc, mapping, crm, warn, bausteine)
     erste_ctx, erste_d = standorte[0]
 
     r.deckblatt(erste_ctx, erste_d)
@@ -280,6 +346,7 @@ def render(
     # Bei unterschiedlichen Laufzeiten nennt der Vertragstext die längste (W310).
     leit_ctx = max(standorte, key=lambda s: s[0].num("laufzeit"))[0]
     r.vertragstext(leit_ctx, erste_d)
+    r.hardware_kapitel(datenblaetter or [], mit_spezifikation)
     r.konditionen(erste_ctx, erste_d)
     r.schluss([c for c, _ in standorte])
     r.resolve_all()

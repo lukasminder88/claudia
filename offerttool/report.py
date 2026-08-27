@@ -19,6 +19,7 @@ def schreibe_protokoll(
     warn: WarningCollector,
     mapping_version: str,
     vorlage: str,
+    bausteine: str = "mitgeliefert",
 ) -> Path:
     pfad = ziel.with_suffix(ziel.suffix + ".pruefprotokoll.md")
     erste, erste_d = standorte[0]
@@ -30,6 +31,7 @@ def schreibe_protokoll(
         "",
         f"- Vorlage: `{vorlage}`",
         f"- Mapping: `{mapping_version}`",
+        f"- Textbausteine: `{bausteine}`",
         f"- Standorte: {len(standorte)}",
     ]
     for ctx, _d in standorte:

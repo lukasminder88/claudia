@@ -7,6 +7,28 @@ sheets:
   KM:  {index: 0, expect_name: "KM - Système couleur "}
   SOL: {index: 1, expect_name: "Détail Solutions"}
 
+# Beschriftungen, an denen sich dieses Layout erkennen lässt. Trägt ein Kalktool
+# eine unbekannte Versionsangabe, wird nicht geraten, sondern geprüft: stimmen
+# diese Zellen, passt das Mapping. Gewählt sind nur Zellen, die unabhängig von
+# Kauf, Miete oder Leasing gefüllt sind.
+layout_marken:
+  "KM!A1":   "Kalkulationstool"
+  "KM!A3":   "Verkäufer :"
+  "KM!A5":   "Kunde :"
+  "KM!A7":   "Standort :"
+  "KM!A25":  "Hardware"
+  "KM!A26":  "Modell - Beschreibung / Artikel"
+  "KM!C26":  "Listenpreis"
+  "KM!J15":  "Laufzeit"
+  "KM!L15":  "Fakt. Pauschale"
+  "KM!L16":  "Fakt. Mehrseiten"
+  "KM!A59":  "Netto Verkaufspreis"
+  "KM!A62":  "Vertragswert"
+  "KM!A71":  "Verrechnet"
+  "KM!B71":  "Finanziert"
+  "SOL!A20": "Anzahl"
+  "SOL!C20": "Bezeichnung"
+
 fields:
   kunde.firma:            {cell: "KM!B5",   type: TXT,  fmt: trim,                  req: M}
   kunde.strasse:          {cell: "KM!D5",   type: TXT,  fmt: trim,                  req: M}
@@ -14,11 +36,11 @@ fields:
   kunde.nr:               {cell: "KM!J3",   type: TXT,  fmt: trim,                  req: O}
   kunde.kontakt_roh:      {cell: "KM!J5",   type: TXT,  fmt: parse_kontakt,         req: W}
   standort.name:          {cell: "KM!B7",   type: TXT,  fmt: trim,                  req: M}
-  standort.strasse:       {cell: "KM!D7",   type: TXT,  fmt: trim,                  req: M}
-  standort.plz_ort_roh:   {cell: "KM!G7",   type: TXT,  fmt: parse_plz_ort,         req: M}
-  vk.name:                {cell: "KM!B3",   type: TXT,  fmt: trim,                  req: M}
+  standort.strasse:       {cell: "KM!D7",   type: TXT,  fmt: trim,                  req: W}
+  standort.plz_ort_roh:   {cell: "KM!G7",   type: TXT,  fmt: parse_plz_ort,         req: W}
+  vk.name:                {cell: "KM!B3",   type: TXT,  fmt: trim,                  req: W}
   vk.nr:                  {cell: "KM!E3",   type: TXT,  fmt: trim,                  req: O}
-  verkaufschance:         {cell: "KM!M8",   type: TXT,  fmt: trim,                  req: M}
+  verkaufschance:         {cell: "KM!M8",   type: TXT,  fmt: trim,                  req: W}
   datum:                  {cell: "KM!M9",   type: DATE, fmt: date_de,               req: M}
   kalktool.version:       {cell: "KM!C1",   type: TXT,  fmt: trim,                  req: M}
   finanzierungsart:       {cell: "KM!I16",  type: ENUM, values: [1, 2, 3, 4, 5],     req: M}
