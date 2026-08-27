@@ -1,37 +1,60 @@
-import { useState } from 'react'
-import type { Project, TimeEntry } from '../lib/types'
-import {
-  addManualEntry,
-  deleteEntry,
-  updateEntry,
-} from '../lib/store'
+import { useMemo, useState } from 'react'
+import type { Project, Task, TimeEntry } from '../lib/types'
+import { addManualEntry, deleteEntry, updateEntry } from '../lib/store'
 import { fromDatetimeLocal, toDatetimeLocal } from '../lib/time'
 
 type Props = {
   projects: Project[]
+  tasks: Task[]
   /** Zu bearbeitender Eintrag, oder undefined für einen neuen Eintrag. */
   entry?: TimeEntry
   defaultProjectId?: string
+  defaultTaskId?: string
   onClose: () => void
 }
 
 /** Modal zum Anlegen bzw. Bearbeiten eines Zeiteintrags. */
-export function EntryEditor({ projects, entry, defaultProjectId, onClose }: Props) {
+export function EntryEditor({
+  projects,
+  tasks,
+  entry,
+  defaultProjectId,
+  defaultTaskId,
+  onClose,
+}: Props) {
   const now = new Date()
   const oneHourAgo = new Date(now.getTime() - 3600000)
 
   const [projectId, setProjectId] = useState(
     entry?.projectId ?? defaultProjectId ?? projects[0]?.id ?? '',
   )
+  const [taskId, setTaskId] = useState<string>(
+    entry?.taskId ?? defaultTaskId ?? '',
+  )
   const [start, setStart] = useState(
     toDatetimeLocal(entry?.start ?? oneHourAgo.toISOString()),
   )
-  const [end, setEnd] = useState(
-    toDatetimeLocal(entry?.end ?? now.toISOString()),
-  )
+  const [end, setEnd] = useState(toDatetimeLocal(entry?.end ?? now.toISOString()))
   const [note, setNote] = useState(entry?.note ?? '')
   const [billable, setBillable] = useState(entry?.billable ?? true)
   const [error, setError] = useState('')
+
+  // Tasks des gewählten Projekts (aktive + der aktuell zugewiesene).
+  const projectTasks = useMemo(
+    () =>
+      tasks.filter(
+        (t) => t.projectId === projectId && (!t.archived || t.id === taskId),
+      ),
+    [tasks, projectId, taskId],
+  )
+
+  function changeProject(id: string) {
+    setProjectId(id)
+    // Task zurücksetzen, wenn er nicht zum neuen Projekt gehört.
+    if (!tasks.some((t) => t.id === taskId && t.projectId === id)) {
+      setTaskId('')
+    }
+  }
 
   function save() {
     if (!projectId) {
@@ -44,22 +67,18 @@ export function EntryEditor({ projects, entry, defaultProjectId, onClose }: Prop
       setError('Das Ende muss nach dem Start liegen.')
       return
     }
+    const fields = {
+      projectId,
+      taskId: taskId || undefined,
+      start: startIso,
+      end: endIso,
+      note: note.trim() || undefined,
+      billable,
+    }
     if (entry) {
-      updateEntry(entry.id, {
-        projectId,
-        start: startIso,
-        end: endIso,
-        note: note.trim() || undefined,
-        billable,
-      })
+      updateEntry(entry.id, fields)
     } else {
-      addManualEntry({
-        projectId,
-        start: startIso,
-        end: endIso,
-        note,
-        billable,
-      })
+      addManualEntry(fields)
     }
     onClose()
   }
@@ -83,16 +102,33 @@ export function EntryEditor({ projects, entry, defaultProjectId, onClose }: Prop
           <select
             className="select"
             value={projectId}
-            onChange={(e) => setProjectId(e.target.value)}
+            onChange={(e) => changeProject(e.target.value)}
           >
             {projects.map((p) => (
               <option key={p.id} value={p.id}>
                 {p.name}
-                {p.client ? ` · ${p.client}` : ''}
               </option>
             ))}
           </select>
         </div>
+
+        {projectTasks.length > 0 && (
+          <div className="field">
+            <label>Task</label>
+            <select
+              className="select"
+              value={taskId}
+              onChange={(e) => setTaskId(e.target.value)}
+            >
+              <option value="">— kein Task —</option>
+              {projectTasks.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
 
         <div className="row">
           <div className="field">

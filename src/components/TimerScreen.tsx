@@ -22,10 +22,11 @@ export function TimerScreen({ state, onGoToProjects }: Props) {
   const running = runningEntry(state)
   const activeProjects = state.projects.filter((p) => !p.archived)
 
-  // Ausgewähltes Projekt für den nächsten Start.
+  // Ausgewähltes Projekt / Task für den nächsten Start.
   const [selectedId, setSelectedId] = useState<string>(
     state.lastProjectId ?? activeProjects[0]?.id ?? '',
   )
+  const [selectedTaskId, setSelectedTaskId] = useState<string>('')
   const [editEntry, setEditEntry] = useState<TimeEntry | null>(null)
   const [showManual, setShowManual] = useState(false)
 
@@ -37,21 +38,41 @@ export function TimerScreen({ state, onGoToProjects }: Props) {
     return () => clearInterval(id)
   }, [running])
 
-  const runningProject = running
-    ? state.projects.find((p) => p.id === running.projectId)
+  const projectById = new Map(state.projects.map((p) => [p.id, p]))
+  const clientById = new Map(state.clients.map((c) => [c.id, c]))
+  const taskById = new Map(state.tasks.map((t) => [t.id, t]))
+
+  // Tasks des aktuell gewählten Projekts (für die Schnellauswahl).
+  const selectedTasks = state.tasks.filter(
+    (t) => t.projectId === selectedId && !t.archived,
+  )
+
+  const runningProject = running ? projectById.get(running.projectId) : undefined
+  const runningTask = running?.taskId ? taskById.get(running.taskId) : undefined
+  const runningClient = runningProject?.clientId
+    ? clientById.get(runningProject.clientId)
     : undefined
+
+  const selectedProject = projectById.get(selectedId)
+  const selectedClient = selectedProject?.clientId
+    ? clientById.get(selectedProject.clientId)
+    : undefined
+
+  function selectProject(id: string) {
+    setSelectedId(id)
+    setSelectedTaskId('') // Task-Auswahl zurücksetzen
+  }
 
   function handleBig() {
     if (running) {
       stopTimer()
     } else if (selectedId) {
-      startTimer(selectedId)
+      startTimer(selectedId, selectedTaskId || undefined)
     } else {
       onGoToProjects()
     }
   }
 
-  const projectById = new Map(state.projects.map((p) => [p.id, p]))
   const recent = [...state.entries]
     .filter((e) => e.end !== null)
     .sort((a, b) => b.start.localeCompare(a.start))
@@ -78,7 +99,8 @@ export function TimerScreen({ state, onGoToProjects }: Props) {
           <div className="empty">
             Noch kein Projekt vorhanden.
             <br />
-            Lege zuerst ein Projekt an, dann kannst du die Zeit tracken.
+            Lege zuerst einen Kunden und ein Projekt an, dann kannst du die Zeit
+            tracken.
           </div>
           <button className="btn btn-primary btn-block" onClick={onGoToProjects}>
             <PlusIcon /> Projekt anlegen
@@ -88,9 +110,28 @@ export function TimerScreen({ state, onGoToProjects }: Props) {
         <>
           <div className="timer-hero">
             <div className="timer-project">
+              {running ? (
+                <>
+                  {runningClient && (
+                    <span className="timer-client">{runningClient.name} · </span>
+                  )}
+                  {runningProject?.name ?? 'Läuft…'}
+                </>
+              ) : (
+                <>
+                  {selectedClient && (
+                    <span className="timer-client">{selectedClient.name} · </span>
+                  )}
+                  {selectedProject?.name ?? 'Projekt wählen'}
+                </>
+              )}
+            </div>
+            <div className="timer-task">
               {running
-                ? runningProject?.name ?? 'Läuft…'
-                : projectById.get(selectedId)?.name ?? 'Projekt wählen'}
+                ? runningTask?.name ?? ''
+                : selectedTaskId
+                  ? taskById.get(selectedTaskId)?.name ?? ''
+                  : ''}
             </div>
             <div className={`timer-clock ${running ? '' : 'idle'}`}>
               {running ? formatStopwatch(durationMs(running)) : '00:00:00'}
@@ -109,17 +150,46 @@ export function TimerScreen({ state, onGoToProjects }: Props) {
             <>
               <div className="section-label">Projekt wählen</div>
               <div className="project-chips">
-                {activeProjects.map((p) => (
-                  <button
-                    key={p.id}
-                    className={`chip ${selectedId === p.id ? 'selected' : ''}`}
-                    onClick={() => setSelectedId(p.id)}
-                  >
-                    <span className="dot" style={{ background: p.color }} />
-                    {p.name}
-                  </button>
-                ))}
+                {activeProjects.map((p) => {
+                  const client = p.clientId ? clientById.get(p.clientId) : undefined
+                  return (
+                    <button
+                      key={p.id}
+                      className={`chip ${selectedId === p.id ? 'selected' : ''}`}
+                      onClick={() => selectProject(p.id)}
+                    >
+                      <span className="dot" style={{ background: p.color }} />
+                      <span className="chip-labels">
+                        {client && <span className="chip-client">{client.name}</span>}
+                        {p.name}
+                      </span>
+                    </button>
+                  )
+                })}
               </div>
+
+              {selectedTasks.length > 0 && (
+                <>
+                  <div className="section-label">Task wählen</div>
+                  <div className="project-chips">
+                    <button
+                      className={`chip ${selectedTaskId === '' ? 'selected' : ''}`}
+                      onClick={() => setSelectedTaskId('')}
+                    >
+                      Ohne Task
+                    </button>
+                    {selectedTasks.map((t) => (
+                      <button
+                        key={t.id}
+                        className={`chip ${selectedTaskId === t.id ? 'selected' : ''}`}
+                        onClick={() => setSelectedTaskId(t.id)}
+                      >
+                        {t.name}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
             </>
           )}
         </>
@@ -162,6 +232,8 @@ export function TimerScreen({ state, onGoToProjects }: Props) {
                 </div>
                 {g.items.map((e) => {
                   const p = projectById.get(e.projectId)
+                  const task = e.taskId ? taskById.get(e.taskId) : undefined
+                  const client = p?.clientId ? clientById.get(p.clientId) : undefined
                   return (
                     <button
                       key={e.id}
@@ -174,10 +246,13 @@ export function TimerScreen({ state, onGoToProjects }: Props) {
                         style={{ background: p?.color ?? '#666' }}
                       />
                       <div className="entry-body">
-                        <div className="entry-name">{p?.name ?? '—'}</div>
+                        <div className="entry-name">
+                          {p?.name ?? '—'}
+                          {task && <span className="entry-task"> · {task.name}</span>}
+                        </div>
                         <div className="entry-meta">
-                          {formatClock(e.start)}–
-                          {e.end ? formatClock(e.end) : '…'}
+                          {client ? `${client.name} · ` : ''}
+                          {formatClock(e.start)}–{e.end ? formatClock(e.end) : '…'}
                           {!e.billable && ' · nicht verrechenbar'}
                         </div>
                         {e.note && <div className="entry-note">{e.note}</div>}
@@ -197,6 +272,7 @@ export function TimerScreen({ state, onGoToProjects }: Props) {
       {editEntry && (
         <EntryEditor
           projects={state.projects}
+          tasks={state.tasks}
           entry={editEntry}
           onClose={() => setEditEntry(null)}
         />
@@ -204,7 +280,9 @@ export function TimerScreen({ state, onGoToProjects }: Props) {
       {showManual && (
         <EntryEditor
           projects={activeProjects}
+          tasks={state.tasks}
           defaultProjectId={selectedId}
+          defaultTaskId={selectedTaskId || undefined}
           onClose={() => setShowManual(false)}
         />
       )}

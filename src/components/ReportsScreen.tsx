@@ -9,11 +9,13 @@ import {
 } from '../lib/time'
 
 type Period = 'today' | 'week' | 'all'
+type GroupBy = 'project' | 'task'
 
 type Props = { state: AppState }
 
 export function ReportsScreen({ state }: Props) {
   const [period, setPeriod] = useState<Period>('week')
+  const [groupBy, setGroupBy] = useState<GroupBy>('project')
 
   const since = useMemo(() => {
     if (period === 'today') return startOfToday()
@@ -23,9 +25,12 @@ export function ReportsScreen({ state }: Props) {
 
   const stats = useMemo(() => {
     const projectById = new Map(state.projects.map((p) => [p.id, p]))
-    const perProject = new Map<
+    const clientById = new Map(state.clients.map((c) => [c.id, c]))
+    const taskById = new Map(state.tasks.map((t) => [t.id, t]))
+
+    const groups = new Map<
       string,
-      { ms: number; amount: number; billableMs: number }
+      { label: string; sub: string; color: string; ms: number }
     >()
     let totalMs = 0
     let totalAmount = 0
@@ -37,30 +42,37 @@ export function ReportsScreen({ state }: Props) {
       totalMs += ms
       const project = projectById.get(e.projectId)
       const rate = project?.hourlyRate
-      const amount =
-        e.billable && rate != null ? decimalHours(ms) * rate : 0
-      totalAmount += amount
+      if (e.billable && rate != null) totalAmount += decimalHours(ms) * rate
 
-      const cur = perProject.get(e.projectId) ?? {
+      const client = project?.clientId ? clientById.get(project.clientId) : undefined
+
+      let key: string
+      let label: string
+      let sub: string
+      if (groupBy === 'task') {
+        const task = e.taskId ? taskById.get(e.taskId) : undefined
+        key = e.taskId ?? `notask:${e.projectId}`
+        label = task?.name ?? '(ohne Task)'
+        sub = project?.name ?? '—'
+      } else {
+        key = e.projectId
+        label = project?.name ?? '—'
+        sub = client?.name ?? 'Ohne Kunde'
+      }
+
+      const cur = groups.get(key) ?? {
+        label,
+        sub,
+        color: project?.color ?? '#666',
         ms: 0,
-        amount: 0,
-        billableMs: 0,
       }
       cur.ms += ms
-      cur.amount += amount
-      if (e.billable) cur.billableMs += ms
-      perProject.set(e.projectId, cur)
+      groups.set(key, cur)
     }
 
-    const bars = [...perProject.entries()]
-      .map(([projectId, v]) => ({
-        project: projectById.get(projectId),
-        ...v,
-      }))
-      .sort((a, b) => b.ms - a.ms)
-
+    const bars = [...groups.values()].sort((a, b) => b.ms - a.ms)
     return { totalMs, totalAmount, bars }
-  }, [state, since])
+  }, [state, since, groupBy])
 
   const maxMs = Math.max(1, ...stats.bars.map((b) => b.ms))
 
@@ -68,7 +80,7 @@ export function ReportsScreen({ state }: Props) {
     <div className="screen">
       <h1 className="screen-title">Auswertung</h1>
 
-      <div className="project-chips" style={{ marginBottom: 20 }}>
+      <div className="project-chips" style={{ marginBottom: 14 }}>
         {(
           [
             ['today', 'Heute'],
@@ -105,20 +117,45 @@ export function ReportsScreen({ state }: Props) {
         <div className="empty">Keine Einträge in diesem Zeitraum.</div>
       ) : (
         <>
-          <div className="section-label">Nach Projekt</div>
-          {stats.bars.map((b) => (
-            <div className="bar-row" key={b.project?.id ?? 'none'}>
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+            }}
+          >
+            <div className="section-label" style={{ margin: '8px 0' }}>
+              Aufschlüsselung
+            </div>
+            <div className="segmented">
+              <button
+                className={groupBy === 'project' ? 'active' : ''}
+                onClick={() => setGroupBy('project')}
+              >
+                Projekt
+              </button>
+              <button
+                className={groupBy === 'task' ? 'active' : ''}
+                onClick={() => setGroupBy('task')}
+              >
+                Task
+              </button>
+            </div>
+          </div>
+
+          {stats.bars.map((b, i) => (
+            <div className="bar-row" key={i}>
               <div className="bar-head">
-                <span className="bar-name">{b.project?.name ?? '—'}</span>
+                <span className="bar-name">
+                  {b.label}
+                  <span className="bar-sub"> · {b.sub}</span>
+                </span>
                 <span className="bar-val">{formatDuration(b.ms)}</span>
               </div>
               <div className="bar-track">
                 <div
                   className="bar-fill"
-                  style={{
-                    width: `${(b.ms / maxMs) * 100}%`,
-                    background: b.project?.color ?? '#666',
-                  }}
+                  style={{ width: `${(b.ms / maxMs) * 100}%`, background: b.color }}
                 />
               </div>
             </div>

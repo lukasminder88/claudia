@@ -14,10 +14,13 @@ function csvCell(value: string | number): string {
 
 export function entriesToCsv(state: AppState): string {
   const projectById = new Map(state.projects.map((p) => [p.id, p]))
+  const clientById = new Map(state.clients.map((c) => [c.id, c]))
+  const taskById = new Map(state.tasks.map((t) => [t.id, t]))
   const header = [
     'Datum',
-    'Projekt',
     'Kunde',
+    'Projekt',
+    'Task',
     'Start',
     'Ende',
     'Dauer (h)',
@@ -32,6 +35,10 @@ export function entriesToCsv(state: AppState): string {
     .sort((a, b) => a.start.localeCompare(b.start))
     .map((e) => {
       const project = projectById.get(e.projectId)
+      const client = project?.clientId
+        ? clientById.get(project.clientId)
+        : undefined
+      const task = e.taskId ? taskById.get(e.taskId) : undefined
       const hours = decimalHours(durationMs(e))
       const rate = project?.hourlyRate
       const amount = rate != null ? Math.round(hours * rate * 100) / 100 : ''
@@ -39,8 +46,9 @@ export function entriesToCsv(state: AppState): string {
         iso ? new Date(iso).toLocaleString('de-CH') : ''
       return [
         new Date(e.start).toLocaleDateString('de-CH'),
+        client?.name ?? '',
         project?.name ?? '—',
-        project?.client ?? '',
+        task?.name ?? '',
         fmt(e.start),
         fmt(e.end),
         String(hours).replace('.', ','),

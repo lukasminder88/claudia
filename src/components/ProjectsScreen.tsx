@@ -1,12 +1,18 @@
 import { useState } from 'react'
-import type { AppState, Project } from '../lib/types'
+import type { AppState, Client, Project } from '../lib/types'
 import {
+  addClient,
   addProject,
+  addTask,
   archiveProject,
+  deleteClient,
   deleteProject,
+  deleteTask,
+  updateClient,
   updateProject,
+  updateTask,
 } from '../lib/store'
-import { PlusIcon, PencilIcon } from './Icons'
+import { PlusIcon, PencilIcon, TrashIcon } from './Icons'
 
 const COLORS = [
   '#6366f1',
@@ -22,48 +28,132 @@ const COLORS = [
 type Props = { state: AppState }
 
 export function ProjectsScreen({ state }: Props) {
-  const [editing, setEditing] = useState<Project | 'new' | null>(null)
+  const [editingClient, setEditingClient] = useState<Client | 'new' | null>(null)
+  const [projectSheet, setProjectSheet] = useState<
+    { project?: Project; clientId?: string } | null
+  >(null)
 
-  const active = state.projects.filter((p) => !p.archived)
-  const archived = state.projects.filter((p) => p.archived)
+  const clients = state.clients.filter((c) => !c.archived)
+  const projectsByClient = (clientId?: string) =>
+    state.projects.filter((p) => !p.archived && p.clientId === clientId)
+  const unassigned = projectsByClient(undefined)
+  const archivedProjects = state.projects.filter((p) => p.archived)
+
+  const isEmpty = state.clients.length === 0 && state.projects.length === 0
 
   return (
     <div className="screen">
       <h1 className="screen-title">Projekte</h1>
 
-      <button
-        className="btn btn-primary btn-block"
-        onClick={() => setEditing('new')}
-        style={{ marginBottom: 20 }}
-      >
-        <PlusIcon /> Neues Projekt
-      </button>
+      <div className="row" style={{ marginBottom: 20 }}>
+        <button className="btn" onClick={() => setEditingClient('new')}>
+          <PlusIcon /> Kunde
+        </button>
+        <button
+          className="btn btn-primary"
+          onClick={() => setProjectSheet({})}
+        >
+          <PlusIcon /> Projekt
+        </button>
+      </div>
 
-      {active.length === 0 && archived.length === 0 && (
+      {isEmpty && (
         <div className="empty">
-          Noch keine Projekte.
+          Noch nichts angelegt.
           <br />
-          Lege dein erstes Projekt an, um Zeit zu tracken.
+          Erstelle einen Kunden und darunter Projekte mit Tasks.
         </div>
       )}
 
-      {active.map((p) => (
-        <ProjectRow key={p.id} project={p} onEdit={() => setEditing(p)} />
+      {/* Kunden mit ihren Projekten */}
+      {clients.map((client) => (
+        <div className="client-block" key={client.id}>
+          <div className="client-head">
+            <span className="client-name">{client.name}</span>
+            <div style={{ display: 'flex', gap: 4 }}>
+              <button
+                className="icon-btn"
+                onClick={() => setProjectSheet({ clientId: client.id })}
+                aria-label="Projekt hinzufügen"
+              >
+                <PlusIcon />
+              </button>
+              <button
+                className="icon-btn"
+                onClick={() => setEditingClient(client)}
+                aria-label="Kunde bearbeiten"
+              >
+                <PencilIcon />
+              </button>
+            </div>
+          </div>
+          {projectsByClient(client.id).length === 0 ? (
+            <div className="client-empty">Noch keine Projekte</div>
+          ) : (
+            projectsByClient(client.id).map((p) => (
+              <ProjectRow
+                key={p.id}
+                project={p}
+                taskCount={
+                  state.tasks.filter((t) => t.projectId === p.id && !t.archived)
+                    .length
+                }
+                onOpen={() => setProjectSheet({ project: p })}
+              />
+            ))
+          )}
+        </div>
       ))}
 
-      {archived.length > 0 && (
+      {/* Projekte ohne Kunde */}
+      {unassigned.length > 0 && (
+        <div className="client-block">
+          <div className="client-head">
+            <span className="client-name" style={{ color: 'var(--text-faint)' }}>
+              Ohne Kunde
+            </span>
+          </div>
+          {unassigned.map((p) => (
+            <ProjectRow
+              key={p.id}
+              project={p}
+              taskCount={
+                state.tasks.filter((t) => t.projectId === p.id && !t.archived)
+                  .length
+              }
+              onOpen={() => setProjectSheet({ project: p })}
+            />
+          ))}
+        </div>
+      )}
+
+      {/* Archiv */}
+      {archivedProjects.length > 0 && (
         <>
-          <div className="section-label">Archiviert</div>
-          {archived.map((p) => (
-            <ProjectRow key={p.id} project={p} onEdit={() => setEditing(p)} />
+          <div className="section-label">Archivierte Projekte</div>
+          {archivedProjects.map((p) => (
+            <ProjectRow
+              key={p.id}
+              project={p}
+              taskCount={0}
+              onOpen={() => setProjectSheet({ project: p })}
+            />
           ))}
         </>
       )}
 
-      {editing && (
-        <ProjectEditor
-          project={editing === 'new' ? undefined : editing}
-          onClose={() => setEditing(null)}
+      {editingClient && (
+        <ClientEditor
+          client={editingClient === 'new' ? undefined : editingClient}
+          onClose={() => setEditingClient(null)}
+        />
+      )}
+      {projectSheet && (
+        <ProjectSheet
+          state={state}
+          project={projectSheet.project}
+          presetClientId={projectSheet.clientId}
+          onClose={() => setProjectSheet(null)}
         />
       )}
     </div>
@@ -72,15 +162,16 @@ export function ProjectsScreen({ state }: Props) {
 
 function ProjectRow({
   project,
-  onEdit,
+  taskCount,
+  onOpen,
 }: {
   project: Project
-  onEdit: () => void
+  taskCount: number
+  onOpen: () => void
 }) {
   return (
-    <div className="list-item">
+    <button className="list-item" onClick={onOpen} style={{ width: '100%', textAlign: 'left' }}>
       <span
-        className="dot"
         style={{
           background: project.color,
           width: 14,
@@ -92,30 +183,25 @@ function ProjectRow({
       <div className="grow">
         <div className="title">{project.name}</div>
         <div className="sub">
-          {project.client ? project.client : 'Kein Kunde'}
+          {taskCount > 0 ? `${taskCount} Task${taskCount === 1 ? '' : 's'}` : 'Keine Tasks'}
           {project.hourlyRate != null && ` · CHF ${project.hourlyRate}/h`}
         </div>
       </div>
-      <button className="icon-btn" onClick={onEdit} aria-label="Bearbeiten">
-        <PencilIcon />
-      </button>
-    </div>
+      <PencilIcon className="row-chevron" />
+    </button>
   )
 }
 
-function ProjectEditor({
-  project,
+// ---- Kunde bearbeiten -----------------------------------------------------
+
+function ClientEditor({
+  client,
   onClose,
 }: {
-  project?: Project
+  client?: Client
   onClose: () => void
 }) {
-  const [name, setName] = useState(project?.name ?? '')
-  const [client, setClient] = useState(project?.client ?? '')
-  const [rate, setRate] = useState(
-    project?.hourlyRate != null ? String(project.hourlyRate) : '',
-  )
-  const [color, setColor] = useState(project?.color ?? COLORS[0])
+  const [name, setName] = useState(client?.name ?? '')
   const [error, setError] = useState('')
 
   function save() {
@@ -123,21 +209,110 @@ function ProjectEditor({
       setError('Bitte einen Namen eingeben.')
       return
     }
+    if (client) updateClient(client.id, { name: name.trim() })
+    else addClient(name)
+    onClose()
+  }
+
+  return (
+    <div className="modal-backdrop" onClick={onClose}>
+      <div className="modal" onClick={(e) => e.stopPropagation()}>
+        <h2 className="modal-title">{client ? 'Kunde bearbeiten' : 'Neuer Kunde'}</h2>
+
+        <div className="field">
+          <label>Name</label>
+          <input
+            className="input"
+            type="text"
+            value={name}
+            placeholder="z. B. Muster AG"
+            autoFocus
+            onChange={(e) => setName(e.target.value)}
+          />
+        </div>
+
+        {error && (
+          <p className="hint" style={{ color: 'var(--danger)' }}>
+            {error}
+          </p>
+        )}
+
+        <div className="row" style={{ marginTop: 8 }}>
+          <button className="btn" onClick={onClose}>
+            Abbrechen
+          </button>
+          <button className="btn btn-primary" onClick={save}>
+            Speichern
+          </button>
+        </div>
+
+        {client && (
+          <button
+            className="btn btn-danger btn-block"
+            style={{ marginTop: 10 }}
+            onClick={() => {
+              if (
+                confirm(
+                  'Kunde inkl. aller Projekte, Tasks und Zeiteinträge löschen?',
+                )
+              ) {
+                deleteClient(client.id)
+                onClose()
+              }
+            }}
+          >
+            Kunde löschen
+          </button>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ---- Projekt-Sheet (Projektdaten + Tasks) ---------------------------------
+
+function ProjectSheet({
+  state,
+  project,
+  presetClientId,
+  onClose,
+}: {
+  state: AppState
+  project?: Project
+  presetClientId?: string
+  onClose: () => void
+}) {
+  const [name, setName] = useState(project?.name ?? '')
+  const [clientId, setClientId] = useState(project?.clientId ?? presetClientId ?? '')
+  const [rate, setRate] = useState(
+    project?.hourlyRate != null ? String(project.hourlyRate) : '',
+  )
+  const [color, setColor] = useState(project?.color ?? COLORS[0])
+  const [error, setError] = useState('')
+  const [newTask, setNewTask] = useState('')
+
+  const tasks = project
+    ? state.tasks.filter((t) => t.projectId === project.id)
+    : []
+
+  function save() {
+    if (!name.trim()) {
+      setError('Bitte einen Projektnamen eingeben.')
+      return
+    }
     const hourlyRate = rate.trim() ? Number(rate.replace(',', '.')) : undefined
     if (hourlyRate != null && Number.isNaN(hourlyRate)) {
       setError('Stundensatz muss eine Zahl sein.')
       return
     }
-    if (project) {
-      updateProject(project.id, {
-        name: name.trim(),
-        client: client.trim() || undefined,
-        hourlyRate,
-        color,
-      })
-    } else {
-      addProject({ name, client, hourlyRate, color })
+    const fields = {
+      name: name.trim(),
+      clientId: clientId || undefined,
+      hourlyRate,
+      color,
     }
+    if (project) updateProject(project.id, fields)
+    else addProject(fields)
     onClose()
   }
 
@@ -155,20 +330,27 @@ function ProjectEditor({
             type="text"
             value={name}
             placeholder="z. B. Website Relaunch"
-            autoFocus
+            autoFocus={!project}
             onChange={(e) => setName(e.target.value)}
           />
         </div>
 
         <div className="field">
-          <label>Kunde (optional)</label>
-          <input
-            className="input"
-            type="text"
-            value={client}
-            placeholder="z. B. Muster AG"
-            onChange={(e) => setClient(e.target.value)}
-          />
+          <label>Kunde</label>
+          <select
+            className="select"
+            value={clientId}
+            onChange={(e) => setClientId(e.target.value)}
+          >
+            <option value="">— kein Kunde —</option>
+            {state.clients
+              .filter((c) => !c.archived)
+              .map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+          </select>
         </div>
 
         <div className="field">
@@ -198,6 +380,73 @@ function ProjectEditor({
           </div>
         </div>
 
+        {/* Tasks – nur für bereits gespeicherte Projekte */}
+        {project && (
+          <div className="field">
+            <label>Tasks</label>
+            {tasks.filter((t) => !t.archived).length === 0 && (
+              <p className="hint" style={{ marginTop: 0 }}>
+                Noch keine Tasks. Füge unten welche hinzu (z. B. „Konzept",
+                „Design", „Umsetzung").
+              </p>
+            )}
+            {tasks
+              .filter((t) => !t.archived)
+              .map((t) => (
+                <div className="task-row" key={t.id}>
+                  <span className="task-name">{t.name}</span>
+                  <button
+                    className="icon-btn"
+                    aria-label="Task umbenennen"
+                    onClick={() => {
+                      const n = window.prompt('Task umbenennen', t.name)
+                      if (n && n.trim()) updateTask(t.id, { name: n.trim() })
+                    }}
+                  >
+                    <PencilIcon />
+                  </button>
+                  <button
+                    className="icon-btn"
+                    aria-label="Task löschen"
+                    onClick={() => {
+                      if (confirm(`Task „${t.name}" löschen?`)) deleteTask(t.id)
+                    }}
+                  >
+                    <TrashIcon />
+                  </button>
+                </div>
+              ))}
+            <div className="row" style={{ marginTop: 8 }}>
+              <input
+                className="input"
+                type="text"
+                value={newTask}
+                placeholder="Neuer Task…"
+                onChange={(e) => setNewTask(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && newTask.trim()) {
+                    addTask(project.id, newTask)
+                    setNewTask('')
+                  }
+                }}
+                style={{ flex: 3 }}
+              />
+              <button
+                className="btn"
+                style={{ flex: 1 }}
+                onClick={() => {
+                  if (newTask.trim()) {
+                    addTask(project.id, newTask)
+                    setNewTask('')
+                  }
+                }}
+              >
+                <PlusIcon />
+              </button>
+            </div>
+          </div>
+        )}
+
         {error && (
           <p className="hint" style={{ color: 'var(--danger)' }}>
             {error}
@@ -206,7 +455,7 @@ function ProjectEditor({
 
         <div className="row" style={{ marginTop: 8 }}>
           <button className="btn" onClick={onClose}>
-            Abbrechen
+            {project ? 'Fertig' : 'Abbrechen'}
           </button>
           <button className="btn btn-primary" onClick={save}>
             Speichern
@@ -230,7 +479,7 @@ function ProjectEditor({
               onClick={() => {
                 if (
                   confirm(
-                    'Projekt und alle zugehörigen Zeiteinträge unwiderruflich löschen?',
+                    'Projekt inkl. Tasks und Zeiteinträgen unwiderruflich löschen?',
                   )
                 ) {
                   deleteProject(project.id)

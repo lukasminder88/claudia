@@ -613,3 +613,116 @@ textarea {
     opacity: 0.3;
   }
 }
+
+/* ---- Hierarchie: Kunde / Projekt / Task ---------------------------------- */
+
+.timer-client {
+  color: var(--text-faint);
+  font-weight: 600;
+}
+
+.timer-task {
+  font-size: 14px;
+  color: var(--accent);
+  font-weight: 600;
+  min-height: 20px;
+  margin-top: 2px;
+}
+
+.chip-labels {
+  display: inline-flex;
+  flex-direction: column;
+  line-height: 1.2;
+  text-align: left;
+}
+
+.chip-client {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: var(--text-faint);
+}
+
+.entry-task {
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.client-block {
+  margin-bottom: 22px;
+}
+
+.client-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 4px 8px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 10px;
+}
+
+.client-name {
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.client-empty {
+  font-size: 13px;
+  color: var(--text-faint);
+  padding: 4px 4px 8px;
+}
+
+.row-chevron {
+  width: 18px;
+  height: 18px;
+  color: var(--text-faint);
+  flex-shrink: 0;
+}
+
+.task-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px;
+  background: var(--bg-elev-2);
+  border-radius: var(--radius-sm);
+  margin-bottom: 6px;
+}
+
+.task-name {
+  flex: 1;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.task-row .icon-btn {
+  width: 32px;
+  height: 32px;
+}
+
+.bar-sub {
+  font-weight: 500;
+  color: var(--text-faint);
+}
+
+.segmented {
+  display: inline-flex;
+  background: var(--bg-elev-2);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 2px;
+}
+
+.segmented button {
+  padding: 6px 14px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.segmented button.active {
+  background: var(--accent);
+  color: #fff;
+}
