@@ -71,6 +71,7 @@ const BAUSTEINE_STANDARD = {
     "total": "Summen (Kapitel 1.3)",
     "vertrag": "Vertragstext (Kapitel 1.4)",
     "konditionen": "Konditionen (Kapitel 2)",
+    "hardware": "Gerätedatenblätter",
     "schluss": "Schluss und Nachweis"
   },
   "bausteine": {
@@ -147,6 +148,20 @@ const BAUSTEINE_STANDARD = {
         "index"
       ],
       "text": "Im Angebot enthaltene Schulungen und Dienstleistungen – Standort {index}"
+    },
+    "hardware_kapitel": {
+      "titel": "Kapitelüberschrift Hardware",
+      "hinweis": "Überschrift des Kapitels mit den Gerätedatenblättern. Erscheint einmal, unabhängig von der Anzahl Geräte.",
+      "gruppe": "hardware",
+      "platzhalter": [],
+      "text": "Hardware"
+    },
+    "hardware_gruppe": {
+      "titel": "Zwischenüberschrift Geräteart",
+      "hinweis": "Steht unter der Kapitelüberschrift, ebenfalls nur einmal.",
+      "gruppe": "hardware",
+      "platzhalter": [],
+      "text": "Multifunktionsgeräte"
     },
     "tabelle_hardware_artnr": {
       "titel": "Geräteliste: Spalte Artikelnummer",

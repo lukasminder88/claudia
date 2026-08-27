@@ -42,6 +42,66 @@ offerttool generate standort_a.xlsx standort_b.xlsx -o Offerte.docx -c crm.json
 
 ---
 
+## Gerätedatenblätter
+
+Zu jedem Gerätemodell gibt es eine Word-Vorlage mit Beschreibung, technischen
+Daten und einer Optionsliste. Liegen sie in `datenblaetter/`, hängt der
+Generator zum angebotenen Gerät das passende Datenblatt als eigenes Kapitel
+**Hardware** an – zwischen Preisen und Konditionen, mit fortlaufender
+Nummerierung und Eintrag im Inhaltsverzeichnis.
+
+```bash
+offerttool generate k.xlsx -o o.docx -d datenblaetter/
+offerttool generate k.xlsx -o o.docx -d datenblaetter/ --ohne-spezifikation
+```
+
+`--ohne-spezifikation` lässt die Optionsliste am Schluss weg; Beschreibung und
+Technikdaten bleiben. In der Web-Oberfläche stehen dafür zwei Kästchen.
+
+**Das Verzeichnis liegt nicht im Repository** (`.gitignore`): Datenblätter sind
+Geschäftsunterlagen. Ohne sie entsteht die Offerte unverändert, nur ohne das
+Kapitel – kein leerer Abschnitt, keine Überschrift.
+
+### Zuordnung ohne Raten
+
+Gesucht wird zum **Gerät**, nicht zum Zubehör: ein Kalktool ist ein Standort
+ist ein Gerät (Abschnitt 2.2), das Gerät ist die erste Hardwareposition. Für
+Papierkassetten gibt es keine Datenblätter, sie erzeugten nur Fehlmeldungen.
+
+Verglichen wird der normalisierte Modellname, also ohne Sprachkürzel, Version
+und Trennzeichen: `bizhub C3351i` findet `bizhub C3351i de.dotx`. Passen
+mehrere Vorlagen, wird **keine** gewählt (`W330`); passt keine, `W331`. Beides
+sind Warnungen, keine Abbrüche – die Offerte bleibt ohne das Kapitel gültig.
+Steht dasselbe Modell an mehreren Standorten, erscheint sein Datenblatt einmal.
+
+### Was beim Übernehmen passiert
+
+Ein Absatz lässt sich nicht einfach kopieren. Die Datenblätter und die
+Offertvorlage teilen sich **keine einzige** Formatvorlage – die Datenblätter
+nennen ihre Überschriften `berschrift1`, die Offerte `Heading1`.
+`docxutil/uebernehmen.py` führt darum Buch über drei Arten von Verweisen:
+
+| Verweis | Behandlung |
+|---|---|
+| Formatvorlagen | Überschriften werden zugeordnet, alle übrigen aus dem Datenblatt ergänzt. Vorlagen, die es im Ziel schon gibt, bleiben unangetastet – die Offertvorlage ist verbindlich. |
+| Nummerierungen | Listendefinitionen werden unter neuen Bezeichnern übernommen; sonst zeigte eine Aufzählung auf eine beliebige Liste der Offerte. |
+| Bilder | Der Bildteil wandert samt neuer Beziehung ins Zieldokument. |
+
+Ohne die Zuordnung der Überschriften fände das Inhaltsverzeichnis das Kapitel
+nicht – deshalb prüft ein Test genau das.
+
+### Noch nicht enthalten
+
+Die Datenblätter führen rund 1300 **Artikelnummern**, die dem Kalktool fehlen.
+Sie automatisch in die Geräteliste zu übernehmen wäre nicht zuverlässig: das
+Kalktool nennt `PF-P27`, die Vorlage kennt darunter zwei Artikel
+(`AAJUWY4` Papierkassette und `AAJUWY2` Höhenverstellungseinheit), und
+`DK-P04` steht dort als `DK-P04x`. Über alle Vorlagen betrifft das 56 Kürzel.
+Zu raten wäre das Gegenteil dessen, wofür dieser Generator gebaut ist; eine
+Zuordnungsdatei wie beim Mapping wäre der Weg.
+
+---
+
 ## Formulierungen ändern
 
 Alle Texte der Offerte stehen in `offerttool/resources/textbausteine.yaml` –
@@ -280,6 +340,8 @@ Wichtige Optionen von `generate`:
 | `-t, --template` | andere ankerbasierte Vorlage |
 | `-m, --mapping` | Mapping erzwingen statt es über `KM!C1` zu wählen |
 | `-b, --bausteine` | eigene Textbausteine (YAML) statt der mitgelieferten |
+| `-d, --datenblaetter` | Verzeichnis mit den Gerätedatenblättern |
+| `--ohne-spezifikation` | Datenblätter ohne die Optionsliste am Schluss |
 | `--ohne-seitenzahlen` | Inhaltsverzeichnis ohne PDF-Rendervorgang (schneller, Seitenzahlen fehlen) |
 | `-v` | Pipeline-Schritte mitloggen |
 
@@ -442,7 +504,7 @@ Datei – **nie im Dokument selbst** (Abschnitt 13.3).
 ## Tests
 
 ```bash
-python -m pytest -q      # 115 Tests
+python -m pytest -q      # 127 Tests
 ```
 
 `tests/test_golden_birsfelden.py` prüft den Referenzfall aus Abschnitt 14 Wert für

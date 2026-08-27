@@ -45,6 +45,9 @@ WARNING_TEXTS = {
     "W312": "#DIV/0! in H32 oder H39 (rein intern, ohne Wirkung auf die Offerte)",
     "W320": "Blattname weicht vom erwarteten Namen ab",
     "W321": "Inhaltsverzeichnis ohne Seitenzahlen erzeugt (kein PDF-Renderer verfügbar)",
+    "W330": "Mehrere Datenblätter passen auf dieselbe Gerätebezeichnung",
+    "W331": "Kein Datenblatt zu diesem Gerät gefunden",
+    "W332": "Bild aus einem Datenblatt konnte nicht übernommen werden",
 }
 
 

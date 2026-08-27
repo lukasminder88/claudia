@@ -24,6 +24,9 @@ from .mapping import RESOURCES, available_mappings
 # sind nur Eingaben für ``prepare`` und liegen im Repository.
 STANDARD_VORLAGE = RESOURCES / "Offerte_anchored.docx"
 _REPO_TEMPLATES = Path(__file__).resolve().parent.parent / "templates"
+# Gerätedatenblätter: je Modell eine Word-Vorlage. Fehlt das Verzeichnis,
+# entsteht die Offerte einfach ohne das Hardwarekapitel.
+STANDARD_DATENBLAETTER = Path(__file__).resolve().parent.parent / "datenblaetter"
 STANDARD_MIETE = _REPO_TEMPLATES / "Offerte_deCH_Miete.docx"
 STANDARD_KAUF = _REPO_TEMPLATES / "Offerte_deCH_Kauf.docx"
 
@@ -49,6 +52,10 @@ def _parser() -> argparse.ArgumentParser:
                    help="Mapping erzwingen statt über KM!C1 zu wählen")
     g.add_argument("-b", "--bausteine", type=Path, default=None,
                    help="eigene Textbausteine (YAML) statt der mitgelieferten")
+    g.add_argument("-d", "--datenblaetter", type=Path, default=None,
+                   help="Verzeichnis mit den Gerätedatenblättern (.dotx/.docx)")
+    g.add_argument("--ohne-spezifikation", action="store_true",
+                   help="Datenblätter ohne die Optionsliste am Schluss")
     g.add_argument("--ohne-seitenzahlen", action="store_true",
                    help="Inhaltsverzeichnis ohne PDF-Rendervorgang aufbauen")
 
@@ -144,6 +151,8 @@ def _generate(args) -> int:
         args.mapping,
         toc_seitenzahlen=not args.ohne_seitenzahlen,
         bausteine_pfad=args.bausteine,
+        datenblaetter_pfad=args.datenblaetter,
+        mit_spezifikation=not args.ohne_spezifikation,
     )
     print(f"Offerte:      {ergebnis.offerte}")
     print(f"Prüfprotokoll: {ergebnis.protokoll}")

@@ -33,6 +33,7 @@ from .docxutil.fields import freeze_fields, set_update_fields
 from .docxutil.toc import build_toc, collect_headings, seitenzahlen, set_bookmarks
 from .docxutil.xmlutil import W, paragraph_text
 from .errors import OfferteError, WarningCollector
+from .hardware import Bibliothek, datenblaetter_fuer
 from .extract import StandortContext, extract
 from .formatters import date_de
 from .mapping import Mapping, load_mapping, select_mapping
@@ -62,6 +63,8 @@ def generiere(
     *,
     toc_seitenzahlen: bool = True,
     bausteine_pfad: str | Path | None = None,
+    datenblaetter_pfad: str | Path | None = None,
+    mit_spezifikation: bool = True,
 ) -> Ergebnis:
     """Eine Offerte aus n Kalktools erzeugen.
 
@@ -111,10 +114,21 @@ def generiere(
     validate_across(standorte, warn)
     gesamt = gesamttotal(standorte)
 
+    # Gerätedatenblätter zuordnen. Fehlt eines, ist das eine Warnung und kein
+    # Abbruch – die Offerte bleibt ohne dieses Kapitel vollständig.
+    datenblaetter = []
+    if datenblaetter_pfad:
+        bibliothek = Bibliothek.laden(datenblaetter_pfad)
+        log.info("6 VALIDATE_INPUT: %d Datenblätter verfügbar", len(bibliothek))
+        datenblaetter = datenblaetter_fuer(standorte, bibliothek, warn)
+
     # 7 RENDER – erst hier entsteht ein Dokument.
     log.info("7 RENDER")
     doc = docx.Document(str(vorlage))
-    emitted = render(doc, standorte, gesamt, mapping, crm, warn, bausteine)
+    emitted = render(
+        doc, standorte, gesamt, mapping, crm, warn, bausteine,
+        datenblaetter, mit_spezifikation,
+    )
 
     # 8 POSTPROCESS
     log.info("8 POSTPROCESS")

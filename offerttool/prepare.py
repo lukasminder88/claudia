@@ -128,6 +128,7 @@ def prepare(
     _prepare_toc(loc)
     _prepare_kapitel_1(loc)
     _prepare_vertragstext(loc, kauf)
+    _prepare_hardware(loc)
     _prepare_konditionen(loc)
     _prepare_schluss(loc)
 
@@ -345,6 +346,19 @@ def _kauf_absaetze(kauf_doc, muster_p) -> list:
 
 
 # --- Konditionen -----------------------------------------------------------
+
+
+def _prepare_hardware(loc: Locator) -> None:
+    """Platz für die Gerätedatenblätter schaffen (Kapitel nach den Preisen).
+
+    Der Anker steht vor dem Kapitel «Konditionen». Bleibt er leer, wird er
+    beim Rendern ersatzlos entfernt – ohne Datenblätter entsteht kein
+    leeres Kapitel.
+    """
+    konditionen = loc.para("Heading1", "Konditionen")
+    platzhalter = make_paragraph(konditionen, "", "Normal")
+    konditionen.addprevious(platzhalter)
+    wrap_in_sdt([platzhalter], "SEC.HARDWARE")
 
 
 def _prepare_konditionen(loc: Locator) -> None:

@@ -198,3 +198,45 @@ def test_dateiname_des_clients_wird_nicht_als_pfad_verwendet(client):
     assert r.status_code == 200
     # Der Name taucht nur bereinigt als Anzeigename auf.
     assert "/" not in r.json()["standorte"][0]["quelle"]
+
+
+# --- Gerätedatenblätter ----------------------------------------------------
+
+DATENBLAETTER = __import__("pathlib").Path(__file__).resolve().parent.parent / "datenblaetter"
+ohne_datenblaetter = pytest.mark.skipif(
+    not DATENBLAETTER.is_dir() or not any(DATENBLAETTER.rglob("*.dotx")),
+    reason="Verzeichnis datenblaetter/ ist nicht vorhanden",
+)
+
+
+def test_gesundheit_nennt_die_datenblaetter(client):
+    d = client.get("/api/gesundheit").json()
+    assert "datenblaetter" in d
+    assert isinstance(d["datenblaetter"], int)
+
+
+@ohne_datenblaetter
+def test_datenblaetter_lassen_sich_abwaehlen(client):
+    def xml_von(**daten):
+        antwort = client.post(
+            "/api/erzeugen", files=[kalktool()],
+            data={"seitenzahlen": "false", **daten},
+        ).json()
+        inhalt = client.get(f"/api/holen/{antwort['auftrag']}/offerte").content
+        return zipfile.ZipFile(__import__("io").BytesIO(inhalt)).read(
+            "word/document.xml"
+        ).decode("utf-8")
+
+    mit = xml_von(datenblaetter="true", spezifikation="true")
+    ohne_spez = xml_von(datenblaetter="true", spezifikation="false")
+    ganz_ohne = xml_von(datenblaetter="false")
+
+    # "Multifunktionsgeräte" steht auch im Einleitungstext von Kapitel 1.1;
+    # geprüft wird deshalb auf Text, den es nur im Datenblatt gibt.
+    assert "Die Vorteile auf einen Blick" in mit
+    assert "Artikel-Nr" in mit
+
+    assert "Die Vorteile auf einen Blick" in ohne_spez
+    assert "Artikel-Nr" not in ohne_spez
+
+    assert "Die Vorteile auf einen Blick" not in ganz_ohne

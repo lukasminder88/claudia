@@ -15,8 +15,10 @@ from .crm import CRM
 from .derive import Derived, Gesamt
 from .docxutil.anchor_ops import (
     clone_anchor_after,
+    content_children,
     find,
     remove,
+    replace_children,
     resolve,
     select_switch,
     set_block,
@@ -32,7 +34,9 @@ from .docxutil.tables import (
     set_cell_paragraphs,
     set_tbl_look,
 )
+from .docxutil.xmlutil import make_paragraph
 from .errors import OfferteError, WarningCollector
+from .hardware import STIL_ABBILDUNG, Datenblatt
 from .extract import StandortContext
 from .formatters import chf, date_de, trim
 from .mapping import Mapping
@@ -260,6 +264,41 @@ class Renderer:
         self._text("OFF.ORT_DATUM", T.ort_datum(erste, self.b))
         self._text("LINE.NACHWEIS", T.nachweis(standorte, self.b))
 
+    # -- Gerätedatenblätter ------------------------------------------------
+
+    def hardware_kapitel(
+        self, blaetter: list[tuple[str, Datenblatt]], mit_spezifikation: bool
+    ) -> None:
+        """Je Gerät ein Abschnitt aus dem zugehörigen Datenblatt.
+
+        Ohne Datenblätter entfällt das Kapitel ersatzlos – kein leerer
+        Abschnitt, keine Überschrift.
+        """
+        from .docxutil.uebernehmen import Uebernahme
+
+        sdt = self._anchor("SEC.HARDWARE")
+        if not blaetter:
+            remove(sdt)
+            return
+
+        inhalt = content_children(sdt)
+        if not inhalt:
+            raise OfferteError("E101", "SEC.HARDWARE ohne Absatz")
+        muster = inhalt[0]
+
+        uebernahme = Uebernahme(self.doc, STIL_ABBILDUNG)
+        bloecke = [
+            make_paragraph(muster, self.b.text("hardware_kapitel"), "Heading1"),
+            make_paragraph(muster, self.b.text("hardware_gruppe"), "Heading2"),
+        ]
+        for _bezeichnung, blatt in blaetter:
+            quelle = blatt.laden()
+            uebernahme.vorbereiten(quelle)
+            for block in blatt.bloecke(mit_spezifikation):
+                bloecke.append(uebernahme.block(block, quelle))
+
+        replace_children(sdt, bloecke)
+
     # -- Abschluss ---------------------------------------------------------
 
     def resolve_all(self) -> None:
@@ -279,6 +318,8 @@ def render(
     crm: CRM,
     warn: WarningCollector,
     bausteine: Bausteine | None = None,
+    datenblaetter: list | None = None,
+    mit_spezifikation: bool = True,
 ) -> set[str]:
     """Vollständige Befüllung; gibt die selbst gesetzten Beträge zurück."""
     r = Renderer(doc, mapping, crm, warn, bausteine)
@@ -299,6 +340,7 @@ def render(
     # Bei unterschiedlichen Laufzeiten nennt der Vertragstext die längste (W310).
     leit_ctx = max(standorte, key=lambda s: s[0].num("laufzeit"))[0]
     r.vertragstext(leit_ctx, erste_d)
+    r.hardware_kapitel(datenblaetter or [], mit_spezifikation)
     r.konditionen(erste_ctx, erste_d)
     r.schluss([c for c, _ in standorte])
     r.resolve_all()
