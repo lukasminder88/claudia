@@ -6,6 +6,7 @@ import { ReportsScreen } from './components/ReportsScreen'
 import { SettingsScreen } from './components/SettingsScreen'
 import { CalendarScreen } from './components/CalendarScreen'
 import { MeetingPrompt } from './components/MeetingPrompt'
+import { UpdateBanner } from './components/UpdateBanner'
 import { pushPending, pushableEntries, useMocoSettings } from './lib/moco'
 import { initMsAuth } from './lib/msgraph'
 import type { AppState } from './lib/types'
@@ -63,6 +64,9 @@ export default function App() {
 
       {/* Fragt beim Öffnen nach beendeten Meetings (falls Kalender verbunden). */}
       <MeetingPrompt state={state} />
+
+      {/* Hinweis, sobald eine neue App-Version bereitsteht. */}
+      <UpdateBanner />
 
       <nav className="tabbar">
         <div className="tabbar-inner">

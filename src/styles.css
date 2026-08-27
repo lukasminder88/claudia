@@ -629,6 +629,12 @@ textarea {
   margin-top: 2px;
 }
 
+.timer-note {
+  margin-top: 18px;
+  max-width: 420px;
+  text-align: center;
+}
+
 .chip-labels {
   display: inline-flex;
   flex-direction: column;
@@ -754,4 +760,31 @@ textarea {
 /* Tab-Leiste für 5 Einträge etwas kompakter. */
 .tab {
   padding: 6px 6px;
+}
+
+/* ---- Update-Hinweis ------------------------------------------------------ */
+
+.update-banner {
+  position: fixed;
+  left: 12px;
+  right: 12px;
+  bottom: calc(76px + var(--safe-bottom));
+  max-width: 616px;
+  margin: 0 auto;
+  background: var(--bg-elev-2);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius);
+  padding: 12px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+  z-index: 30;
+  animation: slideup 0.2s ease-out;
+}
+
+.update-text {
+  font-size: 15px;
+  font-weight: 600;
 }

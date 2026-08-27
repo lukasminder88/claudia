@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { AppState, TimeEntry } from '../lib/types'
-import { runningEntry, startTimer, stopTimer } from '../lib/store'
+import { runningEntry, startTimer, stopTimer, updateEntry } from '../lib/store'
 import {
   durationMs,
   formatDuration,
@@ -29,6 +29,8 @@ export function TimerScreen({ state, onGoToProjects }: Props) {
   const [selectedTaskId, setSelectedTaskId] = useState<string>('')
   const [editEntry, setEditEntry] = useState<TimeEntry | null>(null)
   const [showManual, setShowManual] = useState(false)
+  // Notiz zum aktuell laufenden Eintrag (lokal, wird live gespeichert).
+  const [noteInput, setNoteInput] = useState('')
 
   // Sekundengenauer Ticker, nur aktiv, solange ein Timer läuft.
   const [, setTick] = useState(0)
@@ -37,6 +39,13 @@ export function TimerScreen({ state, onGoToProjects }: Props) {
     const id = setInterval(() => setTick((t) => t + 1), 1000)
     return () => clearInterval(id)
   }, [running])
+
+  // Notizfeld auf den jeweils laufenden Eintrag synchronisieren.
+  const runningId = running?.id
+  useEffect(() => {
+    setNoteInput(running?.note ?? '')
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [runningId])
 
   const projectById = new Map(state.projects.map((p) => [p.id, p]))
   const clientById = new Map(state.clients.map((c) => [c.id, c]))
@@ -144,6 +153,21 @@ export function TimerScreen({ state, onGoToProjects }: Props) {
               {running ? <StopIcon /> : <PlayIcon />}
               {running ? 'Stopp' : 'Start'}
             </button>
+
+            {running && (
+              <input
+                className="input timer-note"
+                type="text"
+                value={noteInput}
+                placeholder="Notiz zu dieser Zeit…"
+                onChange={(e) => {
+                  setNoteInput(e.target.value)
+                  updateEntry(running.id, {
+                    note: e.target.value.trim() || undefined,
+                  })
+                }}
+              />
+            )}
           </div>
 
           {!running && (
