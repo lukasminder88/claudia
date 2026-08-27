@@ -57,6 +57,20 @@ export interface TimeEntry {
   externalId?: string
   /** Zeitpunkt der letzten Synchronisation. */
   syncedAt?: string
+  /** ID des zugrunde liegenden Kalendertermins (falls aus Meeting erzeugt). */
+  calendarEventId?: string
+}
+
+/** Zuordnung eines Kalendertermins zu einem Projekt/Task. Ermöglicht die
+ *  Vorab-Zuweisung von Meetings und das spätere Verbuchen als Zeiteintrag. */
+export interface CalendarAssignment {
+  eventId: string
+  projectId?: string
+  taskId?: string
+  /** Gesetzt, sobald aus dem Termin ein Zeiteintrag erzeugt wurde. */
+  entryId?: string
+  /** Vom Nutzer bewusst ignoriert (nicht verbuchen). */
+  dismissed?: boolean
 }
 
 export interface AppState {
@@ -64,6 +78,8 @@ export interface AppState {
   projects: Project[]
   tasks: Task[]
   entries: TimeEntry[]
+  /** Zuordnungen von Kalenderterminen zu Projekten/Tasks. */
+  calendarAssignments: CalendarAssignment[]
   /** Zuletzt gewähltes Projekt, damit der Timer schnell startbereit ist. */
   lastProjectId?: string
   /** Zuletzt gewählter Task (zum jeweiligen Projekt). */

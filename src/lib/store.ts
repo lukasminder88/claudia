@@ -20,7 +20,13 @@ const DEFAULT_COLORS = [
 ]
 
 function emptyState(): AppState {
-  return { clients: [], projects: [], tasks: [], entries: [] }
+  return {
+    clients: [],
+    projects: [],
+    tasks: [],
+    entries: [],
+    calendarAssignments: [],
+  }
 }
 
 /** ID-Generator – nutzt crypto.randomUUID falls vorhanden. */
@@ -49,6 +55,7 @@ function migrate(parsed: Partial<AppState> | null): AppState {
       projects: parsed.projects,
       tasks: parsed.tasks,
       entries,
+      calendarAssignments: parsed.calendarAssignments ?? [],
       lastProjectId: parsed.lastProjectId,
       lastTaskId: parsed.lastTaskId,
     }
@@ -83,6 +90,7 @@ function migrate(parsed: Partial<AppState> | null): AppState {
     projects: migratedProjects,
     tasks: [],
     entries,
+    calendarAssignments: [],
     lastProjectId: parsed.lastProjectId,
   }
 }
@@ -452,6 +460,69 @@ export function deleteEntry(id: string) {
     ...prev,
     entries: prev.entries.filter((e) => e.id !== id),
   }))
+}
+
+// ---- Aktionen: Kalender ---------------------------------------------------
+
+function upsertAssignment(
+  prev: AppState,
+  eventId: string,
+  patch: Partial<Omit<AppState['calendarAssignments'][number], 'eventId'>>,
+): AppState {
+  const existing = prev.calendarAssignments.find((a) => a.eventId === eventId)
+  const calendarAssignments = existing
+    ? prev.calendarAssignments.map((a) =>
+        a.eventId === eventId ? { ...a, ...patch } : a,
+      )
+    : [...prev.calendarAssignments, { eventId, ...patch }]
+  return { ...prev, calendarAssignments }
+}
+
+/** Weist einem Kalendertermin vorab ein Projekt/Task zu (ohne ihn zu buchen). */
+export function setCalendarAssignment(
+  eventId: string,
+  patch: { projectId?: string; taskId?: string },
+) {
+  setState((prev) => upsertAssignment(prev, eventId, patch))
+}
+
+/** Markiert einen Termin als bewusst ignoriert. */
+export function dismissMeeting(eventId: string) {
+  setState((prev) => upsertAssignment(prev, eventId, { dismissed: true }))
+}
+
+/** Erzeugt aus einem Meeting einen Zeiteintrag und verknüpft ihn mit dem
+ *  Termin. Ein bereits verbuchter Termin wird nicht doppelt gebucht. */
+export function createEntryFromMeeting(
+  event: { eventId: string; start: string; end: string; subject?: string },
+  projectId: string,
+  taskId?: string,
+): TimeEntry | undefined {
+  const already = state.calendarAssignments.find(
+    (a) => a.eventId === event.eventId,
+  )?.entryId
+  if (already && state.entries.some((e) => e.id === already)) return undefined
+
+  const entry: TimeEntry = {
+    id: newId(),
+    projectId,
+    taskId,
+    start: event.start,
+    end: event.end,
+    note: event.subject?.trim() || undefined,
+    billable: true,
+    calendarEventId: event.eventId,
+  }
+  setState((prev) => {
+    const withEntry = { ...prev, entries: [...prev.entries, entry] }
+    return upsertAssignment(withEntry, event.eventId, {
+      projectId,
+      taskId,
+      entryId: entry.id,
+      dismissed: false,
+    })
+  })
+  return entry
 }
 
 // ---- Import / Export ------------------------------------------------------

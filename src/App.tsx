@@ -4,16 +4,20 @@ import { TimerScreen } from './components/TimerScreen'
 import { ProjectsScreen } from './components/ProjectsScreen'
 import { ReportsScreen } from './components/ReportsScreen'
 import { SettingsScreen } from './components/SettingsScreen'
+import { CalendarScreen } from './components/CalendarScreen'
+import { MeetingPrompt } from './components/MeetingPrompt'
 import { pushPending, pushableEntries, useMocoSettings } from './lib/moco'
+import { initMsAuth } from './lib/msgraph'
 import type { AppState } from './lib/types'
 import {
   TimerIcon,
   ListIcon,
   ChartIcon,
   GearIcon,
+  CalendarIcon,
 } from './components/Icons'
 
-type Tab = 'timer' | 'projects' | 'reports' | 'settings'
+type Tab = 'timer' | 'projects' | 'calendar' | 'reports' | 'settings'
 
 /** Überträgt abgeschlossene Einträge automatisch nach Moco, sobald Auto-Sync
  *  aktiv ist und gerade kein Timer läuft. */
@@ -40,14 +44,25 @@ export default function App() {
   const [tab, setTab] = useState<Tab>('timer')
   useMocoAutoSync(state)
 
+  // Microsoft-Anmeldung beim Start initialisieren (falls konfiguriert).
+  useEffect(() => {
+    void initMsAuth()
+  }, [])
+
   return (
     <div className="app">
       {tab === 'timer' && (
         <TimerScreen state={state} onGoToProjects={() => setTab('projects')} />
       )}
       {tab === 'projects' && <ProjectsScreen state={state} />}
+      {tab === 'calendar' && (
+        <CalendarScreen state={state} onGoToSettings={() => setTab('settings')} />
+      )}
       {tab === 'reports' && <ReportsScreen state={state} />}
       {tab === 'settings' && <SettingsScreen state={state} />}
+
+      {/* Fragt beim Öffnen nach beendeten Meetings (falls Kalender verbunden). */}
+      <MeetingPrompt state={state} />
 
       <nav className="tabbar">
         <div className="tabbar-inner">
@@ -62,6 +77,12 @@ export default function App() {
             onClick={() => setTab('projects')}
             label="Projekte"
             icon={<ListIcon />}
+          />
+          <TabButton
+            active={tab === 'calendar'}
+            onClick={() => setTab('calendar')}
+            label="Kalender"
+            icon={<CalendarIcon />}
           />
           <TabButton
             active={tab === 'reports'}

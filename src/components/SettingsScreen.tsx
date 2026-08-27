@@ -10,6 +10,7 @@ import {
   setMocoSettings,
   useMocoSettings,
 } from '../lib/moco'
+import { setMsConfig, signIn, signOut, useMsAuth } from '../lib/msgraph'
 
 type Props = { state: AppState }
 
@@ -51,6 +52,8 @@ export function SettingsScreen({ state }: Props) {
       <h1 className="screen-title">Einstellungen</h1>
 
       <MocoSection state={state} />
+
+      <MsCalendarSection />
 
       <div className="section-label">Export</div>
       <div className="card" style={{ marginBottom: 20 }}>
@@ -99,6 +102,88 @@ export function SettingsScreen({ state }: Props) {
         Zeitraum · v0.2
       </p>
     </div>
+  )
+}
+
+// ---- Microsoft-365-Kalender -----------------------------------------------
+
+function MsCalendarSection() {
+  const { email, busy, config, error } = useMsAuth()
+  const [clientId, setClientId] = useState(config.clientId)
+  const [tenantId, setTenantId] = useState(config.tenantId)
+  const redirectUri = window.location.origin
+
+  return (
+    <>
+      <div className="section-label">Microsoft-365-Kalender</div>
+      <div className="card" style={{ marginBottom: 20 }}>
+        {email ? (
+          <>
+            <p className="hint" style={{ marginTop: 0 }}>
+              Verbunden als <strong>{email}</strong>. Deine Teams-/Outlook-Termine
+              erscheinen im Kalender-Tab.
+            </p>
+            <button
+              className="btn btn-block"
+              disabled={busy}
+              onClick={() => void signOut()}
+            >
+              Abmelden
+            </button>
+          </>
+        ) : (
+          <>
+            <div className="field">
+              <label>Client-ID (Anwendungs-ID)</label>
+              <input
+                className="input"
+                type="text"
+                value={clientId}
+                placeholder="aus der Azure-App-Registrierung"
+                autoComplete="off"
+                onChange={(e) => setClientId(e.target.value)}
+                onBlur={() => setMsConfig({ clientId: clientId.trim() })}
+              />
+            </div>
+            <div className="field">
+              <label>Verzeichnis-(Tenant-)ID</label>
+              <input
+                className="input"
+                type="text"
+                value={tenantId}
+                placeholder="aus der Azure-App-Registrierung"
+                autoComplete="off"
+                onChange={(e) => setTenantId(e.target.value)}
+                onBlur={() => setMsConfig({ tenantId: tenantId.trim() })}
+              />
+            </div>
+            <p className="hint" style={{ marginTop: 0 }}>
+              In der Azure-App-Registrierung als <strong>SPA</strong>-Redirect-URI
+              hinterlegen:
+              <br />
+              <code>{redirectUri}</code>
+              <br />
+              Benötigte Berechtigung: <strong>Calendars.Read</strong> (delegiert).
+            </p>
+            <button
+              className="btn btn-primary btn-block"
+              disabled={busy || !clientId.trim() || !tenantId.trim()}
+              onClick={() => {
+                setMsConfig({ clientId: clientId.trim(), tenantId: tenantId.trim() })
+                void signIn()
+              }}
+            >
+              {busy ? 'Anmelden…' : 'Mit Microsoft anmelden'}
+            </button>
+            {error && (
+              <p className="hint" style={{ color: 'var(--danger)', marginTop: 10 }}>
+                {error}
+              </p>
+            )}
+          </>
+        )}
+      </div>
+    </>
   )
 }
 

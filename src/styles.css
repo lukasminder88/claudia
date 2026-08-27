@@ -726,3 +726,32 @@ textarea {
   background: var(--accent);
   color: #fff;
 }
+
+/* ---- Kalender / Meetings ------------------------------------------------- */
+
+.badge-teams {
+  background: rgba(99, 102, 241, 0.22);
+  color: #a5b4fc;
+  white-space: nowrap;
+  height: fit-content;
+}
+
+.booked-note {
+  margin-top: 10px;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--success);
+}
+
+.card code {
+  font-size: 12px;
+  background: var(--bg-elev-2);
+  padding: 2px 6px;
+  border-radius: 6px;
+  word-break: break-all;
+}
+
+/* Tab-Leiste für 5 Einträge etwas kompakter. */
+.tab {
+  padding: 6px 6px;
+}
