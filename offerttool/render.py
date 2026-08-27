@@ -23,7 +23,14 @@ from .docxutil.anchor_ops import (
     tables_of,
     tag_map,
 )
-from .docxutil.tables import cells, fill_rows, rows, set_cell_paragraphs, set_tbl_look
+from .docxutil.tables import (
+    cells,
+    fill_rows,
+    remove_column,
+    rows,
+    set_cell_paragraphs,
+    set_tbl_look,
+)
 from .errors import OfferteError, WarningCollector
 from .extract import StandortContext
 from .formatters import chf, date_de, trim
@@ -154,12 +161,30 @@ class Renderer:
 
     def _hardware(self, ctx: StandortContext, root) -> None:
         sdt, tbl = self._table("TBL.HARDWARE", root)
-        set_cell_paragraphs(cells(rows(tbl)[0])[0], ["Artikel No."])
-        set_cell_paragraphs(cells(rows(tbl)[0])[1], ["Bezeichnung"])
-        set_cell_paragraphs(cells(rows(tbl)[0])[2], ["Stück"])
-        datensaetze = [[p.artnr, p.bezeichnung, p.stueck] for p in ctx.listen.get("hardware", [])]
-        for p in ctx.listen.get("solutions.sw", []) + ctx.listen.get("solutions.maint", []):
-            datensaetze.append([p.artnr, p.bezeichnung, p.stueck])
+
+        positionen = list(ctx.listen.get("hardware", []))
+        positionen += ctx.listen.get("solutions.sw", [])
+        positionen += ctx.listen.get("solutions.maint", [])
+
+        # Das Kalktool Q4 2025 führt keine Artikelnummern (Abschnitt 16, Punkt 1).
+        # Eine Spalte voller Gedankenstriche hilft niemandem, deshalb entfällt
+        # sie, solange keine einzige Position eine Nummer trägt.  Sobald das
+        # Kalktool welche liefert, erscheint sie von selbst wieder.
+        mit_artnr = any(p.artnr not in ("", "–") for p in positionen)
+
+        kopf = cells(rows(tbl)[0])
+        if mit_artnr:
+            set_cell_paragraphs(kopf[0], ["Artikel No."])
+            set_cell_paragraphs(kopf[1], ["Bezeichnung"])
+            set_cell_paragraphs(kopf[2], ["Stück"])
+            datensaetze = [[p.artnr, p.bezeichnung, p.stueck] for p in positionen]
+        else:
+            remove_column(tbl, 0)
+            kopf = cells(rows(tbl)[0])
+            set_cell_paragraphs(kopf[0], ["Bezeichnung"])
+            set_cell_paragraphs(kopf[1], ["Stück"])
+            datensaetze = [[p.bezeichnung, p.stueck] for p in positionen]
+
         fill_rows(tbl, 1, datensaetze)
         # Listentabelle ohne Summenzeile: lastRow aus (Abschnitt 10.4).
         set_tbl_look(tbl, self.mapping.style("tbllook_liste", "04A0"))
@@ -195,7 +220,10 @@ class Renderer:
             datensaetze.append([texte, betraege])
         self._emit_all(datensaetze)
         fill_rows(tbl, 1, datensaetze)
-        set_tbl_look(tbl, self.mapping.style("tbllook_summe", "04E0"))
+        # Kapitel 1.2 zeigt die Servicebestandteile ohne Summenzeile
+        # (Abschnitt 5.4); mit lastRow käme die letzte Zeile fett und läse
+        # sich wie ein Total.
+        set_tbl_look(tbl, self.mapping.style("tbllook_liste", "04A0"))
 
     def _total(self, sdt, zeilen: list[tuple[str, str]]) -> None:
         tbls = tables_of(sdt)

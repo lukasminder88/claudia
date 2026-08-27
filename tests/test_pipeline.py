@@ -184,3 +184,122 @@ def test_keine_datei_bei_abbruch(tmp_path):
     with pytest.raises(OfferteError):
         generiere([datei], VORLAGE, ziel, toc_seitenzahlen=False)
     assert not ziel.exists()
+
+
+# --- Erscheinungsbild (nach Sichtprüfung des gerenderten PDF) --------------
+
+
+def _tabellen(pfad):
+    """Alle Tabellen des Dokuments mit Style, tblLook und Zeileninhalten."""
+    import docx
+    from docx.oxml.ns import qn
+
+    from offerttool.docxutil.tables import cells, rows
+    from offerttool.docxutil.xmlutil import W, paragraph_text
+
+    d = docx.Document(str(pfad))
+    out = []
+    for tbl in d.element.body.iter(W("w:tbl")):
+        pr = tbl.find(W("w:tblPr"))
+        stil = pr.find(W("w:tblStyle")) if pr is not None else None
+        look = pr.find(W("w:tblLook")) if pr is not None else None
+        out.append({
+            "stil": stil.get(qn("w:val")) if stil is not None else None,
+            "look": look.get(qn("w:val")) if look is not None else None,
+            "zeilen": [
+                [" ".join(paragraph_text(p) for p in tc.findall(W("w:p"))).strip()
+                 for tc in cells(tr)]
+                for tr in rows(tbl)
+            ],
+        })
+    return out
+
+
+def test_servicetabelle_ohne_summenzeile(offerte):
+    """Kapitel 1.2 hat keine Summenzeile, also darf lastRow nicht gesetzt sein.
+
+    Mit lastRow setzt Word die letzte Zeile fett; die Zählerstandszeile läse
+    sich dann wie ein Total (Abschnitt 5.4 und 10.4).
+    """
+    service = [t for t in _tabellen(offerte.offerte) if t["stil"] == "graphax1000"]
+    assert service, "Servicetabelle nicht gefunden"
+    for t in service:
+        assert t["look"] == "04A0", t["look"]
+
+
+def test_hardwaretabelle_ohne_leere_artikelspalte(offerte):
+    """Führt das Kalktool keine Artikelnummern, entfällt die Spalte."""
+    hardware = [t for t in _tabellen(offerte.offerte) if t["stil"] == "graphax11"]
+    assert hardware, "Hardwaretabelle nicht gefunden"
+    kopf = hardware[0]["zeilen"][0]
+    assert kopf == ["Bezeichnung", "Stück"], kopf
+    for zeile in hardware[0]["zeilen"]:
+        assert len(zeile) == 2, zeile
+        assert "–" not in zeile
+
+
+def test_hardwaretabelle_zeigt_artikelnummern_wenn_vorhanden(tmp_path):
+    """Sobald das Kalktool Artikelnummern liefert, erscheint die Spalte wieder."""
+
+    from offerttool.derive import derive
+    from offerttool.errors import WarningCollector
+    from offerttool.extract import extract
+    from offerttool.mapping import load_mapping
+    from offerttool.workbook import Kalktool
+
+    from .conftest import MAPPING
+
+    # Die Zuordnung kennt heute keine Artikelnummernspalte; geprüft wird
+    # deshalb der Renderer selbst, mit einer Position, die eine Nummer trägt.
+    m = load_mapping(MAPPING)
+    w = WarningCollector()
+    with Kalktool(KALKTOOL, m, w) as kt:
+        ctx = extract(kt, m, w)
+    ctx.index = 1
+    d = derive(ctx, w)
+    ctx.listen["hardware"][0].artnr = "ACVD021"
+
+    import docx
+
+    from offerttool.crm import CRM
+    from offerttool.derive import gesamttotal
+    from offerttool.render import render
+
+    doc = docx.Document(str(VORLAGE))
+    render(doc, [(ctx, d)], gesamttotal([(ctx, d)]), m, CRM({}), w)
+    ziel = tmp_path / "mit_artnr.docx"
+    doc.save(str(ziel))
+
+    hardware = [t for t in _tabellen(ziel) if t["stil"] == "graphax11"]
+    assert hardware[0]["zeilen"][0] == ["Artikel No.", "Bezeichnung", "Stück"]
+    assert hardware[0]["zeilen"][1][0] == "ACVD021"
+
+
+def test_anbieterblock_haelt_die_beschriftungen_auf_hoehe(offerte):
+    """Die Beschriftung "Ihre Ansprechperson" steht auf Zeile 5 der Zelle.
+
+    Der Leerabsatz nach der Graphax-Adresse gehört deshalb zum statischen
+    Anbieterblock; ohne ihn rutscht der Kontakt hoch und die Beschriftung
+    steht neben "Telefon Zentrale".
+    """
+    import docx
+
+    from offerttool.docxutil.tables import cells, rows
+    from offerttool.docxutil.xmlutil import W, paragraph_text
+
+    d = docx.Document(str(offerte.offerte))
+    for tbl in d.element.body.iter(W("w:tbl")):
+        zeilen = rows(tbl)
+        if not zeilen:
+            continue
+        tcs = cells(zeilen[0])
+        if len(tcs) < 3:
+            continue
+        beschriftung = [paragraph_text(p).strip() for p in tcs[0].findall(W("w:p"))]
+        if "Anbieter" not in beschriftung:
+            continue
+        inhalt = [paragraph_text(p).strip() for p in tcs[2].findall(W("w:p"))]
+        zeile = beschriftung.index("Ihre Ansprechperson")
+        assert inhalt[zeile] == "Thomas Steiner", (zeile, inhalt[:8])
+        return
+    raise AssertionError("Anbieterblock nicht gefunden")

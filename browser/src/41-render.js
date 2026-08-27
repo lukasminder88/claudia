@@ -126,15 +126,29 @@ const RENDER = (() => {
 
     hardware(ctx, wurzel) {
       const [, tbl] = this.tabelle("TBL.HARDWARE", wurzel);
-      const kopf = DOCX.zellen(DOCX.zeilen(tbl)[0]);
-      DOCX.setzeZelle(kopf[0], ["Artikel No."]);
-      DOCX.setzeZelle(kopf[1], ["Bezeichnung"]);
-      DOCX.setzeZelle(kopf[2], ["Stück"]);
 
-      const saetze = [];
-      for (const p of ctx.listen.hardware || []) saetze.push([p.artnr, p.bezeichnung, p.stueck]);
-      for (const liste of ["solutions.sw", "solutions.maint"]) {
-        for (const p of ctx.listen[liste] || []) saetze.push([p.artnr, p.bezeichnung, p.stueck]);
+      const positionen = [...(ctx.listen.hardware || []),
+                          ...(ctx.listen["solutions.sw"] || []),
+                          ...(ctx.listen["solutions.maint"] || [])];
+
+      // Das Kalktool Q4 2025 führt keine Artikelnummern (Abschnitt 16, Punkt 1).
+      // Eine Spalte voller Gedankenstriche hilft niemandem, deshalb entfällt
+      // sie, solange keine einzige Position eine Nummer trägt.
+      const mitArtNr = positionen.some((p) => p.artnr !== "" && p.artnr !== "–");
+
+      let saetze;
+      let kopf = DOCX.zellen(DOCX.zeilen(tbl)[0]);
+      if (mitArtNr) {
+        DOCX.setzeZelle(kopf[0], ["Artikel No."]);
+        DOCX.setzeZelle(kopf[1], ["Bezeichnung"]);
+        DOCX.setzeZelle(kopf[2], ["Stück"]);
+        saetze = positionen.map((p) => [p.artnr, p.bezeichnung, p.stueck]);
+      } else {
+        DOCX.spalteEntfernen(tbl, 0);
+        kopf = DOCX.zellen(DOCX.zeilen(tbl)[0]);
+        DOCX.setzeZelle(kopf[0], ["Bezeichnung"]);
+        DOCX.setzeZelle(kopf[1], ["Stück"]);
+        saetze = positionen.map((p) => [p.bezeichnung, p.stueck]);
       }
       DOCX.fuelleZeilen(tbl, 1, saetze);
       // Listentabelle ohne Summenzeile: lastRow aus.
@@ -170,7 +184,9 @@ const RENDER = (() => {
       const saetze = TEXT.serviceZeilen(ctx, d).map(([texte, betraege]) => [texte, betraege]);
       this.merkeAlle(saetze);
       DOCX.fuelleZeilen(tbl, 1, saetze);
-      DOCX.setzeTblLook(tbl, STIL.tbllook_summe || "04E0");
+      // Kapitel 1.2 zeigt die Servicebestandteile ohne Summenzeile
+      // (Abschnitt 5.4); mit lastRow käme die letzte Zeile fett.
+      DOCX.setzeTblLook(tbl, STIL.tbllook_liste || "04A0");
     }
 
     total(sdt, zeilen) {

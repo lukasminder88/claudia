@@ -153,8 +153,12 @@ def _prepare_deckblatt(loc: Locator) -> None:
     # Anbieteradresse (statisch) und Ansprechperson
     zelle = _cell(t_anbieter, 0, 2)
     blocks = _cell_blocks(zelle)
-    wrap_in_sdt(blocks[0:3], "OFF.ANBIETER")
-    wrap_in_sdt(blocks[3:8], "OFF.KONTAKT")
+    # Die Beschriftungen in Spalte 1 stehen auf festen Zeilen: "Anbieter" auf
+    # Zeile 1, "Ihre Ansprechperson" auf Zeile 5.  Der Leerabsatz nach der
+    # Adresse gehört deshalb zum statischen Anbieterblock – sonst rutscht der
+    # Kontakt eine Zeile hoch und die Beschriftung steht neben der falschen.
+    wrap_in_sdt(blocks[0:4], "OFF.ANBIETER")
+    wrap_in_sdt(blocks[4:8], "OFF.KONTAKT")
     # Die leere Vorlagenzeile "Direkt\t\t\t\t" entfällt: die Direktwahl wird als
     # Zeile des Blocks OFF.KONTAKT gesetzt, sonst stünde sie zweimal im Dokument.
     for b in blocks[8:]:

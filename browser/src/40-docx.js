@@ -247,6 +247,49 @@ const DOCX = (() => {
   }
 
   /**
+   * Eine Spalte samt ihrer Breite entfernen.
+   * Die freiwerdende Breite geht an die Nachbarspalte, damit die Tabelle so
+   * breit bleibt wie in der Vorlage.
+   */
+  function spalteEntfernen(tbl, index) {
+    const grid = ersteKind(tbl, "tblGrid");
+    if (grid) {
+      const cols = kinder(grid, "gridCol");
+      if (index < cols.length && cols.length > 1) {
+        const frei = parseInt(attr(cols[index], "w:w") || "0", 10);
+        const nachbar = cols[index + 1] || cols[index - 1];
+        setAttr(nachbar, "w:w", String(parseInt(attr(nachbar, "w:w") || "0", 10) + frei));
+        entfernen(cols[index]);
+      }
+    }
+    for (const tr of zeilen(tbl)) {
+      const tcs = zellen(tr);
+      if (index >= tcs.length || tcs.length <= 1) continue;
+      const frei = zellenBreite(tcs[index]);
+      const nachbar = tcs[index + 1] || tcs[index - 1];
+      setzeZellenBreite(nachbar, zellenBreite(nachbar) + frei);
+      entfernen(tcs[index]);
+    }
+  }
+
+  function zellenBreite(tc) {
+    const tcPr = ersteKind(tc, "tcPr");
+    const tcW = tcPr && ersteKind(tcPr, "tcW");
+    if (!tcW) return 0;
+    const typ = attr(tcW, "w:type");
+    if (typ && typ !== "dxa") return 0;
+    return parseInt(attr(tcW, "w:w") || "0", 10) || 0;
+  }
+
+  function setzeZellenBreite(tc, breite) {
+    const tcPr = ersteKind(tc, "tcPr");
+    const tcW = tcPr && ersteKind(tcPr, "tcW");
+    if (!tcW) return;
+    setAttr(tcW, "w:w", String(breite));
+    setAttr(tcW, "w:type", "dxa");
+  }
+
+  /**
    * tblLook steuert die bedingte Formatierung (Abschnitt 10.4).
    * Listentabellen ohne Summenzeile brauchen 04A0 (ohne lastRow), sonst wird
    * die letzte Position fett dargestellt und liest sich wie ein Total.
@@ -316,6 +359,7 @@ const DOCX = (() => {
     knotenText, setzeAbsatzText, setzeAbsatzStil, neuerAbsatz,
     sdtTag, sdtInhalt, ankerKarte, finde, aufloesen, aufloesenInnere,
     absaetzeVon, tabellenVon, setzeText, setzeBlock, waehleVariante, klonNach,
-    zeilen, zellen, setzeZelle, fuelleZeilen, setzeTblLook, friereFelder,
+    zeilen, zellen, setzeZelle, fuelleZeilen, setzeTblLook, spalteEntfernen,
+    friereFelder,
   };
 })();
