@@ -52,7 +52,7 @@ def _kurz(pfad: Path) -> str:
 
 def main() -> int:
     p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument("--ziel", type=Path, default=WURZEL / "dist" / "Offerttool.html")
+    p.add_argument("--ziel", type=Path, default=WURZEL / "public" / "index.html")
     p.add_argument("--rahmen", type=Path, default=WURZEL / "browser" / "rahmen.html")
     p.add_argument("--test", action="store_true", help="zusätzlich die Prüfseite bauen")
     args = p.parse_args()
@@ -63,11 +63,10 @@ def main() -> int:
           f"{len(skripte)} Quelldateien)")
 
     if args.test:
-        # Die Prüfseite bringt ihre eigene Oberfläche mit und lädt darum
-        # 60-app.js nicht.
+        # Die Prüfseite bleibt lokal: sie gehört nicht auf einen Webserver.
         ohne_oberflaeche = [s for s in skripte if s.name != "60-app.js"]
         pruef = bauen(
-            args.ziel.parent / "Pruefung.html",
+            WURZEL / "dist" / "pruefung.html",
             WURZEL / "browser" / "test" / "rahmen.html",
             ohne_oberflaeche + [WURZEL / "browser" / "test" / "golden.js"],
         )

@@ -78,10 +78,10 @@ Chrome oder Edge ab Version 103, Firefox ab 113, Safari ab 16.4.
 
 
 def baue(ziel: Path) -> Path:
-    seite = WURZEL / "dist" / "Offerttool.html"
+    seite = WURZEL / "public" / "index.html"
     if not seite.exists():
         raise SystemExit(
-            "dist/Offerttool.html fehlt. Zuerst: python tools/browser_bauen.py"
+            "public/index.html fehlt. Zuerst: python tools/browser_bauen.py"
         )
 
     import json
@@ -122,7 +122,7 @@ def baue(ziel: Path) -> Path:
 
 def main() -> int:
     p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument("--ziel", type=Path, default=WURZEL / "dist")
+    p.add_argument("--ziel", type=Path, default=WURZEL / "public")
     args = p.parse_args()
     args.ziel.mkdir(parents=True, exist_ok=True)
     archiv = baue(args.ziel)

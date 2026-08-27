@@ -49,11 +49,32 @@ ohne Installation, ohne Server und ohne Netzwerk. Die Offerte entsteht
 vollständig im Browser; weder Kalktool noch Offerte verlassen den Rechner.
 
 ```bash
-python tools/browser_bauen.py --test    # dist/Offerttool.html und dist/Pruefung.html
-python tools/offline_paket.py           # dist/Offerttool-PoC.zip zum Weitergeben
+python tools/browser_bauen.py --test    # public/index.html und dist/pruefung.html
+python tools/offline_paket.py           # public/Offerttool-PoC.zip zum Weitergeben
 ```
 
 Das ZIP enthält `Offerttool.html`, ein Beispiel-Kalktool und eine Kurzanleitung.
+
+### Veröffentlichung
+
+`public/` wird als fertiges Ergebnis mit eingecheckt und von Netlify
+ausgeliefert (`netlify.toml`, Projekt `kalktoolxlsx`). Es gibt bewusst **keinen
+Build-Schritt auf dem Server**: so kann der Deploy nicht an fehlenden
+Abhängigkeiten scheitern. Wird die Seite von einem Server geladen, bietet sie
+zusätzlich das Offline-Paket zum Herunterladen an; lokal geöffnet entfällt der
+Verweis.
+
+Weil `public/index.html` eingecheckt ist, kann es veralten. `tests/test_browser.py`
+baut die Datei neu und vergleicht – nach einer Änderung unter `browser/src/`
+muss `python tools/browser_bauen.py --test` laufen, sonst schlägt der Test fehl.
+
+Die Prüfseite landet unter `dist/` und wird **nicht** veröffentlicht.
+
+**Die Seite ist öffentlich erreichbar.** In der Einzeldatei steckt die
+Offertvorlage mit den Graphax-Konditionen, darunter die Stundensätze für
+Technikereinsätze. Wer das nicht im offenen Netz haben will, schützt das
+Netlify-Projekt unter *Site configuration → Access control* mit einem Passwort
+oder SSO.
 Voraussetzung ist nur ein aktueller Browser: Chrome/Edge ab 103, Firefox ab 113,
 Safari ab 16.4 – dort gibt es `DecompressionStream`, mit dem sich ein `.xlsx`
 ohne Fremdbibliothek entpacken lässt. Ältere Browser meldet die Seite beim Öffnen.
@@ -75,6 +96,8 @@ fügt zusammen.
 | `50-vorlage.js` | **erzeugt**: die ankerbasierte Vorlage als Base64 |
 | `60-app.js` | Oberfläche |
 
+Ergebnis ist `public/index.html`; `dist/` ist nur lokaler Arbeitsstand.
+
 Die beiden erzeugten Dateien schreibt `tools/browser_daten.py`; sie werden nicht
 von Hand bearbeitet. Mapping und Vorlage haben damit **eine** Quelle, die beide
 Fassungen teilen.
@@ -84,7 +107,7 @@ Fassungen teilen.
 Die Regeln liegen jetzt in Python **und** in JavaScript vor. Für einen PoC ist
 das vertretbar, produktiv ist es eine Quelle für Abweichungen. Abgesichert wird
 das über denselben Golden Record: `browser/test/golden.js` prüft 83 Punkte im
-Browser, gestartet über `dist/Pruefung.html` oder `npm run pruefen`.
+Browser, gestartet über `dist/pruefung.html` oder `npm run pruefen`.
 `tests/test_browser.py` prüft zusätzlich, dass Mapping, Vorlage und Einzeldatei
 aktuell sind und dass die Seite nichts nachlädt.
 
@@ -363,7 +386,7 @@ Datei – **nie im Dokument selbst** (Abschnitt 13.3).
 ## Tests
 
 ```bash
-python -m pytest -q      # 94 Tests
+python -m pytest -q      # 95 Tests
 ```
 
 `tests/test_golden_birsfelden.py` prüft den Referenzfall aus Abschnitt 14 Wert für

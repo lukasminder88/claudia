@@ -18,6 +18,7 @@ import pytest
 
 ROOT = Path(__file__).resolve().parent.parent
 QUELLE = ROOT / "browser" / "src"
+PUBLIC = ROOT / "public"
 DIST = ROOT / "dist"
 
 
@@ -57,16 +58,27 @@ def test_vorlage_ist_eingebettet():
 
 def test_einzeldatei_ist_aktuell(tmp_path):
     """dist/Offerttool.html muss zu den Quellen unter browser/src passen."""
-    ziel = tmp_path / "Offerttool.html"
+    ziel = tmp_path / "index.html"
     subprocess.run(
         [sys.executable, str(ROOT / "tools" / "browser_bauen.py"), "--ziel", str(ziel)],
         check=True, capture_output=True, cwd=ROOT,
     )
-    gebaut = DIST / "Offerttool.html"
-    if not gebaut.exists():
-        pytest.skip("dist/Offerttool.html noch nicht gebaut")
+    gebaut = PUBLIC / "index.html"
+    assert gebaut.exists(), "public/index.html fehlt: python tools/browser_bauen.py"
     assert ziel.read_text("utf-8") == gebaut.read_text("utf-8"), \
-        "dist/Offerttool.html ist veraltet: python tools/browser_bauen.py --test"
+        "public/index.html ist veraltet: python tools/browser_bauen.py --test"
+
+
+def test_offline_paket_ist_vorhanden():
+    """Das Paket wird neben der Seite ausgeliefert und ist herunterladbar."""
+    import zipfile
+
+    paket = PUBLIC / "Offerttool-PoC.zip"
+    assert paket.exists(), "public/Offerttool-PoC.zip fehlt: python tools/offline_paket.py"
+    namen = zipfile.ZipFile(paket).namelist()
+    assert "Offerttool-PoC/Offerttool.html" in namen
+    assert "Offerttool-PoC/LIESMICH.md" in namen
+    assert any(n.endswith(".xlsx") for n in namen)
 
 
 def test_einzeldatei_zieht_nichts_nach():
@@ -76,9 +88,7 @@ def test_einzeldatei_zieht_nichts_nach():
     Bezeichner und werden nie abgerufen; geprüft wird auf die Konstrukte, die
     tatsächlich etwas laden würden.
     """
-    if not (DIST / "Offerttool.html").exists():
-        pytest.skip("dist/Offerttool.html noch nicht gebaut")
-    html = (DIST / "Offerttool.html").read_text("utf-8")
+    html = (PUBLIC / "index.html").read_text("utf-8")
 
     for verboten in ("<script src=", "<link rel", "@import", "fetch(",
                      "XMLHttpRequest", "import(", "new Worker(", "EventSource"):
@@ -95,8 +105,8 @@ def test_einzeldatei_zieht_nichts_nach():
 def test_golden_record_im_browser(tmp_path):
     """Führt browser/test/golden.js in einem echten Browser aus."""
     treiber = ROOT / "tools" / "browser_pruefen.mjs"
-    if not (DIST / "Pruefung.html").exists():
-        pytest.skip("dist/Pruefung.html noch nicht gebaut")
+    if not (DIST / "pruefung.html").exists():
+        pytest.skip("dist/pruefung.html noch nicht gebaut")
     ergebnis = subprocess.run(
         ["node", str(treiber)], capture_output=True, text=True, cwd=ROOT, timeout=300
     )

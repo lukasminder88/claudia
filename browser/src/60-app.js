@@ -334,5 +334,17 @@
   $("status").textContent = "Version 3.0.0 · Kalktool " + MAPPING.version;
   $("fuss-status").textContent =
     "Seitenzahlen im Inhaltsverzeichnis berechnet Word beim Öffnen.";
+
+  // Wird die Seite von einem Server ausgeliefert, lässt sich daneben das
+  // Offline-Paket herunterladen. Lokal geöffnet wäre der Verweis tot.
+  if (location.protocol === "http:" || location.protocol === "https:") {
+    const a = el("a", null, "Offline-Paket herunterladen");
+    a.href = "Offerttool-PoC.zip";
+    a.download = "Offerttool-PoC.zip";
+    const p = el("p", "offline-hinweis");
+    p.append("Diese Seite läuft auch ohne Server: ", a,
+             " – entpacken und die HTML-Datei doppelklicken.");
+    $("ablage").parentNode.insertBefore(p, $("ablage").nextSibling);
+  }
   zeichneListe();
 })();

@@ -1,0 +1,21 @@
+# Auslieferung der Browser-Fassung des Offerttools.
+#
+# Kein Build-Schritt: "public" enthält die fertige Einzeldatei, die
+# tools/browser_bauen.py erzeugt und die im Repository liegt. Damit kann der
+# Deploy nicht an fehlenden Abhängigkeiten scheitern.
+#
+# Hinweis: Diese Datei gilt für jedes Netlify-Projekt, das aus dem Wurzel-
+# verzeichnis dieses Repositories baut. Die Website unter website/ wird per
+# SFTP auf Apache veröffentlicht und ist davon nicht betroffen.
+
+[build]
+  publish = "public"
+  command = ""
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "no-referrer"
+    # Die Seite lädt nichts nach; alles steckt in der Datei selbst.
+    Content-Security-Policy = "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:; connect-src 'none'; base-uri 'none'; form-action 'none'"
