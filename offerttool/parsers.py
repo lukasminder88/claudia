@@ -23,6 +23,10 @@ def parse_plz_ort(raw, warn: WarningCollector, feld: str = "") -> dict:
     Fallback: ``plz`` leer, ``ort`` = ganzer String, Warnung ``W301``.
     """
     text = ("" if raw is None else str(raw)).strip()
+    if not text:
+        # Ein leeres Feld ist nicht unparsbar, sondern schlicht nicht gefüllt;
+        # dafür meldet der Renderer bereits die entfallende Zeile.
+        return {"plz": "", "ort": ""}
     m = RE_PLZ_ORT.match(text)
     if not m:
         warn.add("W301", f"{feld}={text!r}" if feld else repr(text))
@@ -48,7 +52,10 @@ def parse_kontakt(raw, warn: WarningCollector) -> dict:
     if not m_mail or not m_tel:
         warn.add("W302", f"email={'ja' if m_mail else 'nein'}, telefon={'ja' if m_tel else 'nein'}")
 
-    rest = re.sub(r"\s+", " ", text).strip()
+    # Manche Kalktools trennen mit Komma statt mit Leerzeichen; nach dem
+    # Herauslösen von Mail und Telefon bliebe sonst "Istvan Scheibler, ,".
+    rest = re.sub(r"[,;/|]+", " ", text)
+    rest = re.sub(r"\s+", " ", rest).strip()
     if rest:
         teile = rest.split(" ")
         result["vorname"] = teile[0]

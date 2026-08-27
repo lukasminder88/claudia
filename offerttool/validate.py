@@ -29,7 +29,9 @@ def validate_input(ctx: StandortContext, d: Derived, mapping: Mapping) -> None:
             continue
         value = ctx.values.get(name)
         if value is None or (isinstance(value, str) and not value.strip()):
-            raise OfferteError("E211", f"{ctx.quelle}: Pflichtfeld {name} ({spec.cell.a1}) ist leer")
+            raise OfferteError(
+                "E212", f"{ctx.quelle}: {name} ({spec.cell.a1}) ist leer"
+            )
 
     if d.variante in ("MIETE", "LEASING"):
         if ctx.num("laufzeit") <= 0:

@@ -42,3 +42,32 @@ def birsfelden():
         ctx = extract(kt, m, w)
     ctx.index = 1
     return ctx, derive(ctx, w), w, m
+
+
+@pytest.fixture
+def abweichendes_kalktool(tmp_path):
+    """Baut aus dem Referenzfall ein Kalktool mit kleinen Abweichungen.
+
+    Die Vorlagen im Feld unterscheiden sich in Kleinigkeiten: eine ältere
+    Versionsangabe, leere Standortfelder, Kontaktdaten mit Komma statt
+    Leerzeichen, „dito“ als Standortname.  Der Fixture erzeugt genau solche
+    Abweichungen, damit dafür keine echten Kundendateien im Repository
+    liegen müssen.
+
+    Aufruf: ``abweichendes_kalktool({"KM!C1": "Version: 2024.03"})``.
+    """
+    import openpyxl
+
+    def bauen(zellen: dict) -> Path:
+        # data_only: die Formeln werden durch ihre zwischengespeicherten Werte
+        # ersetzt, sonst läse der Generator nach dem Speichern nur noch None.
+        wb = openpyxl.load_workbook(KALKTOOL, data_only=True)
+        for adresse, wert in zellen.items():
+            blatt, a1 = adresse.split("!")
+            index = {"KM": 0, "SOL": 1}[blatt]
+            wb[wb.sheetnames[index]][a1] = wert
+        ziel = tmp_path / "Kalktool_abweichend.xlsx"
+        wb.save(ziel)
+        return ziel
+
+    return bauen

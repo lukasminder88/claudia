@@ -362,3 +362,76 @@ def test_vorlagenreste_gelten_nicht_als_statisch():
     # Beträge aus den Musterzeilen der Vorlage
     for rest in ("112.65", "257"):
         assert rest not in statisch, f"{rest} wäre als Rest nicht mehr erkennbar"
+
+
+# --- Kleine Abweichungen zwischen realen Kalktools -------------------------
+
+
+def _erzeuge(pfad, tmp_path, **kwargs):
+    from offerttool.pipeline import generiere
+
+    ziel = tmp_path / "offerte.docx"
+    return generiere([pfad], VORLAGE, ziel, toc_seitenzahlen=False, **kwargs), ziel
+
+
+def test_unbekannte_version_wird_ueber_das_layout_erkannt(abweichendes_kalktool, tmp_path):
+    """Eine ältere Versionsangabe darf nicht abbrechen, solange das Layout passt."""
+    pfad = abweichendes_kalktool({"KM!C1": "Version: 2024.03"})
+    ergebnis, ziel = _erzeuge(pfad, tmp_path)
+    assert ziel.exists()
+    assert "W313" in ergebnis.warnungen.codes()
+
+
+def test_umgebautes_kalktool_bricht_ab(abweichendes_kalktool, tmp_path):
+    """Stimmt bei unbekannter Version auch das Layout nicht, wird nichts geraten."""
+    from offerttool.errors import OfferteError
+
+    pfad = abweichendes_kalktool({"KM!C1": "Version: 2024.03", "KM!A26": "Spalte X"})
+    with pytest.raises(OfferteError) as fehler:
+        _erzeuge(pfad, tmp_path)
+    assert fehler.value.code == "E202"
+    assert not (tmp_path / "offerte.docx").exists()
+
+
+def test_bekannte_version_meldet_verschobene_beschriftung(abweichendes_kalktool, tmp_path):
+    """Bei bekannter Version ist eine fremde Beschriftung eine Warnung, kein Abbruch."""
+    pfad = abweichendes_kalktool({"KM!A26": "Spalte X"})
+    ergebnis, ziel = _erzeuge(pfad, tmp_path)
+    assert ziel.exists()
+    assert "W314" in ergebnis.warnungen.codes()
+
+
+def test_leere_installationsadresse_laesst_die_zeile_weg(abweichendes_kalktool, tmp_path):
+    """Ohne Standortadresse entfällt die Zeile, statt leer stehen zu bleiben."""
+    pfad = abweichendes_kalktool({"KM!D7": None, "KM!G7": None})
+    ergebnis, ziel = _erzeuge(pfad, tmp_path)
+    text = dokumenttext(ziel)
+    assert "W315" in ergebnis.warnungen.codes()
+    assert "W301" not in ergebnis.warnungen.codes()
+    assert "Installationsadresse" not in text
+
+
+def test_kontakt_mit_kommas_wird_getrennt(abweichendes_kalktool, tmp_path):
+    """"Name, Telefon, Mail" darf keine Kommas im Kundennamen hinterlassen."""
+    pfad = abweichendes_kalktool(
+        {"KM!J5": "Istvan Scheibler, 076 310 34 18, post@istvanscheibler.net"}
+    )
+    _, ziel = _erzeuge(pfad, tmp_path)
+    text = dokumenttext(ziel)
+    assert "Istvan Scheibler" in text
+    assert "Scheibler," not in text
+
+
+def test_dito_als_standortname_wird_zum_kunden(abweichendes_kalktool, tmp_path):
+    """„dito“ verweist auf den Kunden und gehört nicht in eine Überschrift."""
+    pfad = abweichendes_kalktool({"KM!B7": "dito"})
+    ergebnis, ziel = _erzeuge(pfad, tmp_path)
+    assert "W317" in ergebnis.warnungen.codes()
+    assert "Standort 1: dito" not in dokumenttext(ziel)
+
+
+def test_ohne_verkaufschance_steht_ein_strich(abweichendes_kalktool, tmp_path):
+    """Ohne Offertnummer und Verkaufschance bleibt die Zelle nicht leer."""
+    pfad = abweichendes_kalktool({"KM!M8": None})
+    ergebnis, _ = _erzeuge(pfad, tmp_path)
+    assert "W316" in ergebnis.warnungen.codes()

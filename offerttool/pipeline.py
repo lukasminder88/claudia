@@ -36,7 +36,7 @@ from .errors import OfferteError, WarningCollector
 from .hardware import Bibliothek, datenblaetter_fuer
 from .extract import StandortContext, extract
 from .formatters import date_de
-from .mapping import Mapping, load_mapping, select_mapping
+from .mapping import Mapping, load_mapping, waehle_mapping
 from .prepare import validate_template
 from .render import render
 from .report import schreibe_protokoll
@@ -47,7 +47,7 @@ from .validate import (
     validate_input,
     validate_output,
 )
-from .workbook import Kalktool, read_version_cell
+from .workbook import Kalktool, lies_ohne_mapping, read_version_cell
 
 log = logging.getLogger("offerttool")
 
@@ -96,11 +96,16 @@ def generiere(
     for i, pfad in enumerate(kalktools, start=1):
         warn.standort = i
         log.info("2 LOAD_SOURCES %s", pfad)
-        m = (
-            load_mapping(mapping_pfad)
-            if mapping_pfad
-            else select_mapping(read_version_cell(pfad))
-        )
+        if mapping_pfad:
+            m = load_mapping(mapping_pfad)
+        else:
+            # Passt die Versionsangabe nicht, entscheidet das Layout – geraten
+            # wird nicht (Abschnitt 2.4).
+            lies, wb = lies_ohne_mapping(pfad)
+            try:
+                m = waehle_mapping(read_version_cell(pfad), lies, warn)
+            finally:
+                wb.close()
         mapping = mapping or m
         with Kalktool(pfad, m, warn) as kt:
             log.info("3 EXTRACT / 4 PARSE %s", pfad)

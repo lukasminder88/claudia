@@ -20,7 +20,7 @@ const PIPELINE = (() => {
       if (spez.only && !spez.only.includes(d.variante)) continue;
       const wert = ctx.values[name];
       if (wert === null || wert === undefined || (typeof wert === "string" && !wert.trim())) {
-        throw new OfferteError("E211", `${ctx.quelle}: Pflichtfeld ${name} (${spez.cell}) ist leer`);
+        throw new OfferteError("E212", `${ctx.quelle}: Pflichtfeld ${name} (${spez.cell}) ist leer`);
       }
     }
 

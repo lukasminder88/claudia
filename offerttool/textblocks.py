@@ -16,7 +16,9 @@ from decimal import Decimal
 from .bausteine import Bausteine, lade
 from .derive import Derived
 from .extract import StandortContext
-from .formatters import chf, date_de, int_ch, klein, rate
+import re
+
+from .formatters import chf, date_de, int_ch, klein, rate, trim
 
 _standard: Bausteine | None = None
 
@@ -49,15 +51,23 @@ def head_dl(ctx: StandortContext, b: Bausteine | None = None) -> str:
 
 
 def line_adresse(ctx: StandortContext, b: Bausteine | None = None) -> str:
+    """Installationsadresse; leer, wenn das Kalktool keine führt.
+
+    Manche Kalktools lassen D7 und G7 leer, weil die Installationsadresse der
+    Kundenadresse entspricht. Dann entfällt die Zeile ganz – ein blosses
+    «Installationsadresse:» ohne Inhalt hilft niemandem.
+    """
     b = b or standard()
     ort = ctx.get("standort.plz_ort") or {}
-    text = b.text(
-        "line_adresse",
-        strasse=ctx.text("standort.strasse"),
-        plz=ort.get("plz", ""),
-        ort=ort.get("ort", ""),
-    )
-    return text.replace(" ,", ",").replace("  ", " ").strip().rstrip(",")
+    strasse = ctx.text("standort.strasse")
+    ortszeile = trim(f"{ort.get('plz', '')} {ort.get('ort', '')}")
+    if not strasse and not ortszeile:
+        return ""
+
+    text = b.text("line_adresse", strasse=strasse, plz=ort.get("plz", ""), ort=ort.get("ort", ""))
+    # Fehlt ein Teil, bleibt kein einsames Komma stehen.
+    text = re.sub(r"\s*,\s*(?=,|$)", "", text)
+    return re.sub(r"\s{2,}", " ", text).strip().rstrip(",")
 
 
 # --- Abschnitt 8.2 ---------------------------------------------------------

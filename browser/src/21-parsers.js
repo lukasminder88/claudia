@@ -14,6 +14,11 @@ const PARSE = (() => {
   /** "4127 Birsfelden" -> {plz, ort}; sonst W301. */
   function plzOrt(roh, warn, feld) {
     const text = (roh ?? "").toString().trim();
+    if (!text) {
+      // Ein leeres Feld ist nicht unparsbar, sondern schlicht nicht gefüllt;
+      // dafür meldet der Renderer bereits die entfallende Zeile.
+      return { plz: "", ort: "" };
+    }
     const m = RE_PLZ_ORT.exec(text);
     if (!m) {
       warn.add("W301", feld ? `${feld}="${text}"` : `"${text}"`);
@@ -41,7 +46,9 @@ const PARSE = (() => {
       warn.add("W302", `email=${mMail ? "ja" : "nein"}, telefon=${mTel ? "ja" : "nein"}`);
     }
 
-    const rest = text.replace(/\s+/g, " ").trim();
+    // Manche Kalktools trennen mit Komma statt mit Leerzeichen; nach dem
+    // Herauslösen von Mail und Telefon bliebe sonst "Istvan Scheibler, ,".
+    const rest = text.replace(/[,;/|]+/g, " ").replace(/\s+/g, " ").trim();
     if (rest) {
       const teile = rest.split(" ");
       ergebnis.vorname = teile[0];

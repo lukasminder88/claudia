@@ -102,6 +102,30 @@
       wahr("ohne Quellen kein Treffer", treffer === null);
     }
 
+    // --- Kleine Abweichungen zwischen realen Kalktools ---
+    {
+      const w = new Warnungen();
+      gleich("Kontakt mit Kommas", PARSE.kontakt("Istvan Scheibler, 076 310 34 18, post@istvanscheibler.net", w),
+        { vorname: "Istvan", nachname: "Scheibler", email: "post@istvanscheibler.net", telefon: "076 310 34 18" });
+
+      const w2 = new Warnungen();
+      gleich("leeres PLZ-Feld ist keine Warnung", PARSE.plzOrt("", w2, "standort"), { plz: "", ort: "" });
+      gleich("leeres PLZ-Feld ohne W301", w2.codes(), []);
+
+      const leer = { quelle: "x", index: 1, values: { "standort.plz_ort": {} }, listen: {}, probes: {} };
+      gleich("Adresszeile entfällt", TEXT.lineAdresse(leer), "");
+
+      const w3 = new Warnungen();
+      const dito = { values: { "standort.name": "dito", "kunde.firma": "Grafikstudio Scheibler" } };
+      EXTRACT.standortDito(dito, w3);
+      gleich("dito wird zum Kunden", dito.values["standort.name"], "Grafikstudio Scheibler");
+      gleich("dito meldet W317", w3.codes(), ["W317"]);
+
+      const w4 = new Warnungen();
+      gleich("Offertnummer ohne Verkaufschance", CRM.neu({}).offertnummer("", w4), "–");
+      gleich("Offertnummer meldet W316", w4.codes(), ["W316"]);
+    }
+
     if (!datei) return zeige();
 
     // --- Referenzfall (Abschnitt 14) ---

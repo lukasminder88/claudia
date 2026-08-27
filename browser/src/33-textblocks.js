@@ -24,14 +24,28 @@ const TEXT = (() => {
       : B().text("head_dienstleistung_ohne_name", { index: ctx.index });
   };
 
+  /* Installationsadresse; leer, wenn das Kalktool keine führt.
+
+     Manche Kalktools lassen D7 und G7 leer, weil die Installationsadresse der
+     Kundenadresse entspricht. Dann entfällt die Zeile ganz – ein blosses
+     «Installationsadresse:» ohne Inhalt hilft niemandem. */
   function lineAdresse(ctx) {
     const ort = ctx.values["standort.plz_ort"] || {};
+    const strasse = txt(ctx, "standort.strasse");
+    const ortszeile = `${ort.plz || ""} ${ort.ort || ""}`.trim();
+    if (!strasse && !ortszeile) return "";
+
     const text = B().text("line_adresse", {
-      strasse: txt(ctx, "standort.strasse"),
+      strasse,
       plz: ort.plz || "",
       ort: ort.ort || "",
     });
-    return text.replace(" ,", ",").replace("  ", " ").trim().replace(/,$/, "");
+    // Fehlt ein Teil, bleibt kein einsames Komma stehen.
+    return text
+      .replace(/\s*,\s*(?=,|$)/g, "")
+      .replace(/\s{2,}/g, " ")
+      .trim()
+      .replace(/,$/, "");
   }
 
   const serviceKopf = (d) => B().text("tabelle_service_kopf", { geraet: d.geraet });

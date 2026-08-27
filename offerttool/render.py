@@ -157,7 +157,13 @@ class Renderer:
 
     def standort(self, sec_standort, sec_service, tbl_total_sdt, ctx: StandortContext, d: Derived) -> None:
         self._text("HEAD.STANDORT", T.head_standort(ctx, self.b), sec_standort)
-        self._text("LINE.STANDORT_ADRESSE", T.line_adresse(ctx, self.b), sec_standort)
+        adresse = T.line_adresse(ctx, self.b)
+        if adresse:
+            self._text("LINE.STANDORT_ADRESSE", adresse, sec_standort)
+        else:
+            # Ohne Adresse keine leere Zeile im Dokument.
+            self.warn.add("W315", ctx.quelle)
+            remove(self._anchor("LINE.STANDORT_ADRESSE", sec_standort))
         self._hardware(ctx, sec_standort)
         self._dienstleistung(ctx, d, sec_standort)
 

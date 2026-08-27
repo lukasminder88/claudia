@@ -607,6 +607,27 @@ Record in einem echten Browser.
 
 ---
 
+## Kleine Abweichungen zwischen Kalktools
+
+Kein Kalktool gleicht dem anderen: eine ältere Versionsangabe, leere Standortfelder,
+Kontaktdaten mit Komma statt Leerzeichen, `dito` als Standortname. Solche
+Kleinigkeiten kosten eine Warnung, nicht die Offerte.
+
+| Abweichung | Verhalten |
+|---|---|
+| `KM!C1` nennt eine Version ohne eigene YAML | Layout wird gegen die bekannten Mappings geprüft; passt genau eines, wird es mit `W313` verwendet |
+| Eine erwartete Beschriftung steht woanders | `W314` bei bekannter Version, Abbruch `E202` bei unbekannter |
+| Standortadresse (`D7`/`G7`) leer | Die Zeile „Installationsadresse" entfällt ganz, `W315` |
+| Weder Offertnummer noch Verkaufschance | `–` auf dem Deckblatt statt einer leeren Zelle, `W316` |
+| `dito` als Standortname | Kundenname wird eingesetzt, `W317` |
+| `J5` mit Kommas: `Name, Telefon, Mail` | Trennzeichen fallen weg, der Name bleibt sauber |
+
+Abgebrochen wird nur, wo ein Weiterarbeiten raten hiesse: `E202` (Layout passt zu
+keinem Mapping) und `E212` (ein echtes Pflichtfeld ist leer). In beiden Fällen
+entsteht keine Datei.
+
+---
+
 ## Bekannte Grenzen des Kalktools
 
 Diese Punkte begrenzen, was der Generator ausgeben kann (Abschnitt 16). Ohne sie

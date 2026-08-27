@@ -114,7 +114,13 @@ const RENDER = (() => {
 
     standort(secStandort, secService, tblTotal, ctx, d) {
       this.text("HEAD.STANDORT", TEXT.headStandort(ctx), secStandort);
-      this.text("LINE.STANDORT_ADRESSE", TEXT.lineAdresse(ctx), secStandort);
+      const adresse = TEXT.lineAdresse(ctx);
+      if (adresse) {
+        this.text("LINE.STANDORT_ADRESSE", adresse, secStandort);
+      } else {
+        this.warn.add("W315", ctx.quelle);
+        DOCX.entfernen(this.anker("LINE.STANDORT_ADRESSE", secStandort));
+      }
       this.hardware(ctx, secStandort);
       this.dienstleistung(ctx, d, secStandort);
 

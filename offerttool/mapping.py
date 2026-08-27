@@ -125,6 +125,9 @@ class Mapping:
         self.sheets: dict[str, dict] = data["sheets"]
         self.styles: dict[str, str] = data.get("styles", {})
         self.probes = {k: parse_cell(v) for k, v in data.get("probes", {}).items()}
+        self.layout_marken = {
+            parse_cell(k): str(v) for k, v in (data.get("layout_marken") or {}).items()
+        }
 
         self.fields: dict[str, FieldSpec] = {}
         for name, spec in data["fields"].items():
@@ -193,6 +196,30 @@ def available_mappings() -> dict[str, Path]:
     return out
 
 
+def _vergleichbar(text) -> str:
+    """Beschriftungen vergleichbar machen: Leerraum und Gross-/Kleinschreibung."""
+    import re as _re
+
+    return _re.sub(r"\s+", " ", str(text or "")).strip().lower()
+
+
+def layout_passt(mapping: Mapping, lies_zelle) -> tuple[bool, list[str]]:
+    """Prüft die Beschriftungen des Kalktools gegen die Layoutmarken.
+
+    ``lies_zelle`` bekommt eine :class:`CellRef` und liefert den Zellwert.
+    Zurück kommt, ob alle Marken stimmen, und welche abweichen.
+    """
+    abweichungen = []
+    for ref, erwartet in mapping.layout_marken.items():
+        try:
+            ist = lies_zelle(ref)
+        except Exception:
+            ist = None
+        if _vergleichbar(ist) != _vergleichbar(erwartet):
+            abweichungen.append(f"{ref.a1}: erwartet {erwartet!r}, gefunden {ist!r}")
+    return (not abweichungen), abweichungen
+
+
 def select_mapping(version_text: str) -> Mapping:
     """Mapping anhand des Inhalts der Versionszelle wählen.
 
@@ -205,4 +232,54 @@ def select_mapping(version_text: str) -> Mapping:
             return load_mapping(path)
     raise KeyError(
         f"Kein Mapping für {version_text!r}; verfügbar: {sorted(candidates)}"
+    )
+
+
+def waehle_mapping(version_text: str, lies_zelle, warn) -> Mapping:
+    """Mapping über die Versionszelle wählen, sonst über das Layout.
+
+    Trägt ein Kalktool eine unbekannte Version, wird nicht geraten: die
+    Beschriftungen werden gegen die Layoutmarken jedes bekannten Mappings
+    gehalten. Passt genau eines, wird es mit Warnung ``W313`` verwendet;
+    passt keines oder mehrere, bricht es mit ``E202`` ab.
+
+    Auch bei bekannter Version werden die Marken geprüft – ein umgebautes
+    Kalktool fällt so auf, statt still falsche Zellen zu liefern (``W314``).
+    """
+    from .errors import OfferteError
+
+    version_text = (version_text or "").strip()
+    verfuegbar = available_mappings()
+
+    for version, pfad in verfuegbar.items():
+        if version and version in version_text:
+            mapping = load_mapping(pfad)
+            passt, abweichungen = layout_passt(mapping, lies_zelle)
+            if not passt:
+                warn.add("W314", "; ".join(abweichungen[:3]))
+            return mapping
+
+    passende = []
+    for version, pfad in verfuegbar.items():
+        mapping = load_mapping(pfad)
+        passt, _ = layout_passt(mapping, lies_zelle)
+        if passt:
+            passende.append((version, mapping))
+
+    if len(passende) == 1:
+        version, mapping = passende[0]
+        warn.add("W313", f"{version_text or 'ohne Angabe'} → Mapping {version}")
+        return mapping
+
+    if len(passende) > 1:
+        raise OfferteError(
+            "E202",
+            f"{version_text or 'ohne Versionsangabe'}: mehrere Mappings passen "
+            f"({', '.join(v for v, _ in passende)}). Bitte mit --mapping wählen.",
+        )
+    raise OfferteError(
+        "E202",
+        f"{version_text or 'ohne Versionsangabe'}: das Layout stimmt mit keinem "
+        f"bekannten Mapping überein (bekannt: {', '.join(sorted(verfuegbar))}). "
+        "Entweder ist das Kalktool umgebaut, oder es braucht ein eigenes Mapping.",
     )

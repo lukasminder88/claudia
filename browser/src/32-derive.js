@@ -108,6 +108,12 @@ const CRM = (() => {
       offertnummer(verkaufschance, warn) {
         const v = hol("offertnummer");
         if (v) return v;
+        if (!FMT.trim(verkaufschance)) {
+          // Ohne Verkaufschance bliebe die Zelle auf dem Deckblatt leer und
+          // sähe wie ein Versehen aus; der Strich sagt "nicht vergeben".
+          warn.add("W316", "Ersatz: –");
+          return "–";
+        }
         warn.add("W305", `Ersatz: ${verkaufschance}`);
         return verkaufschance;
       },
