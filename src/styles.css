@@ -788,3 +788,64 @@ textarea {
   font-size: 15px;
   font-weight: 600;
 }
+
+/* ---- PayrollPlus-Abrechnung ---------------------------------------------- */
+
+.payroll-client {
+  margin-bottom: 12px;
+}
+
+.payroll-client-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 6px;
+}
+
+.payroll-client-name {
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.payroll-client-total {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.payroll-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 3px 0 3px 10px;
+}
+
+.payroll-proj {
+  font-size: 14px;
+  color: var(--text-muted);
+}
+
+.payroll-val {
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-faint);
+  text-align: right;
+  white-space: nowrap;
+}
+
+.payroll-grand {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 2px solid var(--border);
+  font-size: 16px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}

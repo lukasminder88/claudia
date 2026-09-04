@@ -12,6 +12,7 @@ import {
 } from '../lib/moco'
 import { setMsConfig, signIn, signOut, useMsAuth } from '../lib/msgraph'
 import { setSyncEnabled, syncOnce, useSyncStatus } from '../lib/sync'
+import { downloadPayrollCsv, monthlyReport } from '../lib/payroll'
 
 type Props = { state: AppState }
 
@@ -55,6 +56,8 @@ export function SettingsScreen({ state }: Props) {
       <MocoSection state={state} />
 
       <SyncSection />
+
+      <PayrollSection state={state} />
 
       <MsCalendarSection />
 
@@ -105,6 +108,92 @@ export function SettingsScreen({ state }: Props) {
         Zeitraum · v0.2
       </p>
     </div>
+  )
+}
+
+// ---- PayrollPlus-Abrechnung (monatlich pro Kunde & Projekt) ---------------
+
+function PayrollSection({ state }: { state: AppState }) {
+  const now = new Date()
+  const [month, setMonth] = useState(
+    `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`,
+  )
+
+  const report = useMemo(() => {
+    const [y, m] = month.split('-').map(Number)
+    return monthlyReport(state, y, m - 1)
+  }, [state, month])
+
+  const chf = (n: number) =>
+    `CHF ${n.toLocaleString('de-CH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+  const hrs = (n: number) =>
+    `${n.toLocaleString('de-CH', { maximumFractionDigits: 2 })} h`
+
+  return (
+    <>
+      <div className="section-label">PayrollPlus-Abrechnung</div>
+      <div className="card" style={{ marginBottom: 20 }}>
+        <p className="hint" style={{ marginTop: 0 }}>
+          Verrechenbare Stunden je Kunde und Projekt für einen Monat – zum
+          Erfassen als Einsatz in PayrollPlus.
+        </p>
+
+        <div className="field">
+          <label>Monat</label>
+          <input
+            className="input"
+            type="month"
+            value={month}
+            onChange={(e) => setMonth(e.target.value)}
+          />
+        </div>
+
+        {report.clients.length === 0 ? (
+          <div className="empty" style={{ padding: '20px 0' }}>
+            Keine verrechenbaren Stunden in diesem Monat.
+          </div>
+        ) : (
+          <>
+            {report.clients.map((c) => (
+              <div key={c.name} className="payroll-client">
+                <div className="payroll-client-head">
+                  <span className="payroll-client-name">{c.name}</span>
+                  <span className="payroll-client-total">
+                    {hrs(c.hours)}
+                    {c.amount > 0 ? ` · ${chf(c.amount)}` : ''}
+                  </span>
+                </div>
+                {c.projects.map((p) => (
+                  <div key={p.name} className="payroll-row">
+                    <span className="payroll-proj">{p.name}</span>
+                    <span className="payroll-val">
+                      {hrs(p.hours)}
+                      {p.amount > 0 ? ` · ${chf(p.amount)}` : ''}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            ))}
+
+            <div className="payroll-grand">
+              <span>Total</span>
+              <span>
+                {hrs(report.totalHours)}
+                {report.totalAmount > 0 ? ` · ${chf(report.totalAmount)}` : ''}
+              </span>
+            </div>
+
+            <button
+              className="btn btn-primary btn-block"
+              style={{ marginTop: 14 }}
+              onClick={() => downloadPayrollCsv(report)}
+            >
+              Als CSV exportieren
+            </button>
+          </>
+        )}
+      </div>
+    </>
   )
 }
 
