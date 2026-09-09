@@ -1,0 +1,93 @@
+{
+  "lstJaNein": [
+    "Ja",
+    "Nein"
+  ],
+  "lstFaktLeasing": [
+    "Monatlich",
+    "Quartalsweise"
+  ],
+  "lstFakturierung": [
+    "Monatlich",
+    "Quartalsweise",
+    "Halbjährlich",
+    "Jährlich"
+  ],
+  "lstLaufzeit": [
+    12,
+    24,
+    36,
+    48,
+    60,
+    72
+  ],
+  "lstKalkHW": [
+    0.6,
+    1,
+    0.25,
+    0.35
+  ],
+  "lstKalkSW": [
+    0.7,
+    1,
+    0.5,
+    0.3
+  ],
+  "lstClickType": [
+    "A3 = A4",
+    "A3 = 2 * A4"
+  ],
+  "lstSLA": [
+    "Basic -  CHF  0.00",
+    "Basic Plus - CHF 15.00",
+    "Premium - CHF 50.00",
+    "Professional Printing - CHF 0.00"
+  ],
+  "lstFleet": [
+    "6010 Fleet Service Level Basic",
+    "6020 Fleet Service Level Progress",
+    "6030 Fleet Service Level Analysis"
+  ],
+  "lstBusinessType": [
+    "Exchange / Austausch",
+    "New Business / Neuplatzierung",
+    "New New Business / Neukunde"
+  ],
+  "lstVertragsart": [
+    "Normal",
+    "Umwandlung",
+    "Verlängerung",
+    "Vorzeitige Vertragsauflösung",
+    "Kauf aus Miete",
+    "Kauf aus Leasing",
+    "Eigenprodukt/Fremdprodukt"
+  ],
+  "lstAnlieferung": [
+    "Normal",
+    "Treppe",
+    "Trag-Equipe",
+    "Spezialtransport"
+  ],
+  "lstFaktGebuehren": [
+    "Verdeckt",
+    "Offen gem. Offerte"
+  ],
+  "lstMehrseitenColor": [
+    "Mehrseitenpreis color - CHF :",
+    "Alle Farbseiten - CHF :"
+  ],
+  "lstMehrseitenSW": [
+    "Mehrseitenpreis s/w - CHF :",
+    "Alle s/w-Seiten - CHF :"
+  ],
+  "lstMehrscan": [
+    "Mehrscanpreis - CHF :",
+    "Alle Scan - CHF :"
+  ],
+  "lstLabelPauschale": [
+    "Total Verkaufspreis",
+    "Mietpauschale pro Monat (ohne Service)",
+    "Leasingpauschale pro Monat (ohne Service)",
+    "Monatspauschale Total"
+  ]
+}
