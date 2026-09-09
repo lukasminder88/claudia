@@ -57,11 +57,25 @@ das Excel keinen Faktor kennt.
 
 ## Veröffentlichen
 
-`netlify.toml` liegt im Wurzelverzeichnis des Repositorys und zeigt auf dieses
-Unterverzeichnis. Für Netlify genügt es, das Repository zu verbinden –
-Build-Befehl und Publish-Verzeichnis stehen in der Datei. Ohne Netlify:
-`npm run build` erzeugt `dist/`, ein Ordner mit statischen Dateien, der auf
-jedem Webserver liegen kann.
+`netlify.toml` liegt im **Wurzelverzeichnis des Repositorys** und zeigt auf
+dieses Unterverzeichnis. Beim Verbinden des Repositorys in Netlify sind deshalb
+keine Einstellungen von Hand nötig:
+
+| Einstellung | Wert | steht in |
+|---|---|---|
+| Base directory | `kalkulationstool` | `netlify.toml` |
+| Build command | `npm ci && npm run build` | `netlify.toml` |
+| Publish directory | `dist` (relativ zur Base) | `netlify.toml` |
+| Node-Version | 22 | `netlify.toml` |
+
+Ein Punkt braucht eine Entscheidung: Netlify veröffentlicht standardmässig den
+Produktions-Branch, meist `main`. Dieser Machbarkeitsnachweis liegt auf
+`claude/netlify-poc-working-te6b0j`. Entweder den Branch in Netlify als
+Produktions-Branch setzen, oder Branch-Deploys aktivieren und die
+Branch-URL verwenden, oder nach `main` zusammenführen.
+
+Ohne Netlify: `npm run build` erzeugt `dist/`, einen Ordner mit statischen
+Dateien, der auf jedem Webserver liegen kann.
 
 ## Aufbau
 
