@@ -164,7 +164,7 @@ oder fliegen ganz aus der Gerätedatei. LK-108 entfällt mit dem 227 Refresh.
 
 ```
                    ┌───────────────────────────────────────────────┐
-  Admin            │  KAM-Web  (FastAPI, intern, wie Offerttool)   │       Verkauf (KAM)
+  IT (vom PM)      │  KAM-Web  (FastAPI, intern, wie Offerttool)   │       Verkauf (KAM)
   ───────────      │                                               │       ─────────────
   Stammdaten.xlsx ─┼─► Stammdaten-Versionen (Stand 31.08.2026, …)  │
   Mietfaktoren    ─┼─► Parameter (Kurs 0.97, CIF 2 %, Faktoren)    │
@@ -240,12 +240,19 @@ in der App. Sie speichert nichts, sie prüft nur und erzeugt eine Datei.
 
 **IT: bereitstellen.**
 
-6. Datei als Pull Request ins Repo übernehmen. Die automatischen Tests prüfen die
-   Gerätedatei erneut gegen die Stammdaten und rechnen das Preisblatt durch. Ein
-   fehlerhaftes Gerät kann so nicht live gehen.
-7. Mergen und deployen. Danach ist die Seite `/geraete/<id>` für alle Verkäufer da.
+6. Datei als Pull Request ins Repo übernehmen. Die automatischen Tests prüfen den
+   Aufbau der Gerätedatei (Pflichtfelder, doppelte Nummern, gültige Gruppen). Die
+   Stammdaten liegen wegen der Einkaufspreise nicht im Repo, deshalb prüft die CI
+   nicht gegen sie.
+7. Mergen und deployen. Beim Start prüft der Server jede Gerätedatei gegen die
+   aktuellen Stammdaten. Ein Gerät mit unbekannten Artikeln wird nicht freigeschaltet
+   und erscheint in der Admin-Ansicht als Fehler, statt mit Lücken live zu gehen. Ist
+   alles in Ordnung, ist die Seite `/geraete/<id>` für alle Verkäufer da.
 8. Die Git-Historie ist das Änderungsprotokoll (wer, wann, welche Artikel). Das Blatt
    „Anpassungen des KAM-Tools“ entfällt.
+
+Bringt ein neues Gerät neue Artikelnummern mit, lädt die IT **zuerst** die neuen
+Stammdaten hoch (3.3) und stellt danach die Gerätedatei bereit.
 
 Ein auslaufendes Gerät setzt das PM auf `status: ausgelaufen`; der Weg ist derselbe.
 Die Datei bleibt bestehen, alte Kalkulationen und Exporte lassen sich damit weiter
@@ -256,9 +263,21 @@ den Zeitpunkt des Livegangs und braucht kein Fachwissen über die Geräte.
 
 ### 3.3 Stammdaten statt externer Verknüpfungen
 
-- Der Admin lädt `Stammdaten.xlsx` und die Mietfaktoren hoch, sobald es neue gibt. Der
-  Server prüft sie (Pflichtspalten, Duplikate, gültige Währungen, ob jeder Artikel
-  aller aktiven Geräte vorhanden ist) und legt sie als Version mit Stichtag ab.
+- **Ablauf (rund 4× im Jahr):** Das PM gibt `Stammdaten.xlsx` und die Mietfaktoren
+  an die IT. Die IT lädt sie auf einer Admin-Seite hoch. Ins Repo kommen sie nicht,
+  weil sie Einkaufspreise enthalten.
+- Vor dem Übernehmen prüft der Server die Dateien: Pflichtspalten, doppelte
+  Artikelnummern, gültige Währungen, und ob jeder Artikel aller aktiven Geräte
+  vorhanden ist. Fehlt ein Geräteartikel, wird der Upload abgelehnt und die
+  betroffenen Geräte und Artikel werden aufgelistet. Die IT gibt diese Liste ans PM
+  zurück und braucht dafür kein Fachwissen.
+- Vor dem Freischalten zeigt der Server einen Vergleich mit dem bisherigen Stand:
+  neue und entfallene Artikel sowie Preisänderungen je Gerät, z. B. „C3351i: 14
+  Artikel teurer, Grundgerät +3.2 %“. Die IT schickt den Vergleich dem PM zur Freigabe
+  und schaltet erst danach frei. Bei vier Lieferungen im Jahr ist dieser Schritt
+  wenig Aufwand und fängt falsche Dateien ab.
+- Jede Version wird mit Stichtag abgelegt. Die Vorversion bleibt erhalten, damit
+  ältere Kalkulationen nachvollziehbar sind und ein Rückgriff möglich ist.
 - Jede Kalkulation merkt sich den Stand, mit dem sie gerechnet wurde. **Das ersetzt das
   Makro „Preis aktualisieren?“:** Eine gespeicherte oder exportierte Kalkulation behält
   ihre Preise. „Auf aktuelle Stammdaten heben“ ist ein bewusster Knopf, der die
@@ -352,14 +371,20 @@ kamtool/                     # neues Paket neben offerttool/
                              #          /geraet-vorbereiten, /admin (Stammdaten)
   web/static/                # Oberfläche ohne Build-Kette, wie offerttool/web/static
 geraete/*.yaml               # Gerätekatalog
-tests/test_kam_*.py          # Golden Record, Prüfung jeder Gerätedatei (läuft im Pull Request der IT), Export
+tests/test_kam_*.py          # Golden Record, Aufbau jeder Gerätedatei (läuft im Pull Request der IT), Export
 tools/kam_migrieren.py       # einmalige Überführung aus dem Excel (vorhanden)
 ```
 
 Anmeldung über einen Reverse Proxy mit Login (z. B. Microsoft Entra ID), wie es das
-README des Offerttools für den Betrieb empfiehlt. Rollen: **Verkauf** (rechnen, exportieren) und **Admin**
-(Stammdaten, Standardfaktoren). Gerätedateien pflegt das PM über „Gerät vorbereiten“
-(nur lesend, Abschnitt 3.2), bereitgestellt werden sie von der IT.
+README des Offerttools für den Betrieb empfiehlt. Rollen:
+
+- **Verkauf:** rechnen, exportieren.
+- **PM:** „Gerät vorbereiten“ (nur lesend, Abschnitt 3.2) und Einsicht in den
+  Stammdatenvergleich.
+- **IT:** Stammdaten hochladen und freischalten, Standardfaktoren pflegen,
+  Gerätedateien bereitstellen.
+
+Alles Fachliche liefert das PM, die IT führt aus.
 
 ### 6.3 Oberfläche Verkauf
 
@@ -385,7 +410,7 @@ README des Offerttools für den Betrieb empfiehlt. Rollen: **Verkauf** (rechnen,
 | 0 | Prüfung der Artikel aus 2.6 durch das PM, Sofortmassnahmen im Excel (2.4), restliche offene Punkte (Abschnitt 8) | korrigiertes Excel als Referenz |
 | 1 | Gerätekatalog mit `kam_migrieren.py` erzeugen und von PM prüfen lassen; Rechenkern und Golden Record | 38 Gerätedateien, Rechenkern mit 0 Abweichungen |
 | 2 | Verkaufsoberfläche und xlsx-Export (Kunde und intern) | Pilot mit 2–3 KAM parallel zum Excel |
-| 3 | Admin: Stammdaten-Upload; „Gerät vorbereiten“ für das PM; Prüfung der Gerätedateien im Pull Request für die IT | Excel wird abgelöst |
+| 3 | Stammdaten-Upload mit Prüfung und Vergleich für die IT; „Gerät vorbereiten“ für das PM; Prüfung der Gerätedateien im Pull Request und beim Start | Excel wird abgelöst |
 | 4 | Abhängigkeitsregeln; Übergabe an das Offerttool (KAM-Export als Eingabe) | durchgängiger Weg Kalkulation → Offerte |
 
 ---
@@ -394,7 +419,8 @@ README des Offerttools für den Betrieb empfiehlt. Rollen: **Verkauf** (rechnen,
 
 Entschieden: Kurs 0.97 / CIF 2 %, vom Verkäufer anpassbar (F7). Global Account
 Support bleibt unverändert (F8). Neue Geräte legt das PM an, die IT stellt sie bereit
-(3.2).
+(3.2). Stammdaten und Mietfaktoren gibt das PM rund 4× im Jahr an die IT, die sie
+hochlädt (3.3).
 
 1. **F2:** Prüfung der Artikel aus Abschnitt 2.6 durch das PM, vor allem MK-735
    (C268i) und PC-417 (258i/328i).
@@ -402,10 +428,8 @@ Support bleibt unverändert (F8). Neue Geräte legt das PM an, die IT stellt sie
    das so, oder kommen eigene Werte?
 3. **Klickpreise und Service-Pauschale:** Im Preisblatt werden sie von Hand eingetragen.
    Gibt es dafür eine Quelle oder Regel, oder bleibt es eine Eingabe?
-4. **Stammdaten:** Wer lädt neue Stammdaten und Mietfaktoren hoch, das PM oder die IT,
-   und wie oft kommen sie?
-5. **Überschreiben der Faktoren:** Gibt es Grenzen, z. B. eine CIF-Gebühr nicht unter
+4. **Überschreiben der Faktoren:** Gibt es Grenzen, z. B. eine CIF-Gebühr nicht unter
    einem Mindestwert, oder einen Hinweis an die Verkaufsleitung?
-6. **Ablage:** Reicht „Export + Wiederladen“ (Abschnitt 5), oder sollen Kalkulationen auf
+5. **Ablage:** Reicht „Export + Wiederladen“ (Abschnitt 5), oder sollen Kalkulationen auf
    dem Server gespeichert und je Kunde auffindbar sein?
-7. **Anmeldung:** Ist Microsoft Entra ID als Login verfügbar?
+6. **Anmeldung:** Ist Microsoft Entra ID als Login verfügbar?
