@@ -141,7 +141,7 @@ def migriere(kam: Path, stammdaten: Path, ziel: Path | None) -> str:
 
     bericht = ["# KAM-Tool: Migration und Nachrechnung", ""]
     gleich = 0
-    abweichungen, fehlende_formeln, nicht_im_preisblatt, lookup_luecken = [], [], [], []
+    abweichungen, fehlende_formeln, nicht_im_preisblatt, lookup_luecken, doppelt = [], [], [], [], []
     formelmuster = Counter()
     geraete = []
 
@@ -155,19 +155,30 @@ def migriere(kam: Path, stammdaten: Path, ziel: Path | None) -> str:
 
         gruppen = {"optionen": [], "dienstleistungen": [], "intern": []}
         erster = None
+        zeile_von = {}
         for r in range(2, ws.max_row + 1):
             art = ws[f"E{r}"].value
             if art is None:
                 continue
             erster = erster or wsv[f"C{r}"].value
             bezeichnung = wsv[f"C{r}"].value
-            gruppe = "optionen" if r in mit_anzahl else "dienstleistungen" if r in gezeigt else "intern"
-            gruppen[gruppe].append({"nr": art, "bezeichnung": bezeichnung})
+            if art in zeile_von:
+                # Doppelte Zeile: wird nachgerechnet, kommt aber nur einmal in die Gerätedatei.
+                doppelt.append(f"{name}: {bezeichnung} ({art}) in Zeile {zeile_von[art]} und {r}")
+            else:
+                zeile_von[art] = r
+                gruppe = "optionen" if r in mit_anzahl else "dienstleistungen" if r in gezeigt else "intern"
+                eintrag = {"nr": art, "bezeichnung": bezeichnung}
+                # Global Account Support bleibt, wie er ist: wo Excel J nicht mit J2
+                # verknüpft, gilt er nicht.
+                if r > 2 and ws[f"J{r}"].value is None:
+                    eintrag["global_support"] = False
+                gruppen[gruppe].append(eintrag)
 
             if art not in stamm:
                 lookup_luecken.append(f"{name}: {art}")
                 continue
-            if r not in gezeigt and (wsv[f"S{r}"].value or 0) > 0:
+            if r not in gezeigt and zeile_von[art] not in gezeigt and (wsv[f"S{r}"].value or 0) > 0:
                 nicht_im_preisblatt.append(f"{name}: {bezeichnung} ({art}), CHF {wsv[f'S{r}'].value}")
 
             y = ws[f"Y{r}"].value
@@ -217,6 +228,7 @@ def migriere(kam: Path, stammdaten: Path, ziel: Path | None) -> str:
     abschnitt("Bepreist, aber nicht im Preisblatt", nicht_im_preisblatt)
     abschnitt("Miete 60 Monate mit eigenem 48-Monats-Faktor", [f"{g}: {n} Zeilen" for g, n in formelmuster.items()])
     abschnitt("Artikel nicht in den Stammdaten", lookup_luecken)
+    abschnitt("Artikel doppelt im Kalkulationsblatt", doppelt)
 
     bereich = wf.defined_names.get("Stammdaten")
     if bereich is not None:
