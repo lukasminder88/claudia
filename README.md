@@ -399,3 +399,12 @@ Die Reihenfolge der Behebung: eine Eingabezelle statt `=TODAY()` und eine Zelle
 Vertragsbeginn entfernen zwei Parser. Die drei Hardwarespalten sind die einzige
 Änderung, die den Inhalt der Offerte sichtbar erweitert – `show.hardware_preise`
 schaltet dann automatisch frei.
+
+---
+
+## KAM-Tool im Browser (Konzept)
+
+Analyse des Excel-KAM-Tools und Vorschlag für eine Web-Fassung mit Gerätekatalog
+und xlsx-Export: [`docs/KAM_Tool_Web_Konzept.md`](docs/KAM_Tool_Web_Konzept.md).
+`tools/kam_migrieren.py` überführt die Excel-Datei in Gerätedateien und rechnet
+alle Preise gegen die gespeicherten Excel-Werte nach.
