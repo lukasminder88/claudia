@@ -101,15 +101,16 @@ und Formeln. Genau dieses Kopieren entfällt im Vorschlag.
 | F4 | 22 Preise werden gar nicht berechnet: Leasing beim DK-P06x-Unterschrank (C3351i, C4051i, C4751i) und mehrere Dienstleistungen beim 226. | leere Felder im Preisblatt | 4 Geräte |
 | F5 | Der Name `Stammdaten` deckt nur die Zeilen 3–15 001 ab, die Datei hat 15 627 Artikel. | Ein neuer Artikel am Tabellenende ergibt `#NV`. Heute betrifft es noch keinen Geräteartikel; beim nächsten neuen Gerät kann es passieren. | Vorlage |
 | F6 | Beide externen Verknüpfungen zeigen auf den **persönlichen OneDrive-Desktop** einer einzelnen Person. | Fällt aus, sobald die Datei verschoben wird oder die Person wechselt. Jeder Nutzer braucht Zugriff darauf. | Vorlage |
-| F7 | Zwei abweichende Faktorensätze: das KAM-Tool rechnet mit Kurs 0.97 und CIF **2 %**, `Stammdaten.xlsx` enthält 1.03 und 3 %. **Entschieden: 0.97 / 3 %.** | Das Excel rechnet den Einstand (CIF) heute rund 1 % zu tief. Preise über „CIF + x %“ oder Zielmarge fallen damit ebenfalls rund 1 % zu tief aus, und die angezeigte Marge ist zu hoch. Preise über Listenpreis/Rabatt sind nicht betroffen. | alle |
+| F7 | Zwei abweichende Faktorensätze: das KAM-Tool rechnet mit Kurs 0.97 und CIF 2 %, `Stammdaten.xlsx` enthält 1.03 und 3 %. **Entschieden: 0.97 / 2 %**, das KAM-Tool rechnet also richtig. | Das Blatt `Allgemeine Faktoren` in `Stammdaten.xlsx` ist veraltet und kann irreführen. In der Web-Fassung gibt es nur noch einen Satz. | – |
 | F8 | Global Account Support (J) ist in 269 bepreisten Zeilen nicht mit `J2` verknüpft, darunter Artikel des Kreditors `K100135` (z. B. USB-Kartenleser, MK-P08). **Entschieden: bleibt unverändert.** | Wer `J2` setzt, erhält den Support nur auf den verknüpften Artikeln. Die Web-Fassung übernimmt das je Artikel (`global_support: false`). | 38 Geräte |
 | F9 | Sprachumschaltung lückenhaft: `Support in EUR`, `Netto-Kaufpreis exkl. MwSt. x Anzahl`, `Total vRB` und `exkl. MwSt.` sind fest deutsch. | Französisches Preisblatt mit deutschen Zeilen | alle |
 | F10 | Nur EUR wird umgerechnet. Jede andere Währung wird als CHF behandelt. | Im Gerätebestand heute ohne Wirkung (alle Artikel in EUR oder ohne Währung). Gefährlich für neue Lieferanten in USD/GBP. | Vorlage |
 | F11 | Zwei Artikel stehen doppelt im Kalkulationsblatt: MK-748 beim C268i (Zeilen 17 und 19), PK-524 beim 361i (Zeilen 16 und 19). | Die zweite Zeile erscheint nicht im Preisblatt, ist also harmlos, aber irreführend. | 2 Geräte |
 
 **Sofortmassnahmen im Excel**, unabhängig vom Webprojekt: F1 (Makro auf Spalte 19
-setzen oder entfernen), F3 und F4 korrigieren, F5 (Bereich bis Zeile 50 000), CIF in
-`Allgemeine Faktoren!B4` auf 3 % setzen (F7) und F2 nach der Prüfung in 2.6 nachziehen.
+setzen oder entfernen), F3 und F4 korrigieren, F5 (Bereich bis Zeile 50 000), das veraltete
+Blatt `Allgemeine Faktoren` in `Stammdaten.xlsx` entfernen (F7) und F2 nach der Prüfung
+in 2.6 nachziehen.
 
 ### 2.5 Was ein neues Gerät heute kostet
 
@@ -166,7 +167,7 @@ oder fliegen ganz aus der Gerätedatei. LK-108 entfällt mit dem 227 Refresh.
   Admin            │  KAM-Web  (FastAPI, intern, wie Offerttool)   │       Verkauf (KAM)
   ───────────      │                                               │       ─────────────
   Stammdaten.xlsx ─┼─► Stammdaten-Versionen (Stand 31.08.2026, …)  │
-  Mietfaktoren    ─┼─► Parameter (Kurs 0.97, CIF 3 %, Faktoren)    │
+  Mietfaktoren    ─┼─► Parameter (Kurs 0.97, CIF 2 %, Faktoren)    │
   PM → IT (PR)    ─┼─► Gerätekatalog  geraete/*.yaml ──┐           │
                    │                                   ▼           │
                    │                     Rechenkern (Abschnitt 4) ◄┼── Gerät wählen, Anzahl,
@@ -262,7 +263,7 @@ den Zeitpunkt des Livegangs und braucht kein Fachwissen über die Geräte.
   Makro „Preis aktualisieren?“:** Eine gespeicherte oder exportierte Kalkulation behält
   ihre Preise. „Auf aktuelle Stammdaten heben“ ist ein bewusster Knopf, der die
   Differenzen anzeigt.
-- **Kurs und CIF-Gebühr:** Die Standardwerte (Kurs 0.97, CIF 3 %) gibt es genau einmal.
+- **Kurs und CIF-Gebühr:** Die Standardwerte (Kurs 0.97, CIF 2 %) gibt es genau einmal.
   Sie werden zentral gepflegt, und damit ist F7 gelöst. Der Verkäufer kann beide Werte
   **je Kalkulation überschreiben**, im Kopf der Geräteseite. Abweichende Werte sind
   farbig markiert, mit „Standard“ zurückzusetzen und werden im internen Export und im
@@ -281,16 +282,15 @@ Festlegungen gegenüber Excel:
 |---|---|
 | Rundung | Excel-kompatibel: kaufmännisch auf der Dezimaldarstellung (2 Stellen in der Kalkulation, 1 Stelle im Preisblatt) |
 | Global Account Support | unverändert wie im Excel: gilt je Artikel, ausser die Gerätedatei setzt `global_support: false` (F8) |
-| Kurs und CIF-Gebühr | Standard 0.97 / 3 %, je Kalkulation vom Verkäufer überschreibbar (F7) |
+| Kurs und CIF-Gebühr | Standard 0.97 / 2 %, je Kalkulation vom Verkäufer überschreibbar (F7) |
 | Währung | Kurs je Währung aus den Parametern, unbekannte Währung = Fehler statt stillschweigend CHF (F10) |
 | Marge bei Preis 0 | „–“ statt `#DIV/0!` |
 | Eigene Mietfaktoren 60 Monate | eigener 60-Monats-Faktor (F3 behoben) |
 
 Die Abnahme folgt dem Muster des Offerttools mit einem **Golden Record**. Die 19 796
-heute übereinstimmenden Werte werden mit den Faktoren des Excels (CIF 2 %) als Erwartung
-festgeschrieben. Damit ist bewiesen, dass der Kern wie Excel rechnet. Danach gelten
-der neue Standard 3 % sowie die Korrekturen F3 und F4 als bewusste, dokumentierte
-Abweichungen. Wird der Kern später auch im Browser
+heute übereinstimmenden Werte werden als Erwartung festgeschrieben. Die Standardfaktoren
+sind dieselben wie im Excel. Bewusste, dokumentierte Abweichungen sind nur die
+Korrekturen F3 und F4. Wird der Kern später auch im Browser
 gebraucht, prüft derselbe Golden Record beide Fassungen, wie heute
 `browser/test/golden.js`.
 
@@ -392,7 +392,7 @@ README des Offerttools für den Betrieb empfiehlt. Rollen: **Verkauf** (rechnen,
 
 ## 8. Offene Punkte
 
-Entschieden: Kurs 0.97 / CIF 3 %, vom Verkäufer anpassbar (F7). Global Account
+Entschieden: Kurs 0.97 / CIF 2 %, vom Verkäufer anpassbar (F7). Global Account
 Support bleibt unverändert (F8). Neue Geräte legt das PM an, die IT stellt sie bereit
 (3.2).
 
